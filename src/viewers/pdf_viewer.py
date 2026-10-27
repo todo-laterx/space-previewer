@@ -163,6 +163,11 @@ class PDFViewer(Gtk.Box):
             (_("Size"), self._size_text()),
         ]
 
+    def get_desired_size(self, screen_w: int, screen_h: int) -> tuple[int, int]:
+        width = min(1040, int(screen_w * 0.85))
+        height = min(900, int(screen_h * 0.85))
+        return width, height
+
     def teardown(self) -> None:
         """Clear rendered pages and drop the window callback."""
         child = self.pages_box.get_first_child()

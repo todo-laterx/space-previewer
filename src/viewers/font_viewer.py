@@ -192,6 +192,12 @@ class FontViewer(Gtk.Box):
             (_("Size"), self._size_text()),
         ]
 
+    def get_desired_size(self, screen_w: int, screen_h: int) -> tuple[int, int]:
+        return (
+            min(900, int(screen_w * 0.75)),
+            min(780, int(screen_h * 0.82)),
+        )
+
     def teardown(self) -> None:
         """Drop the window callback; this viewer owns no timers or streams."""
         self._status_callback = None

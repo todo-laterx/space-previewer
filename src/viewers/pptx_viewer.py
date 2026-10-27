@@ -152,5 +152,11 @@ class PptxViewer(Gtk.Box):
             return [size_item]
         return [(_("Slides"), f"{self._slide_count:,}"), size_item]
 
+    def get_desired_size(self, screen_w: int, screen_h: int) -> tuple[int, int]:
+        return (
+            min(1160, int(screen_w * 0.88)),
+            min(820, int(screen_h * 0.82)),
+        )
+
     def teardown(self) -> None:
         """The viewer owns no external resources."""

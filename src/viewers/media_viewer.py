@@ -166,6 +166,14 @@ class MediaViewer(Gtk.Box):
             (_("Size"), self._size_text()),
         ]
 
+    def get_desired_size(self, screen_w: int, screen_h: int) -> tuple[int, int]:
+        if self.is_audio:
+            return (min(720, int(screen_w * 0.70)), min(460, int(screen_h * 0.60)))
+        return (
+            min(1100, int(screen_w * 0.85)),
+            min(780, int(screen_h * 0.82)),
+        )
+
     def teardown(self) -> None:
         """Pause and release the GStreamer stream owned by this viewer."""
         stream = self._stream
