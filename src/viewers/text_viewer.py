@@ -20,6 +20,7 @@ except ImportError:
 
 from utils.formatters import format_size
 from utils.i18n import _, ngettext
+from utils.quote import format_line_quote
 
 _CSS_INSTALLED = False
 _CSS_PROVIDER = None
@@ -76,6 +77,20 @@ CODE_VIEWER_CSS = """
 .code-view-surface text {
     background-color: @sp_code_surface;
     color: @sp_code_text;
+}
+.code-view-surface selection {
+    background-color: alpha(@sp_accent, 0.34);
+    color: @sp_code_text;
+}
+.quote-card {
+    padding: 6px 8px 6px 12px;
+    border-radius: 12px;
+    background-color: @view_bg_color;
+    border: 1px solid @borders;
+    box-shadow: 0 2px 8px alpha(black, 0.18);
+}
+.quote-card label {
+    font-size: 12px;
 }
 .code-gutter {
     background-color: @sp_code_surface;
@@ -403,10 +418,18 @@ class TextViewer(Gtk.Box):
         self._size_bytes = 0
         self._word_count = 0
         self._copy_timeout_id = None
+        self._quote_copy_timeout_id = None
         self._search_open = False
         self.search_state_callback = None
         self._status_callback = None
         self._ready_callback = None
+
+        # Line-range quote state. Both are 0-based line indices; ``None`` means
+        # no range is active. The gutter gesture sets them, the buffer
+        # selection mirrors them, and the floating card copies them.
+        self._quote_anchor = None
+        self._quote_cursor = None
+        self._quote_drag_start_y = 0.0
 
         # Every load gets a generation; results from an older generation are
         # discarded. Reads above TEXT_ASYNC_READ_THRESHOLD run on a worker.
@@ -530,7 +553,13 @@ class TextViewer(Gtk.Box):
         self.editor_row = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=0)
         self.editor_row.set_hexpand(True)
         self.editor_row.set_vexpand(True)
-        self.append(self.editor_row)
+
+        # The line-range card floats over the editor and never reflows it.
+        self.content_overlay = Gtk.Overlay()
+        self.content_overlay.set_hexpand(True)
+        self.content_overlay.set_vexpand(True)
+        self.content_overlay.set_child(self.editor_row)
+        self.append(self.content_overlay)
 
         # Line numbers gutter
         self.gutter = Gtk.DrawingArea()
@@ -538,7 +567,16 @@ class TextViewer(Gtk.Box):
         self.gutter.set_content_width(52)
         self.gutter.set_vexpand(True)
         self.gutter.set_draw_func(self.draw_line_numbers)
+        self.gutter.set_tooltip_text(
+            _("Drag line numbers to copy a range")
+        )
         self.editor_row.append(self.gutter)
+
+        gutter_drag = Gtk.GestureDrag.new()
+        gutter_drag.set_button(Gdk.BUTTON_PRIMARY)
+        gutter_drag.connect("drag-begin", self._on_gutter_drag_begin)
+        gutter_drag.connect("drag-update", self._on_gutter_drag_update)
+        self.gutter.add_controller(gutter_drag)
 
         # Scrolled Code View
         self.scrolled = Gtk.ScrolledWindow()
@@ -561,6 +599,22 @@ class TextViewer(Gtk.Box):
 
         self.buffer = self.text_view.get_buffer()
         self.scrolled.set_child(self.text_view)
+
+        self._build_quote_card()
+        self._selection_handler_id = self.buffer.connect(
+            "notify::has-selection", self._on_buffer_selection_changed
+        )
+
+        # Drag on the gutter selects whole lines. Ctrl+Shift+C copies the
+        # current line range (or the text selection) as a quote. The window
+        # also handles the shortcut in its capture phase.
+        quote_keys = Gtk.EventControllerKey.new()
+        quote_keys.connect("key-pressed", self._on_quote_key_pressed)
+        self.text_view.add_controller(quote_keys)
+
+        text_click = Gtk.GestureClick.new()
+        text_click.connect("pressed", self._on_text_pressed)
+        self.text_view.add_controller(text_click)
 
         # Redraw line numbers on scroll
         vadj = self.scrolled.get_vadjustment()
@@ -673,6 +727,12 @@ class TextViewer(Gtk.Box):
             logging.getLogger(__name__).exception("Text status callback failed")
 
     def _render_content(self, content: str, size: int):
+        # New content invalidates any line range from the previous buffer.
+        self._quote_anchor = None
+        self._quote_cursor = None
+        self._clear_quote_highlight()
+        self._update_quote_card()
+
         self.displayed_content = content
         self.line_count = content.count("\n") + 1
         words = len(re.findall(r"\S+", content))
@@ -715,10 +775,18 @@ class TextViewer(Gtk.Box):
         self.gutter.queue_draw()
 
     def draw_line_numbers(self, area, cr, width, height):
-        palette = _code_palette(is_dark_theme())
+        dark = is_dark_theme()
+        palette = _code_palette(dark)
         cr.set_source_rgb(*hex_to_rgb(palette["code_surface"]))
         cr.rectangle(0, 0, width, height)
         cr.fill()
+
+        quote_lo = quote_hi = None
+        quote_rgb = None
+        if self._quote_anchor is not None and self._quote_cursor is not None:
+            quote_lo = min(self._quote_anchor, self._quote_cursor) + 1
+            quote_hi = max(self._quote_anchor, self._quote_cursor) + 1
+            quote_rgb = hex_to_rgb(ACCENT_DARK if dark else ACCENT_LIGHT)
 
         vadj = self.scrolled.get_vadjustment()
         scroll_y = int(vadj.get_value()) if vadj else 0
@@ -752,6 +820,14 @@ class TextViewer(Gtk.Box):
 
             if line_num not in visited_lines and (win_y + line_h) >= 0:
                 visited_lines.add(line_num)
+                if quote_rgb is not None and quote_lo <= line_num <= quote_hi:
+                    cr.set_source_rgba(*quote_rgb, 0.16)
+                    cr.rectangle(0, win_y, width, line_h)
+                    cr.fill()
+                    cr.set_source_rgba(*quote_rgb, 0.85)
+                    cr.rectangle(0, win_y, 2, line_h)
+                    cr.fill()
+                    cr.set_source_rgba(*hex_to_rgb(palette["muted"]), 0.85)
                 text_str = str(line_num)
                 layout.set_text(text_str, -1)
                 ink_rect, logical_rect = layout.get_pixel_extents()
@@ -791,6 +867,270 @@ class TextViewer(Gtk.Box):
         self._copy_timeout_id = None
         if self.btn_copy is not None:
             self.btn_copy.set_label(_("Copy"))
+        return False
+
+    # ----------------------------------------------------- line-range quotes
+
+    def _build_quote_card(self) -> None:
+        """Create the floating card shown while text or whole lines are selected."""
+        card = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=6)
+        card.add_css_class("card")
+        card.add_css_class("quote-card")
+        card.set_halign(Gtk.Align.CENTER)
+        card.set_valign(Gtk.Align.END)
+        card.set_margin_bottom(18)
+        card.set_visible(False)
+        self.quote_card = card
+
+        self.lbl_quote_range = Gtk.Label()
+        self.lbl_quote_range.add_css_class("dim-label")
+        self.lbl_quote_range.set_margin_end(6)
+        card.append(self.lbl_quote_range)
+
+        self.btn_quote_copy = Gtk.Button(label=_("Copy"))
+        self.btn_quote_copy.add_css_class("flat")
+        self.btn_quote_copy.set_can_focus(False)
+        self.btn_quote_copy.set_tooltip_text(_("Copy the selected lines"))
+        self.btn_quote_copy.connect(
+            "clicked", lambda *_: self.copy_selected_lines(quote=False)
+        )
+        card.append(self.btn_quote_copy)
+
+        self.btn_quote_chat = Gtk.Button(label=_("Copy as quote"))
+        self.btn_quote_chat.add_css_class("suggested-action")
+        self.btn_quote_chat.set_can_focus(False)
+        self.btn_quote_chat.set_tooltip_text(
+            _("Copy the file path, line range and text as a quoted block")
+        )
+        self.btn_quote_chat.connect(
+            "clicked", lambda *_: self.copy_selected_lines(quote=True)
+        )
+        card.append(self.btn_quote_chat)
+
+        self.content_overlay.add_overlay(card)
+
+    def _quote_tag(self):
+        """Return the buffer tag used to paint a gutter range, creating it once."""
+        tag = self.buffer.get_tag_table().lookup("quote-range")
+        if tag is not None:
+            return tag
+
+        dark = is_dark_theme()
+        red, green, blue = hex_to_rgb(ACCENT_DARK if dark else ACCENT_LIGHT)
+        rgba = Gdk.RGBA()
+        rgba.red = red
+        rgba.green = green
+        rgba.blue = blue
+        rgba.alpha = 0.18
+        tag = self.buffer.create_tag(
+            "quote-range", background_rgba=rgba, background_full_height=True
+        )
+        return tag
+
+    def _apply_quote_highlight(self) -> None:
+        tag = self._quote_tag()
+        self.buffer.remove_tag(
+            tag, self.buffer.get_start_iter(), self.buffer.get_end_iter()
+        )
+        if self._quote_anchor is None or self._quote_cursor is None:
+            return
+        first = min(self._quote_anchor, self._quote_cursor)
+        last = max(self._quote_anchor, self._quote_cursor)
+        self.buffer.apply_tag(
+            tag, self._iter_at_line(first), self._iter_at_line(last + 1)
+        )
+
+    def _clear_quote_highlight(self) -> None:
+        tag = self.buffer.get_tag_table().lookup("quote-range")
+        if tag is not None:
+            self.buffer.remove_tag(
+                tag, self.buffer.get_start_iter(), self.buffer.get_end_iter()
+            )
+
+    def _iter_at_line(self, line_index: int):
+        line_index = max(0, min(line_index, self.line_count))
+        result = self.buffer.get_iter_at_line(line_index)
+        return result[-1] if isinstance(result, tuple) else result
+
+    def _line_at_gutter_y(self, y: float) -> int:
+        """Map a gutter-local y coordinate to a 0-based buffer line."""
+        vadj = self.scrolled.get_vadjustment()
+        scroll_y = int(vadj.get_value()) if vadj else 0
+        buffer_y = int(y) + scroll_y - self.text_view.get_top_margin()
+        result = self.text_view.get_line_at_y(max(0, buffer_y))
+        text_iter = result[0] if isinstance(result, tuple) else result
+        return text_iter.get_line()
+
+    def _on_gutter_drag_begin(self, gesture, start_x: float, start_y: float) -> None:
+        self._quote_drag_start_y = start_y
+        try:
+            state = gesture.get_current_event_state()
+            if isinstance(state, tuple):
+                state = state[-1]
+            shift = bool(state & Gdk.ModifierType.SHIFT_MASK)
+        except Exception:
+            shift = False
+
+        line = self._line_at_gutter_y(start_y)
+        anchor = self._quote_anchor
+        if shift and anchor is not None:
+            self._set_quote_range(anchor, line)
+        else:
+            self._set_quote_range(line, line)
+
+    def _on_gutter_drag_update(self, gesture, offset_x: float, offset_y: float) -> None:
+        if self._quote_anchor is None:
+            return
+        line = self._line_at_gutter_y(self._quote_drag_start_y + offset_y)
+        self._set_quote_range(self._quote_anchor, line)
+
+    def _set_quote_range(self, anchor: int, cursor: int) -> None:
+        max_line = max(0, self.line_count - 1)
+        self._quote_anchor = max(0, min(max_line, anchor))
+        self._quote_cursor = max(0, min(max_line, cursor))
+        if self.buffer.get_has_selection():
+            # The gutter range replaces a text selection; two highlights at
+            # once would be ambiguous.
+            insert = self.buffer.get_iter_at_mark(self.buffer.get_insert())
+            self.buffer.place_cursor(insert)
+        self._apply_quote_highlight()
+        self._update_quote_card()
+        self.gutter.queue_draw()
+
+    def _quote_bounds(self, whole_lines: bool = False):
+        """Return ``(first_line, last_line, text)`` 0-based, or ``None``.
+
+        A gutter range always covers whole lines. A text selection covers
+        exactly what the user dragged, unless ``whole_lines`` is requested for
+        a quote payload.
+        """
+        if self._quote_anchor is not None and self._quote_cursor is not None:
+            first = min(self._quote_anchor, self._quote_cursor)
+            last = max(self._quote_anchor, self._quote_cursor)
+            text = self.buffer.get_text(
+                self._iter_at_line(first), self._iter_at_line(last + 1), True
+            )
+            return first, last, text
+
+        bounds = self.buffer.get_selection_bounds()
+        if not bounds:
+            return None
+        start, end = bounds
+        first = start.get_line()
+        last = end.get_line()
+        # A selection that stops at column 0 does not include the next line.
+        if last > first and end.get_line_offset() == 0:
+            last -= 1
+
+        if whole_lines:
+            start = self._iter_at_line(first)
+            end = self._iter_at_line(last + 1)
+        return first, last, self.buffer.get_text(start, end, True)
+
+    def has_line_selection(self) -> bool:
+        """Return ``True`` only for a gutter-anchored whole-line range."""
+        return self._quote_anchor is not None and self._quote_cursor is not None
+
+    def _clear_quote_range(self) -> None:
+        self._quote_anchor = None
+        self._quote_cursor = None
+        self._clear_quote_highlight()
+        self._update_quote_card()
+        self.gutter.queue_draw()
+
+    def clear_line_selection(self) -> None:
+        """Drop the whole-line range; the window calls this on Escape."""
+        self._clear_quote_range()
+
+    def _on_text_pressed(self, gesture, n_press: int, x: float, y: float) -> None:
+        """A click in the text drops the gutter range and lets selection take over."""
+        if self._quote_anchor is not None:
+            self._clear_quote_range()
+
+    def _on_buffer_selection_changed(self, *_args) -> None:
+        if self._quote_anchor is not None:
+            # Selecting text supersedes the gutter range. A focus change that
+            # only collapses the selection must not drop the range.
+            if not self.buffer.get_selection_bounds():
+                return
+            self._clear_quote_range()
+            return
+        self._update_quote_card()
+        self.gutter.queue_draw()
+
+    def _update_quote_card(self) -> None:
+        card = getattr(self, "quote_card", None)
+        if card is None:
+            return
+        bounds = self._quote_bounds()
+        if bounds is None:
+            card.set_visible(False)
+            return
+        first, last, _text = bounds
+        first += 1
+        last += 1
+        if first == last:
+            self.lbl_quote_range.set_text(_("Line {number}").format(number=first))
+        else:
+            self.lbl_quote_range.set_text(
+                _("Lines {first}–{last}").format(first=first, last=last)
+            )
+        card.set_visible(True)
+
+    def copy_selected_lines(self, quote: bool = True) -> bool:
+        """Copy the current selection, or the gutter range, as plain or quoted text."""
+        bounds = self._quote_bounds(whole_lines=quote)
+        if bounds is None:
+            return False
+        _first, _last, text = bounds
+        if text.endswith("\n"):
+            text = text[:-1]
+        if not text:
+            return False
+
+        if quote:
+            payload = format_line_quote(
+                self.file_path, bounds[0] + 1, bounds[1] + 1, text
+            )
+        else:
+            payload = text
+
+        display = Gdk.Display.get_default()
+        if display is None:
+            return False
+        display.get_clipboard().set(payload)
+        self._flash_quote_copy(
+            self.btn_quote_chat if quote else self.btn_quote_copy
+        )
+        return True
+
+    def _flash_quote_copy(self, button) -> None:
+        if self._quote_copy_timeout_id is not None:
+            GLib.source_remove(self._quote_copy_timeout_id)
+            self._quote_copy_timeout_id = None
+        if getattr(self, "btn_quote_copy", None) is not None:
+            self.btn_quote_copy.set_label(_("Copy"))
+            self.btn_quote_chat.set_label(_("Copy as quote"))
+        if button is not None:
+            button.set_label(_("Copied!"))
+        self._quote_copy_timeout_id = GLib.timeout_add(
+            1400, self._reset_quote_labels
+        )
+
+    def _reset_quote_labels(self) -> bool:
+        self._quote_copy_timeout_id = None
+        if getattr(self, "btn_quote_copy", None) is not None:
+            self.btn_quote_copy.set_label(_("Copy"))
+            self.btn_quote_chat.set_label(_("Copy as quote"))
+        return False
+
+    def _on_quote_key_pressed(self, controller, keyval, keycode, state) -> bool:
+        if (
+            state & Gdk.ModifierType.CONTROL_MASK
+            and state & Gdk.ModifierType.SHIFT_MASK
+            and keyval in (Gdk.KEY_C, Gdk.KEY_c)
+        ):
+            return self.copy_selected_lines(quote=True)
         return False
 
     # -------------------------------------------------------------
@@ -1006,6 +1346,16 @@ class TextViewer(Gtk.Box):
         if self._copy_timeout_id is not None:
             GLib.source_remove(self._copy_timeout_id)
             self._copy_timeout_id = None
+        if self._quote_copy_timeout_id is not None:
+            GLib.source_remove(self._quote_copy_timeout_id)
+            self._quote_copy_timeout_id = None
+        handler_id = getattr(self, "_selection_handler_id", None)
+        if handler_id is not None:
+            try:
+                self.buffer.disconnect(handler_id)
+            except Exception:
+                logger.debug("Could not disconnect the selection handler", exc_info=True)
+            self._selection_handler_id = None
 
     def get_desired_size(self, screen_w: int, screen_h: int):
         target_w = min(1180, int(screen_w * 0.85))

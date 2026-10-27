@@ -7,6 +7,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- Line-range copy in code and text previews: drag the gutter line numbers to
+  select whole lines, then copy the range as plain text or as a quote with the
+  file path, line range and a fenced code block for pasting into a chat with an
+  agent. `Ctrl+Shift+C` copies the current selection as a quote.
+- An explicit selection colour on the code surface so dragged text is visible.
+
 ## [0.1.0] - 2026-10-27
 
 ### Added

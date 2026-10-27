@@ -484,6 +484,24 @@ class PreviewWindow(Adw.ApplicationWindow):
                 return True
             return False
 
+        if (
+            is_ctrl
+            and bool(state & Gdk.ModifierType.SHIFT_MASK)
+            and not is_alt
+            and not is_super
+            and keyval in (Gdk.KEY_c, Gdk.KEY_C)
+        ):
+            if self._focus_is_editable():
+                return False
+            copier = getattr(self.current_viewer, "copy_selected_lines", None)
+            if callable(copier):
+                try:
+                    if copier(quote=True):
+                        return True
+                except Exception:
+                    log.debug("Could not copy the line range", exc_info=True)
+            return False
+
         if is_ctrl and not is_alt and not is_super and keyval in (
             Gdk.KEY_question,
             Gdk.KEY_slash,
@@ -496,6 +514,15 @@ class PreviewWindow(Adw.ApplicationWindow):
                 self.current_viewer.close_search()
                 self._sync_search_card()
                 return True
+            has_lines = getattr(self.current_viewer, "has_line_selection", None)
+            clear_lines = getattr(self.current_viewer, "clear_line_selection", None)
+            if callable(has_lines) and callable(clear_lines):
+                try:
+                    if has_lines():
+                        clear_lines()
+                        return True
+                except Exception:
+                    log.debug("Could not clear the line selection", exc_info=True)
             self.close()
             return True
 

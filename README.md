@@ -14,6 +14,7 @@ A modern, fast, and resizable **Quick Look** spacebar file previewer for Linux (
 - **Auto-Update on Navigation**: Keep the preview window open and use the arrow keys `Up` `Down` `Left` `Right` in Nautilus to browse through files.
 - **Resizable & Movable**: Freely resize, drag, and position the preview window.
 - **Libadwaita Integration**: System light and dark theme, native controls and rounded corners.
+- **Copy a line range**: text and code are selectable; drag the line numbers to pick whole lines, then copy them as plain text or as a quote with the file path, line range and a fenced block ready to paste into a chat with an agent.
 - **One chrome for every viewer**: A single header bar and one status bar. File type, size and metadata live in the status bar; viewers never add their own toolbar row.
 - **Images**: PNG, JPG, WebP, GIF (animated), SVG, BMP; `Ctrl+Scroll` zooms.
 - **Code & Text**: Syntax-highlighted preview for Python, JS, TS, HTML, CSS, JSON, YAML, Shell, SQL, Markdown, and plain text, with in-file search.
@@ -100,6 +101,8 @@ Sushi; if you want the default GNOME previewer back, install `gnome-sushi` from 
 
 - **`Space`** or **`Escape`**: Close the preview window (or the search card first when it is open).
 - **`Ctrl + F`**: Open the non-grabbing search card for text, code and Markdown source.
+- **`Ctrl + Shift + C`**: Copy the selected lines, or the text selection, as a quoted block with the file path and line numbers.
+- **Drag line numbers** (text and code): select whole lines and show the copy card.
 - **`Enter` / `Shift + Enter`**: Next or previous search match.
 - **`Ctrl + ?`**: Show the shortcut sheet.
 - **`F`** or **`F11`**: Toggle fullscreen.

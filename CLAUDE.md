@@ -134,8 +134,8 @@ A change is complete only when all of these hold:
 2. `bash -n install.sh uninstall.sh` and `msgfmt --check po/*.po` pass.
 3. No hardcoded UI string; `.pot` and `vi.po` updated.
 4. Manual matrix: affected viewers on Wayland and X11, light and dark, `en` and `vi`.
-5. Keyboard path still works: `Space`, arrows, `Esc`, `Ctrl+F`, fullscreen, `O`, `P`, and
-   `F2`/`Del` when the viewer is not read-only.
+5. Keyboard path still works: `Space`, arrows, `Esc`, `Ctrl+F`, `Ctrl+Shift+C`, fullscreen,
+   `O`, `P`, and `F2`/`Del` when the viewer is not read-only.
 6. Screenshots attached for any visual change.
 
 ## 11. Review protocol
