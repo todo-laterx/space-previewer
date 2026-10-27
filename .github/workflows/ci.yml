@@ -1,0 +1,66 @@
+name: CI
+
+on:
+  push:
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    name: Lint and test
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install gettext
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y gettext
+
+      - name: Install pytest
+        run: python3 -m pip install --upgrade pytest
+
+      - name: Compile Python sources
+        run: python3 -m compileall -q src
+
+      - name: Run tests
+        env:
+          PYTHONDONTWRITEBYTECODE: "1"
+        run: pytest -q
+
+      - name: Check shell scripts
+        run: bash -n install.sh uninstall.sh
+
+      - name: Validate gettext catalogs
+        run: |
+          for po in po/*.po; do
+            msgfmt --check -o /dev/null "$po"
+          done
+
+      - name: Reject spaces and brackets in tracked filenames
+        run: |
+          python3 - <<'PY'
+          import subprocess
+          import sys
+
+          raw = subprocess.check_output(["git", "ls-files", "-z"])
+          paths = [path for path in raw.decode("utf-8").split("\0") if path]
+          bad = [path for path in paths if any(ch in path for ch in " []")]
+
+          if bad:
+              print("Tracked paths must not contain spaces or square brackets:")
+              for path in bad:
+                  print(f"  {path}")
+              sys.exit(1)
+
+          print(f"Checked {len(paths)} tracked paths.")
+          PY

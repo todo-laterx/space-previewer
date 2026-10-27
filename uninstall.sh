@@ -1,28 +1,76 @@
 #!/bin/bash
-set -e
+# Uninstall Space Previewer for the current user.
+#
+# Only per-user files are removed. System packages, including Sushi, are left
+# exactly as they are; the hint at the end explains how to get Sushi back.
+set -euo pipefail
 
-SYSTEMD_USER_DIR="$HOME/.config/systemd/user"
 DBUS_SERVICES_DIR="$HOME/.local/share/dbus-1/services"
 BIN_DIR="$HOME/.local/bin"
+APP_INSTALL_DIR="$HOME/.local/share/space-previewer"
+LEGACY_UNIT="$HOME/.config/systemd/user/space-previewer.service"
 
-echo "==> Stopping and uninstalling Space Previewer..."
+DBUS_NAME="org.gnome.NautilusPreviewer"
+DBUS_PATH="/org/gnome/NautilusPreviewer"
+SERVICE_FILE="$DBUS_SERVICES_DIR/$DBUS_NAME.service"
 
-# 1. Stop and disable systemd user service
-systemctl --user stop space-previewer.service 2>/dev/null || true
-systemctl --user disable space-previewer.service 2>/dev/null || true
-rm -f "$SYSTEMD_USER_DIR/space-previewer.service"
-systemctl --user daemon-reload
+stop_running_instance() {
+    # D-Bus activation owns the process; ask it to close and stop it so the
+    # install directory is not held by a running interpreter. Best-effort.
+    if command -v gdbus >/dev/null 2>&1; then
+        gdbus call --session \
+            --dest "$DBUS_NAME" \
+            --object-path "$DBUS_PATH" \
+            --method "$DBUS_NAME.Close" \
+            >/dev/null 2>&1 || true
+    fi
+    if command -v pkill >/dev/null 2>&1; then
+        pkill -f "$APP_INSTALL_DIR/main.py" >/dev/null 2>&1 || true
+    fi
+}
 
-# 2. Remove DBus service file
-rm -f "$DBUS_SERVICES_DIR/org.gnome.NautilusPreviewer.service"
+remove_legacy_unit() {
+    if command -v systemctl >/dev/null 2>&1; then
+        systemctl --user stop space-previewer.service >/dev/null 2>&1 || true
+        systemctl --user disable space-previewer.service >/dev/null 2>&1 || true
+    fi
 
-# 3. Remove CLI symlink
-rm -f "$BIN_DIR/space-previewer"
+    if [ -e "$LEGACY_UNIT" ]; then
+        echo "==> Removing legacy systemd user unit..."
+        rm -f "$LEGACY_UNIT"
+    fi
 
-# 4. Remove installed application files
-rm -rf "$HOME/.local/share/space-previewer"
+    if command -v systemctl >/dev/null 2>&1; then
+        systemctl --user daemon-reload >/dev/null 2>&1 || true
+    fi
+}
 
-# 5. Restart Nautilus
-nautilus -q || true
+restart_nautilus() {
+    if command -v nautilus >/dev/null 2>&1; then
+        nautilus -q >/dev/null 2>&1 || true
+    fi
+}
 
-echo "==> Space Previewer uninstalled successfully."
+main() {
+    echo "==> Uninstalling Space Previewer..."
+
+    stop_running_instance
+
+    echo "==> Removing D-Bus activation service..."
+    rm -f "$SERVICE_FILE"
+
+    echo "==> Removing CLI symlink..."
+    rm -f "$BIN_DIR/space-previewer"
+
+    remove_legacy_unit
+
+    echo "==> Removing installed application files..."
+    rm -rf "$APP_INSTALL_DIR"
+
+    restart_nautilus
+
+    echo "==> Space Previewer uninstalled."
+    echo "Sushi was not reinstalled; install gnome-sushi from your distro to restore the default GNOME previewer."
+}
+
+main "$@"

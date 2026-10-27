@@ -1,59 +1,373 @@
 #!/bin/bash
-set -e
+# Install Space Previewer for the current user.
+#
+# The previewer is D-Bus activated: Nautilus starts it on demand through the
+# service file in ~/.local/share/dbus-1/services. There is no systemd unit and
+# no root access is required.
+set -euo pipefail
 
 PROJECT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-SYSTEMD_USER_DIR="$HOME/.config/systemd/user"
 DBUS_SERVICES_DIR="$HOME/.local/share/dbus-1/services"
 BIN_DIR="$HOME/.local/bin"
-
 APP_INSTALL_DIR="$HOME/.local/share/space-previewer"
+LEGACY_UNIT="$HOME/.config/systemd/user/space-previewer.service"
 
-echo "==> Setting up Space Previewer Daemon..."
+DBUS_NAME="org.gnome.NautilusPreviewer"
+DBUS_PATH="/org/gnome/NautilusPreviewer"
+SERVICE_FILE="$DBUS_SERVICES_DIR/$DBUS_NAME.service"
 
-# 1. Setup directories
-mkdir -p "$SYSTEMD_USER_DIR"
-mkdir -p "$DBUS_SERVICES_DIR"
-mkdir -p "$BIN_DIR"
-mkdir -p "$APP_INSTALL_DIR"
+# ---------------------------------------------------------------------------
+# Dependency check (--check-deps)
+# ---------------------------------------------------------------------------
 
-# 2. Copy source files to standard user share location
-echo "==> Copying application files to $APP_INSTALL_DIR..."
-cp -r "$PROJECT_DIR/src"/* "$APP_INSTALL_DIR/"
-chmod +x "$APP_INSTALL_DIR/main.py"
+MISSING_REQUIRED=0
+MISSING_OPTIONAL=0
+REQUIRED_PKGS=()
+OPTIONAL_PKGS=()
+PM=""
 
-# 3. Create DBus service activation file
-cat <<EOF > "$DBUS_SERVICES_DIR/org.gnome.NautilusPreviewer.service"
+detect_pm() {
+    if command -v apt-get >/dev/null 2>&1; then
+        PM="apt"
+    elif command -v dnf >/dev/null 2>&1; then
+        PM="dnf"
+    elif command -v pacman >/dev/null 2>&1; then
+        PM="pacman"
+    fi
+}
+
+install_cmd() {
+    case "$1" in
+        apt) echo "sudo apt install" ;;
+        dnf) echo "sudo dnf install" ;;
+        pacman) echo "sudo pacman -S" ;;
+    esac
+}
+
+# Map a dependency key to distro package name(s).
+pkg_for() {
+    local key="$1" pm="$2"
+    case "$key:$pm" in
+        python3:apt) echo "python3" ;;
+        python3:dnf) echo "python3" ;;
+        python3:pacman) echo "python" ;;
+        gi:apt) echo "python3-gi" ;;
+        gi:dnf) echo "python3-gobject" ;;
+        gi:pacman) echo "python-gobject" ;;
+        pygments:apt|pygments:dnf) echo "python3-pygments" ;;
+        pygments:pacman) echo "python-pygments" ;;
+        markdown_it:apt|markdown_it:dnf) echo "python3-markdown-it" ;;
+        markdown_it:pacman) echo "python-markdown-it" ;;
+        cairo:apt) echo "python3-cairo python3-gi-cairo" ;;
+        cairo:dnf) echo "python3-cairo" ;;
+        cairo:pacman) echo "python-cairo" ;;
+        gtk:apt) echo "gir1.2-gtk-4.0" ;;
+        gtk:dnf) echo "gtk4" ;;
+        gtk:pacman) echo "gtk4" ;;
+        adw:apt) echo "gir1.2-adw-1" ;;
+        adw:dnf) echo "libadwaita" ;;
+        adw:pacman) echo "libadwaita" ;;
+        gdkpixbuf:apt) echo "gir1.2-gdkpixbuf-2.0" ;;
+        gdkpixbuf:dnf) echo "gdk-pixbuf2" ;;
+        gdkpixbuf:pacman) echo "gdk-pixbuf2" ;;
+        pango:apt) echo "gir1.2-pango-1.0" ;;
+        pango:dnf) echo "pango" ;;
+        pango:pacman) echo "pango" ;;
+        poppler:apt) echo "gir1.2-poppler-0.18" ;;
+        poppler:dnf) echo "poppler-glib" ;;
+        poppler:pacman) echo "poppler-glib" ;;
+        webkit:apt) echo "gir1.2-webkit-6.0 libwebkitgtk-6.0-4" ;;
+        webkit:dnf) echo "webkitgtk6.0" ;;
+        webkit:pacman) echo "webkitgtk-6.0" ;;
+        *) ;; # Unknown package manager: no package names to print.
+    esac
+}
+
+add_required_pkgs() {
+    local pkg
+    for pkg in $1; do
+        REQUIRED_PKGS+=("$pkg")
+    done
+}
+
+add_optional_pkgs() {
+    local pkg
+    for pkg in $1; do
+        OPTIONAL_PKGS+=("$pkg")
+    done
+}
+
+check_deps() {
+    local python_bin=""
+    if [ -x /usr/bin/python3 ]; then
+        python_bin="/usr/bin/python3"
+    elif command -v python3 >/dev/null 2>&1; then
+        python_bin="$(command -v python3)"
+    fi
+
+    detect_pm
+
+    echo "Space Previewer dependency check"
+    echo
+
+    if [ -z "$python_bin" ]; then
+        echo "  missing  python3"
+        MISSING_REQUIRED=$((MISSING_REQUIRED + 1))
+        add_required_pkgs "$(pkg_for python3 "$PM")"
+    else
+        echo "  ok       python3"
+    fi
+
+    # Module helpers return 0 only when the import succeeds.
+    py_module_ok() {
+        "$python_bin" -c "import $1" >/dev/null 2>&1
+    }
+
+    gi_module_ok() {
+        "$python_bin" -c \
+            "import gi; gi.require_version('$1', '$2'); from gi.repository import $1" \
+            >/dev/null 2>&1
+    }
+
+    check_item() {
+        local key="$1" label="$2" required="$3"
+        local ok=1
+
+        if [ -n "$python_bin" ]; then
+            case "$key" in
+                gi) py_module_ok gi && ok=0 ;;
+                pygments) py_module_ok pygments && ok=0 ;;
+                markdown_it) py_module_ok markdown_it && ok=0 ;;
+                cairo) py_module_ok cairo && ok=0 ;;
+                gtk) gi_module_ok Gtk 4.0 && ok=0 ;;
+                adw) gi_module_ok Adw 1 && ok=0 ;;
+                gdkpixbuf) gi_module_ok GdkPixbuf 2.0 && ok=0 ;;
+                pango) gi_module_ok Pango 1.0 && ok=0 ;;
+                poppler) gi_module_ok Poppler 0.18 && ok=0 ;;
+                webkit) gi_module_ok WebKit 6.0 && ok=0 ;;
+            esac
+        fi
+
+        if [ "$ok" -eq 0 ]; then
+            echo "  ok       $label"
+            return 0
+        fi
+
+        if [ "$required" = "required" ]; then
+            echo "  missing  $label"
+            MISSING_REQUIRED=$((MISSING_REQUIRED + 1))
+            add_required_pkgs "$(pkg_for "$key" "$PM")"
+        else
+            echo "  optional $label (not installed)"
+            MISSING_OPTIONAL=$((MISSING_OPTIONAL + 1))
+            add_optional_pkgs "$(pkg_for "$key" "$PM")"
+        fi
+    }
+
+    check_item gi "gi (PyGObject)" required
+    check_item pygments "pygments" required
+    check_item markdown_it "markdown_it" required
+    check_item cairo "cairo (pycairo)" required
+    check_item gtk "Gtk 4.0" required
+    check_item adw "Adw 1" required
+    check_item gdkpixbuf "GdkPixbuf 2.0" required
+    check_item pango "Pango 1.0" required
+    check_item poppler "Poppler 0.18" required
+    check_item webkit "WebKit 6.0" optional
+
+    echo
+
+    if [ "$MISSING_REQUIRED" -gt 0 ]; then
+        if [ -n "$PM" ] && [ "${#REQUIRED_PKGS[@]}" -gt 0 ]; then
+            echo "Install the missing dependencies with:"
+            echo "  $(install_cmd "$PM") ${REQUIRED_PKGS[*]}"
+        else
+            echo "Install the missing dependencies with your distro package manager."
+        fi
+        return 1
+    fi
+
+    echo "All required dependencies are installed."
+
+    if [ "$MISSING_OPTIONAL" -gt 0 ]; then
+        if [ -n "$PM" ] && [ "${#OPTIONAL_PKGS[@]}" -gt 0 ]; then
+            echo "Optional HTML preview support:"
+            echo "  $(install_cmd "$PM") ${OPTIONAL_PKGS[*]}"
+        fi
+    fi
+
+    return 0
+}
+
+# ---------------------------------------------------------------------------
+# Install steps
+# ---------------------------------------------------------------------------
+
+stop_legacy_unit() {
+    if command -v systemctl >/dev/null 2>&1; then
+        systemctl --user stop space-previewer.service >/dev/null 2>&1 || true
+        systemctl --user disable space-previewer.service >/dev/null 2>&1 || true
+    fi
+    if [ -e "$LEGACY_UNIT" ]; then
+        echo "==> Removing legacy systemd user unit..."
+        rm -f "$LEGACY_UNIT"
+    fi
+    if command -v systemctl >/dev/null 2>&1; then
+        systemctl --user daemon-reload >/dev/null 2>&1 || true
+    fi
+}
+
+release_previewer_name() {
+    local owner=""
+
+    # A previous copy of this app may still hold the name. Ask it to close and
+    # stop it so the freshly installed files are used on the next activation.
+    if command -v pkill >/dev/null 2>&1; then
+        pkill -f "$APP_INSTALL_DIR/main.py" >/dev/null 2>&1 || true
+    fi
+
+    command -v gdbus >/dev/null 2>&1 || return 0
+
+    owner="$(gdbus call --session \
+        --dest org.freedesktop.DBus \
+        --object-path /org/freedesktop/DBus \
+        --method org.freedesktop.DBus.GetNameOwner \
+        "$DBUS_NAME" 2>/dev/null || true)"
+
+    # dconf-style output is (':1.42',); an unowned name raises an error, which
+    # the "|| true" above turns into an empty string.
+    if [ -z "$owner" ] || [ "$owner" = "()" ]; then
+        return 0
+    fi
+
+    echo "==> Asking the current owner of $DBUS_NAME to close..."
+    gdbus call --session \
+        --dest "$DBUS_NAME" \
+        --object-path "$DBUS_PATH" \
+        --method "$DBUS_NAME.Close" \
+        >/dev/null 2>&1 || true
+
+    # Sushi is the common owner. Terminating it is best-effort only: a failure
+    # here must never abort the install.
+    if command -v pkill >/dev/null 2>&1; then
+        pkill -x sushi >/dev/null 2>&1 || true
+    fi
+}
+
+install_files() {
+    echo "==> Installing application files to $APP_INSTALL_DIR..."
+    mkdir -p "$APP_INSTALL_DIR"
+
+    # Preserve the src/ layout so installed main.py stays at the top level and
+    # utils/i18n.py finds ../locale.
+    cp -R "$PROJECT_DIR/src/." "$APP_INSTALL_DIR/"
+
+    # Never ship bytecode caches.
+    find "$APP_INSTALL_DIR" -type d -name __pycache__ -prune \
+        -exec rm -rf {} + 2>/dev/null || true
+    find "$APP_INSTALL_DIR" -name '*.pyc' -delete 2>/dev/null || true
+
+    chmod +x "$APP_INSTALL_DIR/main.py"
+
+    mkdir -p "$APP_INSTALL_DIR/po"
+    cp -R "$PROJECT_DIR/po/." "$APP_INSTALL_DIR/po/"
+}
+
+build_locales() {
+    local locale_dir="$APP_INSTALL_DIR/locale"
+    local po_file lang
+
+    if ! command -v msgfmt >/dev/null 2>&1; then
+        echo "WARNING: msgfmt not found; translations will not be compiled." >&2
+        echo "         Install gettext and re-run this script to enable them." >&2
+        return 0
+    fi
+
+    # Rebuild from scratch so removed languages do not leave stale catalogs.
+    rm -rf "$locale_dir"
+    mkdir -p "$locale_dir"
+
+    for po_file in "$PROJECT_DIR"/po/*.po; do
+        [ -e "$po_file" ] || continue
+        lang="$(basename "$po_file" .po)"
+        mkdir -p "$locale_dir/$lang/LC_MESSAGES"
+        if ! msgfmt --check \
+            --output-file="$locale_dir/$lang/LC_MESSAGES/space-previewer.mo" \
+            "$po_file"; then
+            echo "WARNING: failed to compile $po_file" >&2
+        fi
+    done
+}
+
+write_dbus_service() {
+    echo "==> Registering D-Bus activation service..."
+    mkdir -p "$DBUS_SERVICES_DIR"
+    cat > "$SERVICE_FILE" <<EOF
 [D-BUS Service]
-Name=org.gnome.NautilusPreviewer
+Name=$DBUS_NAME
 Exec=/usr/bin/python3 $APP_INSTALL_DIR/main.py
-SystemdService=space-previewer.service
 EOF
+}
 
-# 4. Create systemd user service for background daemon
-cat <<EOF > "$SYSTEMD_USER_DIR/space-previewer.service"
-[Unit]
-Description=Space Previewer Daemon for Nautilus Quick Look
-After=graphical-session.target
+link_binary() {
+    echo "==> Linking space-previewer into $BIN_DIR..."
+    mkdir -p "$BIN_DIR"
+    ln -sfn "$APP_INSTALL_DIR/main.py" "$BIN_DIR/space-previewer"
+}
 
-[Service]
-Type=simple
-ExecStart=/usr/bin/python3 $APP_INSTALL_DIR/main.py
-Restart=on-failure
-RestartSec=2
+restart_nautilus() {
+    if command -v nautilus >/dev/null 2>&1; then
+        nautilus -q >/dev/null 2>&1 || true
+    fi
+}
 
-[Install]
-WantedBy=default.target
+show_usage() {
+    cat <<EOF
+Usage: ./install.sh [--check-deps]
+
+  --check-deps   Check Python/GI dependencies and print the distro install
+                 command for anything missing. Does not modify the system.
 EOF
+}
 
-# 5. Create CLI symlink
-ln -sf "$APP_INSTALL_DIR/main.py" "$BIN_DIR/space-previewer"
+main() {
+    case "${1:-}" in
+        --check-deps)
+            if check_deps; then
+                exit 0
+            else
+                exit 1
+            fi
+            ;;
+        --help|-h)
+            show_usage
+            exit 0
+            ;;
+        "")
+            ;;
+        *)
+            echo "Unknown option: $1" >&2
+            show_usage >&2
+            exit 2
+            ;;
+    esac
 
-# 6. Reload and start systemd user service
-systemctl --user daemon-reload
-systemctl --user enable --now space-previewer.service
+    echo "==> Installing Space Previewer (D-Bus activated, no root required)..."
 
-# 7. Restart Nautilus so it detects the active previewer service
-nautilus -q || true
+    stop_legacy_unit
+    release_previewer_name
+    install_files
+    build_locales
+    write_dbus_service
+    link_binary
+    restart_nautilus
 
-echo "==> Space Previewer is active and running!"
-echo "Press Space on any file in Nautilus to preview."
+    echo "==> Space Previewer installed."
+    echo "Press Space on any file in Nautilus to preview."
+    case ":$PATH:" in
+        *":$BIN_DIR:"*) ;;
+        *) echo "Note: $BIN_DIR is not in your PATH; add it to run 'space-previewer'." ;;
+    esac
+}
+
+main "$@"

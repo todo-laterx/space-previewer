@@ -11,15 +11,18 @@ from .folder_viewer import FolderViewer
 from .docx_viewer import DocxViewer
 from .excel_viewer import ExcelViewer
 from .pptx_viewer import PptxViewer
+from .html_viewer import HtmlViewer
+from .registry import find_plugin
 from utils.mime_detector import detect_mime_type
 from utils.formatters import format_size, format_date
+from utils.i18n import _
 
 def create_viewer_for_file(file_path: str):
     """Factory function to instantiate the proper viewer widget for a file path."""
     if not os.path.exists(file_path):
         from gi.repository import Gtk
         box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL)
-        box.append(Gtk.Label(label=f"File not found: {file_path}"))
+        box.append(Gtk.Label(label=_("File not found: %s") % file_path))
         return box
 
     if os.path.isdir(file_path):
@@ -27,6 +30,14 @@ def create_viewer_for_file(file_path: str):
 
     mime = detect_mime_type(file_path)
     ext = os.path.splitext(file_path)[1].lower()
+
+    plugin_viewer = find_plugin(file_path, mime, ext)
+    if plugin_viewer is not None:
+        return plugin_viewer
+
+    # HTML (before the generic text/ branch)
+    if ext in (".html", ".htm", ".xhtml") or mime in ("text/html", "application/xhtml+xml"):
+        return HtmlViewer(file_path)
 
     # Images
     if mime.startswith("image/"):
@@ -127,7 +138,14 @@ def create_viewer_for_file(file_path: str):
 
     size = os.path.getsize(file_path)
     mtime = os.path.getmtime(file_path)
-    details = Gtk.Label(label=f"Type: {mime}\nSize: {format_size(size)}\nModified: {format_date(mtime)}")
+    details = Gtk.Label(
+        label=_("Type: %(mime)s\nSize: %(size)s\nModified: %(date)s")
+        % {
+            "mime": mime,
+            "size": format_size(size),
+            "date": format_date(mtime),
+        }
+    )
     details.add_css_class("dim-label")
     box.append(details)
 

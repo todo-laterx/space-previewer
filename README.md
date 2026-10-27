@@ -12,6 +12,7 @@ A modern, fast, and resizable **Quick Look** spacebar file previewer for Linux (
 - **Libadwaita Integration**: System light and dark theme, native controls and rounded corners.
 - **Images**: PNG, JPG, WebP, GIF, SVG, BMP.
 - **Code & Text**: Syntax-highlighted preview for Python, JS, TS, HTML, CSS, JSON, YAML, Shell, SQL, Markdown, and plain text, with in-file search.
+- **HTML**: Local pages rendered with WebKitGTK when installed; remote content is blocked by default and the page falls back to source view without WebKit.
 - **CSV / TSV**: Formatted table grid view with column headers.
 - **PDF Documents**: Multi-page rendering with Poppler.
 - **Audio & Video**: Compact media player for MP4, MKV, WebM, MP3, WAV, FLAC.
@@ -55,16 +56,23 @@ Optional HTML preview: `sudo pacman -S webkitgtk-6.0`
 
 ## Installation
 
-Run the automated installer script:
+Check dependencies first:
+
+```bash
+./install.sh --check-deps
+```
+
+Then install for the current user:
 
 ```bash
 chmod +x install.sh uninstall.sh
 ./install.sh
 ```
 
-The installer copies the source to `~/.local/share/space-previewer`, registers the
-`org.gnome.NautilusPreviewer` D-Bus service in your user data directory, and enables a
-systemd user unit.
+The installer copies the source to `~/.local/share/space-previewer`, installs the
+`org.gnome.NautilusPreviewer` D-Bus activation file in `~/.local/share/dbus-1/services`,
+compiles translations when `msgfmt` is available, and reloads Nautilus. It does not need
+root and it does not create a systemd unit.
 
 ---
 

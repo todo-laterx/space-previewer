@@ -15,7 +15,8 @@ gi.require_version('Gtk', '4.0')
 gi.require_version('Gdk', '4.0')
 gi.require_version('GdkPixbuf', '2.0')
 gi.require_version('PangoCairo', '1.0')
-from gi.repository import Gtk, Gdk, GdkPixbuf, GLib, Pango, PangoCairo
+gi.require_version('Adw', '1')
+from gi.repository import Gtk, Gdk, GdkPixbuf, GLib, Pango, PangoCairo, Adw
 
 try:
     from markdown_it import MarkdownIt
@@ -24,170 +25,218 @@ except ImportError:
     HAS_MARKDOWN_IT = False
 
 from utils.formatters import format_size
+from utils.i18n import _, ngettext
 from .text_viewer import (
     TextViewer,
     ensure_code_viewer_css,
     highlight_buffer_with_pygments,
+    is_dark_theme,
+    hex_to_rgb,
+    ACCENT_LIGHT,
+    ACCENT_DARK,
+    CODE_SURFACE_LIGHT,
+    CODE_SURFACE_DARK,
+    CODE_TEXT_LIGHT,
+    CODE_TEXT_DARK,
 )
 
 _MD_CSS_INSTALLED = False
+_MD_CSS_PROVIDER = None
+_MD_DARK_HANDLER_CONNECTED = False
 
 MARKDOWN_VIEWER_CSS = """
+@define-color sp_accent %(accent)s;
+@define-color sp_code_surface %(code_surface)s;
+@define-color sp_code_text %(code_text)s;
+
 .md-page-bg {
-    background-color: #181825;
+    background-color: @window_bg_color;
 }
 .md-content-column {
-    background-color: #1e1e2e;
+    background-color: @view_bg_color;
     border-radius: 12px;
-    border: 1px solid rgba(255, 255, 255, 0.07);
+    border: 1px solid @borders;
     padding: 28px 36px;
 }
 .md-h1 {
     font-size: 26px;
     font-weight: 800;
-    color: #cdd6f4;
+    color: @window_fg_color;
 }
 .md-h2 {
     font-size: 21px;
     font-weight: 700;
-    color: #cdd6f4;
+    color: @window_fg_color;
 }
 .md-h3 {
     font-size: 17px;
     font-weight: 700;
-    color: #bac2de;
+    color: alpha(@window_fg_color, 0.88);
 }
 .md-h4 {
     font-size: 15px;
     font-weight: 700;
-    color: #a6adc8;
+    color: alpha(@window_fg_color, 0.78);
 }
 .md-h5, .md-h6 {
     font-size: 13px;
     font-weight: 700;
-    color: #9399b2;
+    color: alpha(@window_fg_color, 0.68);
 }
 .md-heading-rule {
-    background-color: rgba(255, 255, 255, 0.10);
+    background-color: @borders;
     min-height: 1px;
 }
 .md-paragraph {
     font-size: 14px;
-    color: #cdd6f4;
+    color: @window_fg_color;
 }
 .md-blockquote {
-    background-color: rgba(49, 50, 68, 0.45);
-    border-left: 4px solid #89b4fa;
+    background-color: alpha(@view_fg_color, 0.05);
+    border-left: 4px solid @sp_accent;
     border-radius: 0 8px 8px 0;
     padding: 10px 16px;
 }
 .md-alert-note {
-    background-color: rgba(137, 180, 250, 0.10);
-    border-left: 4px solid #89b4fa;
+    background-color: alpha(%(alert_note)s, 0.10);
+    border-left: 4px solid %(alert_note)s;
     border-radius: 0 8px 8px 0;
     padding: 12px 16px;
 }
 .md-alert-tip {
-    background-color: rgba(166, 227, 161, 0.10);
-    border-left: 4px solid #a6e3a1;
+    background-color: alpha(%(alert_tip)s, 0.10);
+    border-left: 4px solid %(alert_tip)s;
     border-radius: 0 8px 8px 0;
     padding: 12px 16px;
 }
 .md-alert-important {
-    background-color: rgba(203, 166, 247, 0.10);
-    border-left: 4px solid #cba6f7;
+    background-color: alpha(%(alert_important)s, 0.10);
+    border-left: 4px solid %(alert_important)s;
     border-radius: 0 8px 8px 0;
     padding: 12px 16px;
 }
 .md-alert-warning {
-    background-color: rgba(249, 226, 175, 0.10);
-    border-left: 4px solid #f9e2af;
+    background-color: alpha(%(alert_warning)s, 0.10);
+    border-left: 4px solid %(alert_warning)s;
     border-radius: 0 8px 8px 0;
     padding: 12px 16px;
 }
 .md-alert-caution {
-    background-color: rgba(243, 139, 168, 0.10);
-    border-left: 4px solid #f38ba8;
+    background-color: alpha(%(alert_caution)s, 0.10);
+    border-left: 4px solid %(alert_caution)s;
     border-radius: 0 8px 8px 0;
     padding: 12px 16px;
 }
 .md-code-card {
-    background-color: #11111b;
-    border: 1px solid rgba(255, 255, 255, 0.09);
+    background-color: @sp_code_surface;
+    border: 1px solid @borders;
     border-radius: 10px;
 }
 .md-code-card-header {
-    background-color: rgba(24, 24, 37, 0.95);
-    border-bottom: 1px solid rgba(255, 255, 255, 0.07);
+    background-color: transparent;
+    border-bottom: 1px solid @borders;
     border-radius: 10px 10px 0 0;
     padding: 6px 14px;
 }
 .md-code-block-view {
-    background-color: #11111b;
-    color: #cdd6f4;
-    font-family: "JetBrains Mono", "Fira Code", "Ubuntu Mono", monospace;
+    background-color: @sp_code_surface;
+    color: @sp_code_text;
+    font-family: "Adwaita Mono", "JetBrains Mono", "Source Code Pro", monospace;
     font-size: 12.5px;
     border-radius: 0 0 10px 10px;
 }
 .md-code-block-view text {
-    background-color: #11111b;
-    color: #cdd6f4;
+    background-color: @sp_code_surface;
+    color: @sp_code_text;
 }
 .md-mermaid-card {
-    background-color: #181825;
-    border: 1px solid rgba(137, 180, 250, 0.25);
+    background-color: @view_bg_color;
+    border: 1px solid @borders;
     border-radius: 10px;
 }
 .md-mermaid-header {
-    background-color: rgba(30, 30, 46, 0.95);
-    border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+    background-color: transparent;
+    border-bottom: 1px solid @borders;
     border-radius: 10px 10px 0 0;
     padding: 6px 14px;
 }
 .md-mermaid-badge {
-    background-color: rgba(166, 227, 161, 0.16);
-    color: #a6e3a1;
-    border: 1px solid rgba(166, 227, 161, 0.35);
+    background-color: alpha(@sp_accent, 0.14);
+    color: @sp_accent;
+    border: 1px solid alpha(@sp_accent, 0.32);
     border-radius: 6px;
     padding: 2px 8px;
     font-weight: 700;
     font-size: 11px;
 }
 .md-mermaid-canvas {
-    background-color: #1e1e2e;
+    background-color: @view_bg_color;
     border-radius: 0 0 10px 10px;
     padding: 16px;
 }
 .md-table-card {
-    background-color: #181825;
-    border: 1px solid rgba(255, 255, 255, 0.12);
+    background-color: @view_bg_color;
+    border: 1px solid @borders;
     border-radius: 8px;
 }
 .md-table-header-cell {
-    background-color: rgba(49, 50, 68, 0.85);
-    border-bottom: 1px solid rgba(255, 255, 255, 0.14);
-    border-right: 1px solid rgba(255, 255, 255, 0.08);
+    background-color: alpha(@view_fg_color, 0.08);
+    border-bottom: 1px solid @borders;
+    border-right: 1px solid @borders;
     padding: 8px 14px;
 }
 .md-table-cell-even {
-    background-color: rgba(30, 30, 46, 0.70);
-    border-bottom: 1px solid rgba(255, 255, 255, 0.06);
-    border-right: 1px solid rgba(255, 255, 255, 0.06);
+    background-color: alpha(@view_fg_color, 0.03);
+    border-bottom: 1px solid @borders;
+    border-right: 1px solid @borders;
     padding: 7px 14px;
 }
 .md-table-cell-odd {
-    background-color: rgba(24, 24, 37, 0.70);
-    border-bottom: 1px solid rgba(255, 255, 255, 0.06);
-    border-right: 1px solid rgba(255, 255, 255, 0.06);
+    background-color: transparent;
+    border-bottom: 1px solid @borders;
+    border-right: 1px solid @borders;
     padding: 7px 14px;
 }
 .md-hr {
-    background-color: rgba(255, 255, 255, 0.12);
+    background-color: @borders;
     min-height: 2px;
     margin-top: 8px;
     margin-bottom: 8px;
 }
 """
+
+
+def _alert_palette(dark: bool) -> dict:
+    """Muted semantic colours for Markdown alert titles; no purple or neon."""
+    accent = ACCENT_DARK if dark else ACCENT_LIGHT
+    return {
+        "note": accent,
+        "tip": "#7FB89A" if dark else "#3F7A5A",
+        "important": accent,
+        "warning": "#D4B36A" if dark else "#8A6D2F",
+        "caution": "#D08989" if dark else "#A34A4A",
+    }
+
+
+def _render_markdown_css(dark: bool) -> str:
+    alerts = _alert_palette(dark)
+    return MARKDOWN_VIEWER_CSS % {
+        "accent": ACCENT_DARK if dark else ACCENT_LIGHT,
+        "code_surface": CODE_SURFACE_DARK if dark else CODE_SURFACE_LIGHT,
+        "code_text": CODE_TEXT_DARK if dark else CODE_TEXT_LIGHT,
+        "alert_note": alerts["note"],
+        "alert_tip": alerts["tip"],
+        "alert_important": alerts["important"],
+        "alert_warning": alerts["warning"],
+        "alert_caution": alerts["caution"],
+    }
+
+
+def _reload_markdown_css(*_args) -> None:
+    if _MD_CSS_PROVIDER is not None:
+        _MD_CSS_PROVIDER.load_from_data(
+            _render_markdown_css(is_dark_theme()).encode("utf-8")
+        )
 
 MERMAID_KEYWORDS = (
     "flowchart ",
@@ -212,18 +261,26 @@ MERMAID_KEYWORDS = (
 
 
 def ensure_markdown_css():
-    global _MD_CSS_INSTALLED
+    global _MD_CSS_INSTALLED, _MD_CSS_PROVIDER, _MD_DARK_HANDLER_CONNECTED
     ensure_code_viewer_css()
     if _MD_CSS_INSTALLED:
         return
     display = Gdk.Display.get_default()
     if display is None:
         return
-    provider = Gtk.CssProvider()
-    provider.load_from_data(MARKDOWN_VIEWER_CSS.encode("utf-8"))
-    Gtk.StyleContext.add_provider_for_display(
-        display, provider, Gtk.STYLE_PROVIDER_PRIORITY_APPLICATION
+    if _MD_CSS_PROVIDER is None:
+        _MD_CSS_PROVIDER = Gtk.CssProvider()
+        Gtk.StyleContext.add_provider_for_display(
+            display, _MD_CSS_PROVIDER, Gtk.STYLE_PROVIDER_PRIORITY_APPLICATION
+        )
+    _MD_CSS_PROVIDER.load_from_data(
+        _render_markdown_css(is_dark_theme()).encode("utf-8")
     )
+    if not _MD_DARK_HANDLER_CONNECTED:
+        manager = Adw.StyleManager.get_default()
+        if manager is not None:
+            manager.connect("notify::dark", _reload_markdown_css)
+            _MD_DARK_HANDLER_CONNECTED = True
     _MD_CSS_INSTALLED = True
 
 
@@ -248,28 +305,37 @@ def detect_mermaid_diagram_type(code: str) -> str:
         stripped = stripped[nl + 1:].lstrip()
     first_word = stripped.split()[0] if stripped.split() else "Diagram"
     mapping = {
-        "flowchart": "Flowchart",
-        "graph": "Flowchart Graph",
-        "sequenceDiagram": "Sequence Diagram",
-        "classDiagram": "Class Diagram",
-        "stateDiagram": "State Diagram",
-        "stateDiagram-v2": "State Diagram",
-        "erDiagram": "ER Diagram",
-        "gantt": "Gantt Chart",
-        "pie": "Pie Chart",
-        "mindmap": "Mindmap",
-        "journey": "User Journey",
-        "gitGraph": "Git Graph",
-        "timeline": "Timeline",
-        "xychart-beta": "XY Chart",
+        "flowchart": _("Flowchart"),
+        "graph": _("Flowchart Graph"),
+        "sequenceDiagram": _("Sequence Diagram"),
+        "classDiagram": _("Class Diagram"),
+        "stateDiagram": _("State Diagram"),
+        "stateDiagram-v2": _("State Diagram"),
+        "erDiagram": _("ER Diagram"),
+        "gantt": _("Gantt Chart"),
+        "pie": _("Pie Chart"),
+        "mindmap": _("Mindmap"),
+        "journey": _("User Journey"),
+        "gitGraph": _("Git Graph"),
+        "timeline": _("Timeline"),
+        "xychart-beta": _("XY Chart"),
     }
-    return mapping.get(first_word, "Mermaid Diagram")
+    return mapping.get(first_word, _("Mermaid Diagram"))
 
 
-def render_mermaid_offline_cairo(code: str) -> bytes:
+def render_mermaid_offline_cairo(code: str, dark=None) -> bytes:
     """Offline fallback diagram renderer using Cairo + Pango so diagrams still preview offline."""
     nodes = {}
     edges = []
+    if dark is None:
+        dark = is_dark_theme()
+    surface_rgb = hex_to_rgb(CODE_SURFACE_DARK if dark else CODE_SURFACE_LIGHT)
+    text_rgb = hex_to_rgb(CODE_TEXT_DARK if dark else CODE_TEXT_LIGHT)
+    accent_rgb = hex_to_rgb(ACCENT_DARK if dark else ACCENT_LIGHT)
+    node_rgb = tuple(
+        (surface * 0.9) + (text * 0.1)
+        for surface, text in zip(surface_rgb, text_rgb)
+    )
 
     for raw_line in code.splitlines():
         line = raw_line.strip()
@@ -299,11 +365,11 @@ def render_mermaid_offline_cairo(code: str) -> bytes:
         height = max(160, 60 + len(lines) * 28)
         surface = cairo.ImageSurface(cairo.FORMAT_ARGB32, width, height)
         cr = cairo.Context(surface)
-        cr.set_source_rgb(0.118, 0.118, 0.180)
+        cr.set_source_rgb(*surface_rgb)
         cr.paint()
         layout = PangoCairo.create_layout(cr)
         layout.set_font_description(Pango.FontDescription.from_string("Sans Bold 11"))
-        cr.set_source_rgb(0.537, 0.706, 0.980)
+        cr.set_source_rgb(*accent_rgb)
         for idx, l in enumerate(lines):
             layout.set_text(l, -1)
             cr.move_to(24, 24 + idx * 26)
@@ -324,11 +390,11 @@ def render_mermaid_offline_cairo(code: str) -> bytes:
 
     surface = cairo.ImageSurface(cairo.FORMAT_ARGB32, width, height)
     cr = cairo.Context(surface)
-    cr.set_source_rgb(0.118, 0.118, 0.180)
+    cr.set_source_rgb(*surface_rgb)
     cr.paint()
 
     positions = {}
-    for idx, (nid, _) in enumerate(node_list):
+    for idx, (nid, _label) in enumerate(node_list):
         r = idx // cols
         c = idx % cols
         x = pad_x + c * (box_w + gap_x)
@@ -343,7 +409,7 @@ def render_mermaid_offline_cairo(code: str) -> bytes:
             x2, y2 = positions[dst_id]
             sx, sy = x1 + box_w / 2, y1 + box_h / 2
             dx, dy = x2 + box_w / 2, y2 + box_h / 2
-            cr.set_source_rgba(0.537, 0.706, 0.980, 0.75)
+            cr.set_source_rgba(*accent_rgb, 0.75)
             cr.move_to(sx, sy)
             cr.line_to(dx, dy)
             cr.stroke()
@@ -353,10 +419,10 @@ def render_mermaid_offline_cairo(code: str) -> bytes:
     layout.set_font_description(Pango.FontDescription.from_string("Sans Bold 10.5"))
     for nid, label in node_list:
         x, y = positions[nid]
-        cr.set_source_rgb(0.192, 0.196, 0.267)
+        cr.set_source_rgb(*node_rgb)
         cr.rectangle(x, y, box_w, box_h)
         cr.fill_preserve()
-        cr.set_source_rgb(0.537, 0.706, 0.980)
+        cr.set_source_rgb(*accent_rgb)
         cr.set_line_width(1.8)
         cr.stroke()
 
@@ -364,7 +430,7 @@ def render_mermaid_offline_cairo(code: str) -> bytes:
         _, log = layout.get_pixel_extents()
         tx = x + max(8, (box_w - log.width) / 2)
         ty = y + max(6, (box_h - log.height) / 2)
-        cr.set_source_rgb(0.804, 0.839, 0.957)
+        cr.set_source_rgb(*text_rgb)
         cr.move_to(tx, ty)
         PangoCairo.show_layout(cr, layout)
 
@@ -373,13 +439,36 @@ def render_mermaid_offline_cairo(code: str) -> bytes:
     return buf.getvalue()
 
 
-def fetch_or_render_mermaid_png(code: str) -> bytes:
-    """Render Mermaid diagram to PNG bytes instantly via cache or high-speed Cairo renderer."""
+def network_allowed() -> bool:
+    """Return True only when the user explicitly opted into network rendering.
+
+    Mermaid diagrams render locally by default. The remote renderer is a last
+    resort for diagram types the offline renderer cannot draw, and it sends the
+    diagram source to a third party, so it stays behind an explicit env opt-in.
+    """
+    return os.environ.get("SPACE_PREVIEWER_ALLOW_NETWORK", "").strip() == "1"
+
+
+def fetch_or_render_mermaid_png(code: str, cancel_event=None, dark=None) -> bytes:
+    """Render Mermaid diagram to PNG bytes instantly via cache or high-speed Cairo renderer.
+
+    ``cancel_event`` is checked before and after the mermaid.ink request so a
+    viewer teardown can discard an in-flight network response.
+    """
     cleaned = code.strip()
+    if dark is None:
+        dark = is_dark_theme()
+    theme_key = "dark" if dark else "light"
     cache_dir = os.path.expanduser("~/.cache/space-previewer/mermaid")
     os.makedirs(cache_dir, exist_ok=True)
-    digest = hashlib.sha256(cleaned.encode("utf-8")).hexdigest()[:24]
+    digest = hashlib.sha256(f"{theme_key}:{cleaned}".encode("utf-8")).hexdigest()[:24]
     cache_path = os.path.join(cache_dir, f"{digest}.png")
+
+    def cancelled() -> bool:
+        return cancel_event is not None and cancel_event.is_set()
+
+    if cancelled():
+        return b""
 
     if os.path.exists(cache_path) and os.path.getsize(cache_path) > 100:
         with open(cache_path, "rb") as f:
@@ -387,23 +476,34 @@ def fetch_or_render_mermaid_png(code: str) -> bytes:
 
     # 1. Fast local rendering via Cairo (instant ~12ms, zero network lag)
     try:
-        data = render_mermaid_offline_cairo(cleaned)
+        data = render_mermaid_offline_cairo(cleaned, dark)
         if data and data.startswith(b"\x89PNG"):
+            if cancelled():
+                return b""
             with open(cache_path, "wb") as f:
                 f.write(data)
             return data
     except Exception:
         pass
 
-    # 2. Short-timeout network attempt (max 1.5s, never block)
+    if cancelled():
+        return b""
+
+    # 2. Optional remote renderer. Disabled unless the user opted in with
+    # SPACE_PREVIEWER_ALLOW_NETWORK=1: it sends the diagram source to a third
+    # party, and the offline renderer already covers the common cases.
+    if not network_allowed():
+        return render_mermaid_offline_cairo(cleaned, dark)
+
     try:
         state = {
             "code": cleaned,
-            "mermaid": json.dumps({"theme": "dark"}),
+            "mermaid": json.dumps({"theme": theme_key}),
         }
         compressed = zlib.compress(json.dumps(state).encode("utf-8"), 9)
         pako = "pako:" + base64.urlsafe_b64encode(compressed).decode("ascii")
-        url = f"https://mermaid.ink/img/{pako}?type=png&bgColor=!1e1e2e"
+        surface = (CODE_SURFACE_DARK if dark else CODE_SURFACE_LIGHT).lstrip("#")
+        url = f"https://mermaid.ink/img/{pako}?type=png&bgColor=!{surface}"
         req = urllib.request.Request(
             url,
             headers={
@@ -412,6 +512,8 @@ def fetch_or_render_mermaid_png(code: str) -> bytes:
         )
         with urllib.request.urlopen(req, timeout=1.5) as resp:
             net_data = resp.read()
+            if cancelled():
+                return b""
             if net_data and net_data.startswith(b"\x89PNG"):
                 with open(cache_path, "wb") as f:
                     f.write(net_data)
@@ -419,7 +521,9 @@ def fetch_or_render_mermaid_png(code: str) -> bytes:
     except Exception:
         pass
 
-    return render_mermaid_offline_cairo(cleaned)
+    if cancelled():
+        return b""
+    return render_mermaid_offline_cairo(cleaned, dark)
 
 
 class MermaidDiagramCard(Gtk.Box):
@@ -436,12 +540,17 @@ class MermaidDiagramCard(Gtk.Box):
         self.zoom = 1.0
         self.start_hadj = 0.0
         self.start_vadj = 0.0
+        self._cancelled = False
+        self._cancel_event = threading.Event()
+        self._render_thread = None
+        self._copy_timeout_id = None
+        self._dark = is_dark_theme()
 
         # Header
         header = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=8)
         header.add_css_class("md-mermaid-header")
 
-        badge = Gtk.Label(label="MERMAID")
+        badge = Gtk.Label(label=_("MERMAID"))
         badge.add_css_class("md-mermaid-badge")
         header.append(badge)
 
@@ -454,27 +563,32 @@ class MermaidDiagramCard(Gtk.Box):
         # Zoom controls
         btn_zoom_out = Gtk.Button(label="−")
         btn_zoom_out.add_css_class("code-btn-small")
+        btn_zoom_out.set_tooltip_text(_("Zoom out"))
         btn_zoom_out.connect("clicked", lambda *_: self.adjust_zoom(1 / 1.2))
         header.append(btn_zoom_out)
 
         self.btn_zoom_reset = Gtk.Button(label="100%")
         self.btn_zoom_reset.add_css_class("code-btn-small")
+        self.btn_zoom_reset.set_tooltip_text(_("Reset zoom"))
         self.btn_zoom_reset.connect("clicked", lambda *_: self.set_zoom(1.0))
         header.append(self.btn_zoom_reset)
 
         btn_zoom_in = Gtk.Button(label="+")
         btn_zoom_in.add_css_class("code-btn-small")
+        btn_zoom_in.set_tooltip_text(_("Zoom in"))
         btn_zoom_in.connect("clicked", lambda *_: self.adjust_zoom(1.2))
         header.append(btn_zoom_in)
 
         # Toggle diagram vs source code
-        self.btn_source = Gtk.ToggleButton(label="Source")
+        self.btn_source = Gtk.ToggleButton(label=_("Source"))
         self.btn_source.add_css_class("code-btn-small")
+        self.btn_source.set_tooltip_text(_("Show diagram source"))
         self.btn_source.connect("toggled", self.on_toggle_source)
         header.append(self.btn_source)
 
-        btn_copy = Gtk.Button(label="Copy")
+        btn_copy = Gtk.Button(label=_("Copy"))
         btn_copy.add_css_class("code-btn-small")
+        btn_copy.set_tooltip_text(_("Copy diagram source"))
         btn_copy.connect("clicked", self.on_copy)
         header.append(btn_copy)
 
@@ -497,7 +611,7 @@ class MermaidDiagramCard(Gtk.Box):
         self.spinner = Gtk.Spinner()
         self.spinner.start()
         self.spinner_box.append(self.spinner)
-        lbl_loading = Gtk.Label(label="Rendering Mermaid diagram...")
+        lbl_loading = Gtk.Label(label=_("Rendering Mermaid diagram..."))
         lbl_loading.add_css_class("code-meta-label")
         self.spinner_box.append(lbl_loading)
         self.canvas_box.append(self.spinner_box)
@@ -548,7 +662,8 @@ class MermaidDiagramCard(Gtk.Box):
         self.stack.set_visible_child_name("diagram")
 
         # Render asynchronously in background thread
-        threading.Thread(target=self._worker_render, daemon=True).start()
+        self._render_thread = threading.Thread(target=self._worker_render, daemon=True)
+        self._render_thread.start()
 
     def on_ctrl_scroll_zoom(self, controller, dx, dy):
         """Handle Ctrl + Scroll wheel to zoom diagram in/out smoothly."""
@@ -584,12 +699,19 @@ class MermaidDiagramCard(Gtk.Box):
 
     def _worker_render(self):
         try:
-            png_bytes = fetch_or_render_mermaid_png(self.code)
+            png_bytes = fetch_or_render_mermaid_png(
+                self.code, self._cancel_event, self._dark
+            )
+            if self._cancelled or not png_bytes:
+                return
             GLib.idle_add(self._on_rendered, png_bytes)
         except Exception as e:
-            GLib.idle_add(self._on_render_error, str(e))
+            if not self._cancelled:
+                GLib.idle_add(self._on_render_error, str(e))
 
     def _on_rendered(self, png_bytes: bytes):
+        if self._cancelled:
+            return False
         self.spinner.stop()
         self.spinner_box.set_visible(False)
         try:
@@ -603,7 +725,9 @@ class MermaidDiagramCard(Gtk.Box):
             self.stack.set_visible_child_name("source")
         return False
 
-    def _on_render_error(self, err_msg: str):
+    def _on_render_error(self, _err_msg: str):
+        if self._cancelled:
+            return False
         self.spinner.stop()
         self.spinner_box.set_visible(False)
         self.stack.set_visible_child_name("source")
@@ -637,14 +761,35 @@ class MermaidDiagramCard(Gtk.Box):
         display = Gdk.Display.get_default()
         if display:
             display.get_clipboard().set(self.code)
-            btn.set_label("Copied!")
-            GLib.timeout_add(1300, lambda: (btn.set_label("Copy"), False)[1])
+            btn.set_label(_("Copied!"))
+            if self._copy_timeout_id is not None:
+                GLib.source_remove(self._copy_timeout_id)
+            self._copy_timeout_id = GLib.timeout_add(
+                1300, self._reset_copy_label, btn
+            )
+
+    def _reset_copy_label(self, btn):
+        self._copy_timeout_id = None
+        btn.set_label(_("Copy"))
+        return False
+
+    def teardown(self) -> None:
+        """Cancel an in-flight mermaid.ink request and pending timers."""
+        self._cancelled = True
+        self._cancel_event.set()
+        if self._copy_timeout_id is not None:
+            GLib.source_remove(self._copy_timeout_id)
+            self._copy_timeout_id = None
 
 
 def inline_tokens_to_pango_markup(children) -> str:
     """Convert markdown-it inline tokens into safe Pango markup."""
     if not children:
         return ""
+    dark = is_dark_theme()
+    code_surface = CODE_SURFACE_DARK if dark else CODE_SURFACE_LIGHT
+    code_text = CODE_TEXT_DARK if dark else CODE_TEXT_LIGHT
+    accent = ACCENT_DARK if dark else ACCENT_LIGHT
     parts = []
     for tok in children:
         ttype = tok.type
@@ -653,7 +798,7 @@ def inline_tokens_to_pango_markup(children) -> str:
         elif ttype == "code_inline":
             escaped = html.escape(tok.content)
             parts.append(
-                f'<span font_family="monospace" background="#313244" foreground="#f38ba8"> {escaped} </span>'
+                f'<span font_family="monospace" background="{code_surface}" foreground="{code_text}"> {escaped} </span>'
             )
         elif ttype == "strong_open":
             parts.append("<b>")
@@ -679,14 +824,20 @@ def inline_tokens_to_pango_markup(children) -> str:
         elif ttype == "hardbreak":
             parts.append("\n")
         elif ttype == "image":
-            alt = html.escape(tok.content or "image")
-            parts.append(f'<span foreground="#89b4fa">[🖼 {alt}]</span>')
+            alt = html.escape(tok.content or _("image"))
+            parts.append(
+                f'<span foreground="{accent}">'
+                + _("[image] {alt}").format(alt=alt)
+                + "</span>"
+            )
         elif ttype == "html_inline":
             raw_tag = tok.content.strip().lower()
             if raw_tag in ("<br>", "<br/>", "<br />"):
                 parts.append("\n")
             elif raw_tag == "<kbd>":
-                parts.append('<span font_family="monospace" background="#45475a" foreground="#cdd6f4"> ')
+                parts.append(
+                    f'<span font_family="monospace" background="{code_surface}" foreground="{code_text}"> '
+                )
             elif raw_tag == "</kbd>":
                 parts.append(" </span>")
             else:
@@ -706,43 +857,50 @@ class MarkdownViewer(Gtk.Box):
         self.raw_content = ""
         self.raw_viewer_loaded = False
         self.raw_viewer = None
+        self.search_state_callback = None
+        self._is_mermaid = False
+        self._size_bytes = 0
+        self._line_count = 1
+        self._word_count = 0
+        self._mermaid_cards = []
+        self._copy_timeout_ids = set()
 
-        # Top Toolbar
-        self.toolbar = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=10)
-        self.toolbar.add_css_class("code-toolbar")
-
-        self.lbl_badge = Gtk.Label(label="PREVIEW")
+        # Controls live in the window header now. They are kept parentless so
+        # the window can pack them; no per-viewer toolbar row is appended.
+        self.toolbar = None
+        self.lbl_badge = Gtk.Label(label=_("PREVIEW"))
         self.lbl_badge.add_css_class("code-lang-badge")
-        self.toolbar.append(self.lbl_badge)
 
         self.lbl_meta = Gtk.Label(label="")
         self.lbl_meta.add_css_class("code-meta-label")
         self.lbl_meta.set_halign(Gtk.Align.START)
         self.lbl_meta.set_hexpand(True)
-        self.toolbar.append(self.lbl_meta)
 
         # Mode switch buttons: Preview (default) vs Raw Code
-        mode_box = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=4)
-        self.btn_mode_preview = Gtk.ToggleButton(label="Preview")
+        self.mode_box = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=4)
+        self.mode_box.add_css_class("linked")
+        self.btn_mode_preview = Gtk.ToggleButton(label=_("Preview"))
         self.btn_mode_preview.add_css_class("code-btn-small")
+        self.btn_mode_preview.set_tooltip_text(_("Show rendered preview"))
         self.btn_mode_preview.set_active(True)
 
-        self.btn_mode_raw = Gtk.ToggleButton(label="Raw Code")
+        self.btn_mode_raw = Gtk.ToggleButton(label=_("Raw Code"))
         self.btn_mode_raw.add_css_class("code-btn-small")
+        self.btn_mode_raw.set_tooltip_text(_("Show raw source"))
         self.btn_mode_raw.set_group(self.btn_mode_preview)
 
         self.btn_mode_preview.connect("toggled", self.on_mode_toggled)
-        mode_box.append(self.btn_mode_preview)
-        mode_box.append(self.btn_mode_raw)
-        self.toolbar.append(mode_box)
+        self.mode_box.append(self.btn_mode_preview)
+        self.mode_box.append(self.btn_mode_raw)
 
         # Copy button
-        self.btn_copy = Gtk.Button(label="Copy")
+        self.btn_copy = Gtk.Button.new_from_icon_name("edit-copy-symbolic")
         self.btn_copy.add_css_class("code-btn-small")
+        self.btn_copy.set_tooltip_text(_("Copy source"))
+        self.btn_copy.update_property(
+            [Gtk.AccessibleProperty.LABEL], [_("Copy source")]
+        )
         self.btn_copy.connect("clicked", self.on_copy_clicked)
-        self.toolbar.append(self.btn_copy)
-
-        self.append(self.toolbar)
 
         # Stack: "preview" (default) vs "raw"
         self.stack = Gtk.Stack()
@@ -785,22 +943,36 @@ class MarkdownViewer(Gtk.Box):
 
             ext = os.path.splitext(self.file_path)[1].lower()
             is_standalone_mermaid = ext in (".mmd", ".mermaid") or is_mermaid_content(self.raw_content)
+            self._is_mermaid = is_standalone_mermaid
+            self._size_bytes = size
+            self._line_count = self.raw_content.count("\n") + 1
+            self._word_count = len(re.findall(r"\S+", self.raw_content))
 
             if is_standalone_mermaid:
-                self.lbl_badge.set_text("MERMAID PREVIEW")
-                lines = self.raw_content.count("\n") + 1
+                self.lbl_badge.set_text("MERMAID")
+                lines_text = ngettext(
+                    "{count} line", "{count} lines", self._line_count
+                ).format(count=f"{self._line_count:,}")
                 self.lbl_meta.set_text(
-                    f"{detect_mermaid_diagram_type(self.raw_content)}  •  {lines:,} lines  •  {format_size(size)}"
+                    _("{diagram}  •  {lines}  •  {size}").format(
+                        diagram=detect_mermaid_diagram_type(self.raw_content),
+                        lines=lines_text,
+                        size=format_size(size),
+                    )
                 )
-                self.doc_box.append(MermaidDiagramCard(self.raw_content))
+                card = MermaidDiagramCard(self.raw_content)
+                self._mermaid_cards.append(card)
+                self.doc_box.append(card)
             else:
-                self.lbl_badge.set_text("MARKDOWN PREVIEW")
+                self.lbl_badge.set_text("MARKDOWN")
                 self._render_markdown(self.raw_content, size)
 
             self.stack.set_visible_child_name("preview")
 
         except Exception as e:
-            err = Gtk.Label(label=f"Could not render preview:\n{e}")
+            err = Gtk.Label(
+                label=_("Could not render preview:\n{error}").format(error=e)
+            )
             self.doc_box.append(err)
 
     def _render_markdown(self, content: str, size: int):
@@ -867,7 +1039,9 @@ class MarkdownViewer(Gtk.Box):
                 code_text = tok.content.rstrip("\n")
                 if info in ("mermaid", "mmd") or is_mermaid_content(code_text):
                     mermaid_count += 1
-                    self.doc_box.append(MermaidDiagramCard(code_text))
+                    card = MermaidDiagramCard(code_text)
+                    self._mermaid_cards.append(card)
+                    self.doc_box.append(card)
                 else:
                     code_count += 1
                     self.doc_box.append(self._create_code_block_card(code_text, info))
@@ -909,14 +1083,34 @@ class MarkdownViewer(Gtk.Box):
             i += 1
 
         lines = content.count("\n") + 1
-        meta_parts = [f"{lines:,} lines"]
+        meta_parts = [
+            ngettext("{count} line", "{count} lines", lines).format(
+                count=f"{lines:,}"
+            )
+        ]
         if heading_count:
-            meta_parts.append(f"{heading_count} sections")
+            meta_parts.append(
+                ngettext("{count} section", "{count} sections", heading_count).format(
+                    count=heading_count
+                )
+            )
         if mermaid_count:
-            meta_parts.append(f"{mermaid_count} Mermaid diagram{'s' if mermaid_count > 1 else ''}")
+            meta_parts.append(
+                ngettext(
+                    "{count} Mermaid diagram",
+                    "{count} Mermaid diagrams",
+                    mermaid_count,
+                ).format(count=mermaid_count)
+            )
         if code_count:
-            meta_parts.append(f"{code_count} code block{'s' if code_count > 1 else ''}")
+            meta_parts.append(
+                ngettext("{count} code block", "{count} code blocks", code_count).format(
+                    count=code_count
+                )
+            )
         meta_parts.append(format_size(size))
+        self._line_count = lines
+        self._word_count = len(re.findall(r"\S+", content))
         self.lbl_meta.set_text("  •  ".join(meta_parts))
 
     def _find_matching_close(self, tokens, start_idx: int, open_type: str, close_type: str) -> int:
@@ -961,7 +1155,7 @@ class MarkdownViewer(Gtk.Box):
         header = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=8)
         header.add_css_class("md-code-card-header")
 
-        lbl_lang = Gtk.Label(label=(lang_info or "code").upper())
+        lbl_lang = Gtk.Label(label=(lang_info or "").upper() or _("CODE"))
         lbl_lang.add_css_class("code-lang-badge")
         header.append(lbl_lang)
 
@@ -969,15 +1163,15 @@ class MarkdownViewer(Gtk.Box):
         spacer.set_hexpand(True)
         header.append(spacer)
 
-        btn_copy = Gtk.Button(label="Copy")
+        btn_copy = Gtk.Button(label=_("Copy"))
         btn_copy.add_css_class("code-btn-small")
+        btn_copy.set_tooltip_text(_("Copy code block"))
 
         def _copy_block(_btn):
             display = Gdk.Display.get_default()
             if display:
                 display.get_clipboard().set(code_text)
-                btn_copy.set_label("Copied!")
-                GLib.timeout_add(1300, lambda: (btn_copy.set_label("Copy"), False)[1])
+                self._flash_copied(btn_copy)
 
         btn_copy.connect("clicked", _copy_block)
         header.append(btn_copy)
@@ -1011,12 +1205,25 @@ class MarkdownViewer(Gtk.Box):
                 inline_markups.append(inline_tokens_to_pango_markup(t.children))
 
         full_markup = "\n".join(inline_markups).strip()
+        alert_colors = _alert_palette(is_dark_theme())
         alert_map = {
-            "[!NOTE]": ("md-alert-note", "#89b4fa", "ℹ  NOTE"),
-            "[!TIP]": ("md-alert-tip", "#a6e3a1", "💡  TIP"),
-            "[!IMPORTANT]": ("md-alert-important", "#cba6f7", "❗  IMPORTANT"),
-            "[!WARNING]": ("md-alert-warning", "#f9e2af", "⚠  WARNING"),
-            "[!CAUTION]": ("md-alert-caution", "#f38ba8", "🛑  CAUTION"),
+            "[!NOTE]": ("md-alert-note", alert_colors["note"], _("NOTE")),
+            "[!TIP]": ("md-alert-tip", alert_colors["tip"], _("TIP")),
+            "[!IMPORTANT]": (
+                "md-alert-important",
+                alert_colors["important"],
+                _("IMPORTANT"),
+            ),
+            "[!WARNING]": (
+                "md-alert-warning",
+                alert_colors["warning"],
+                _("WARNING"),
+            ),
+            "[!CAUTION]": (
+                "md-alert-caution",
+                alert_colors["caution"],
+                _("CAUTION"),
+            ),
         }
 
         matched_alert = None
@@ -1042,6 +1249,10 @@ class MarkdownViewer(Gtk.Box):
 
     def _build_list_widget(self, inner_tokens, is_ordered: bool, depth: int = 0) -> Gtk.Widget:
         list_box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=6)
+        dark = is_dark_theme()
+        accent = ACCENT_DARK if dark else ACCENT_LIGHT
+        muted = "#8B949E" if dark else "#6B7280"
+        green = "#7FB89A" if dark else "#3F7A5A"
         list_box.set_margin_start(8 if depth == 0 else 20)
         if depth > 0:
             list_box.set_margin_top(4)
@@ -1092,15 +1303,15 @@ class MarkdownViewer(Gtk.Box):
 
                 bullet_char = "•" if depth == 0 else "◦"
                 bullet_markup = (
-                    f'<span foreground="#89b4fa" weight="bold">{item_idx}.</span>'
+                    f'<span foreground="{accent}" weight="bold">{item_idx}.</span>'
                     if is_ordered
-                    else f'<span foreground="#89b4fa" weight="bold">{bullet_char}</span>'
+                    else f'<span foreground="{accent}" weight="bold">{bullet_char}</span>'
                 )
                 if body_markup.startswith("[x] ") or body_markup.startswith("[X] "):
-                    bullet_markup = '<span foreground="#a6e3a1" weight="bold">☑</span>'
+                    bullet_markup = f'<span foreground="{green}" weight="bold">[x]</span>'
                     body_markup = body_markup[4:]
                 elif body_markup.startswith("[ ] "):
-                    bullet_markup = '<span foreground="#9399b2" weight="bold">☐</span>'
+                    bullet_markup = f'<span foreground="{muted}" weight="bold">[ ]</span>'
                     body_markup = body_markup[4:]
 
                 lbl_bullet = self._create_markup_label(bullet_markup, wrap=False)
@@ -1240,24 +1451,40 @@ class MarkdownViewer(Gtk.Box):
             except Exception:
                 pass
 
+    def _ensure_raw_viewer(self):
+        if not self.raw_viewer_loaded:
+            self.raw_viewer = TextViewer(
+                self.file_path, raw_content=self.raw_content, show_toolbar=False
+            )
+            if self.search_state_callback is not None:
+                self.raw_viewer.set_search_state_callback(self.search_state_callback)
+            self.raw_container.append(self.raw_viewer)
+            self.raw_viewer_loaded = True
+
     def on_mode_toggled(self, btn):
         if self.btn_mode_preview.get_active():
             self.stack.set_visible_child_name("preview")
         else:
-            if not self.raw_viewer_loaded:
-                self.raw_viewer = TextViewer(
-                    self.file_path, raw_content=self.raw_content, show_toolbar=False
-                )
-                self.raw_container.append(self.raw_viewer)
-                self.raw_viewer_loaded = True
+            self._ensure_raw_viewer()
             self.stack.set_visible_child_name("raw")
+
+    def _flash_copied(self, btn):
+        btn.set_label(_("Copied!"))
+        holder = {}
+
+        def reset():
+            self._copy_timeout_ids.discard(holder["id"])
+            btn.set_label(_("Copy"))
+            return False
+
+        holder["id"] = GLib.timeout_add(1300, reset)
+        self._copy_timeout_ids.add(holder["id"])
 
     def on_copy_clicked(self, btn):
         display = Gdk.Display.get_default()
         if display and self.raw_content:
             display.get_clipboard().set(self.raw_content)
-            btn.set_label("Copied!")
-            GLib.timeout_add(1400, lambda: (btn.set_label("Copy"), False)[1])
+            self._flash_copied(btn)
 
     def toggle_search(self):
         if not self.raw_viewer_loaded or self.stack.get_visible_child_name() != "raw":
@@ -1273,6 +1500,41 @@ class MarkdownViewer(Gtk.Box):
         if self.raw_viewer:
             return self.raw_viewer.is_search_open()
         return False
+
+    def set_search_state_callback(self, callback) -> None:
+        self.search_state_callback = callback
+        if self.raw_viewer is not None:
+            self.raw_viewer.set_search_state_callback(callback)
+
+    def get_header_controls(self) -> list:
+        """Return the linked Preview/Raw toggle and Copy, highest priority first."""
+        return [self.mode_box, self.btn_copy]
+
+    def get_status_items(self) -> list[tuple[str, str]]:
+        words_text = ngettext(
+            "{count} word", "{count} words", self._word_count
+        ).format(count=f"{self._word_count:,}")
+        return [
+            (_("Size"), format_size(self._size_bytes)),
+            (_("Words"), words_text),
+            (_("Encoding"), "UTF-8"),
+        ]
+
+    def get_search_widget(self):
+        """Return the raw viewer's search box for the window overlay."""
+        self._ensure_raw_viewer()
+        return self.raw_viewer.get_search_widget() if self.raw_viewer else None
+
+    def teardown(self) -> None:
+        """Cancel mermaid renders and timers owned by this viewer."""
+        for card in self._mermaid_cards:
+            card.teardown()
+        self._mermaid_cards.clear()
+        if self.raw_viewer is not None:
+            self.raw_viewer.teardown()
+        for source_id in list(self._copy_timeout_ids):
+            GLib.source_remove(source_id)
+        self._copy_timeout_ids.clear()
 
     def get_desired_size(self, screen_w: int, screen_h: int):
         target_w = min(1180, int(screen_w * 0.85))

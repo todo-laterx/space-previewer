@@ -1,3 +1,6 @@
-# Syntax highlighting and Markdown/Mermaid preview rendering
+# Python-only dependencies for running from a source checkout without distro
+# packages. System GI packages (GTK4, Libadwaita, Pango, GdkPixbuf, Poppler,
+# WebKit, python3-gi, python3-cairo) are documented per distro in README.md;
+# installers must use the distro package manager for those, never pip.
 pygments>=2.15.0
 markdown-it-py>=3.0.0

@@ -30,6 +30,10 @@ venv/
 .venv/
 ENV/
 
+# Generated translations and preview caches
+locale/
+*.mo
+
 # IDE & Editor
 .idea/
 .vscode/

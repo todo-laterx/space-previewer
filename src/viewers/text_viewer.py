@@ -1,11 +1,13 @@
 import os
 import re
 import json
+import logging
 import gi
 gi.require_version('Gtk', '4.0')
 gi.require_version('Gdk', '4.0')
 gi.require_version('PangoCairo', '1.0')
-from gi.repository import Gtk, Gdk, GLib, Pango, PangoCairo
+gi.require_version('Adw', '1')
+from gi.repository import Gtk, Gdk, GLib, Pango, PangoCairo, Adw
 
 try:
     import pygments
@@ -16,19 +18,34 @@ except ImportError:
     HAS_PYGMENTS = False
 
 from utils.formatters import format_size
+from utils.i18n import _, ngettext
 
 _CSS_INSTALLED = False
+_CSS_PROVIDER = None
+_DARK_HANDLER_CONNECTED = False
+
+# One accent, one dedicated code surface and its text colour (light / dark).
+ACCENT_LIGHT = "#4C8DFF"
+ACCENT_DARK = "#6EA8FF"
+CODE_SURFACE_LIGHT = "#F6F6F7"
+CODE_SURFACE_DARK = "#1C1C1E"
+CODE_TEXT_LIGHT = "#1F2328"
+CODE_TEXT_DARK = "#E6E6E6"
 
 CODE_VIEWER_CSS = """
+@define-color sp_accent %(accent)s;
+@define-color sp_code_surface %(code_surface)s;
+@define-color sp_code_text %(code_text)s;
+
 .code-toolbar {
-    background-color: rgba(24, 24, 37, 0.92);
-    border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+    background-color: @headerbar_bg_color;
+    border-bottom: 1px solid @borders;
     padding: 8px 16px;
 }
 .code-lang-badge {
-    background-color: rgba(137, 180, 250, 0.16);
-    color: #89b4fa;
-    border: 1px solid rgba(137, 180, 250, 0.32);
+    background-color: alpha(@sp_accent, 0.14);
+    color: @sp_accent;
+    border: 1px solid alpha(@sp_accent, 0.32);
     border-radius: 6px;
     padding: 3px 10px;
     font-weight: 700;
@@ -36,37 +53,45 @@ CODE_VIEWER_CSS = """
     letter-spacing: 0.6px;
 }
 .code-meta-label {
-    color: rgba(205, 214, 244, 0.65);
+    color: alpha(@window_fg_color, 0.65);
     font-size: 12px;
 }
 .code-view-surface {
-    background-color: #1e1e2e;
-    color: #cdd6f4;
-    font-family: "JetBrains Mono", "Fira Code", "Ubuntu Mono", monospace;
+    background-color: @sp_code_surface;
+    color: @sp_code_text;
+    font-family: "Adwaita Mono", "JetBrains Mono", "Source Code Pro", monospace;
     font-size: 13px;
 }
 .code-view-surface text {
-    background-color: #1e1e2e;
-    color: #cdd6f4;
+    background-color: @sp_code_surface;
+    color: @sp_code_text;
 }
 .code-gutter {
-    background-color: #181825;
-    border-right: 1px solid rgba(255, 255, 255, 0.06);
+    background-color: @sp_code_surface;
+    border-right: 1px solid @borders;
 }
 .code-btn-small {
     padding: 3px 10px;
     min-height: 26px;
     font-size: 12px;
     border-radius: 6px;
+    transition: background-color 100ms ease-out, color 100ms ease-out;
+}
+.code-btn-small:active {
+    transform: scale(0.98);
+}
+.code-btn-small:focus {
+    outline-color: @sp_accent;
 }
 .code-search-bar {
-    background-color: #181825;
-    border-bottom: 1px solid rgba(255, 255, 255, 0.08);
-    padding: 6px 14px;
+    background-color: @view_bg_color;
+    border: 1px solid @borders;
+    border-radius: 10px;
+    padding: 6px 10px;
 }
 .search-count-label {
     font-size: 12px;
-    color: rgba(205, 214, 244, 0.70);
+    color: alpha(@window_fg_color, 0.70);
     margin: 0 4px;
 }
 .search-entry-flat {
@@ -76,63 +101,120 @@ CODE_VIEWER_CSS = """
 """
 
 
+def is_dark_theme() -> bool:
+    """Return whether the system currently prefers a dark colour scheme."""
+    try:
+        manager = Adw.StyleManager.get_default()
+        return bool(manager and manager.get_dark())
+    except Exception:
+        return False
+
+
+def hex_to_rgb(value: str) -> tuple[float, float, float]:
+    """Convert ``#RRGGBB`` to floats in the 0..1 range used by Cairo."""
+    raw = value.lstrip("#")
+    return tuple(int(raw[i:i + 2], 16) / 255.0 for i in (0, 2, 4))
+
+
+def _code_palette(dark: bool) -> dict:
+    return {
+        "accent": ACCENT_DARK if dark else ACCENT_LIGHT,
+        "code_surface": CODE_SURFACE_DARK if dark else CODE_SURFACE_LIGHT,
+        "code_text": CODE_TEXT_DARK if dark else CODE_TEXT_LIGHT,
+        "muted": "#8B949E" if dark else "#6B7280",
+        "green": "#7FB89A" if dark else "#3F7A5A",
+        "red": "#D08989" if dark else "#A34A4A",
+    }
+
+
+def _render_code_viewer_css(dark: bool) -> str:
+    palette = _code_palette(dark)
+    return CODE_VIEWER_CSS % {
+        "accent": palette["accent"],
+        "code_surface": palette["code_surface"],
+        "code_text": palette["code_text"],
+    }
+
+
+def _reload_code_viewer_css(*_args) -> None:
+    if _CSS_PROVIDER is not None:
+        _CSS_PROVIDER.load_from_data(
+            _render_code_viewer_css(is_dark_theme()).encode("utf-8")
+        )
+
+
 def ensure_code_viewer_css():
-    global _CSS_INSTALLED
+    global _CSS_INSTALLED, _CSS_PROVIDER, _DARK_HANDLER_CONNECTED
     if _CSS_INSTALLED:
         return
     display = Gdk.Display.get_default()
     if display is None:
         return
-    provider = Gtk.CssProvider()
-    provider.load_from_data(CODE_VIEWER_CSS.encode("utf-8"))
-    Gtk.StyleContext.add_provider_for_display(
-        display, provider, Gtk.STYLE_PROVIDER_PRIORITY_APPLICATION
+    if _CSS_PROVIDER is None:
+        _CSS_PROVIDER = Gtk.CssProvider()
+        Gtk.StyleContext.add_provider_for_display(
+            display, _CSS_PROVIDER, Gtk.STYLE_PROVIDER_PRIORITY_APPLICATION
+        )
+    _CSS_PROVIDER.load_from_data(
+        _render_code_viewer_css(is_dark_theme()).encode("utf-8")
     )
+    if not _DARK_HANDLER_CONNECTED:
+        manager = Adw.StyleManager.get_default()
+        if manager is not None:
+            manager.connect("notify::dark", _reload_code_viewer_css)
+            _DARK_HANDLER_CONNECTED = True
     _CSS_INSTALLED = True
 
 
-# Rich Catppuccin Mocha / One Dark syntax palette
-SYNTAX_TAG_COLORS = {
-    Token.Keyword: ("#cba6f7", Pango.Weight.BOLD, Pango.Style.NORMAL),
-    Token.Keyword.Constant: ("#fab387", Pango.Weight.BOLD, Pango.Style.NORMAL),
-    Token.Keyword.Declaration: ("#cba6f7", Pango.Weight.BOLD, Pango.Style.NORMAL),
-    Token.Keyword.Namespace: ("#f38ba8", Pango.Weight.BOLD, Pango.Style.NORMAL),
-    Token.Keyword.Type: ("#f9e2af", Pango.Weight.BOLD, Pango.Style.NORMAL),
-    Token.Name: ("#cdd6f4", Pango.Weight.NORMAL, Pango.Style.NORMAL),
-    Token.Name.Builtin: ("#f38ba8", Pango.Weight.NORMAL, Pango.Style.NORMAL),
-    Token.Name.Builtin.Pseudo: ("#f38ba8", Pango.Weight.NORMAL, Pango.Style.ITALIC),
-    Token.Name.Function: ("#89b4fa", Pango.Weight.BOLD, Pango.Style.NORMAL),
-    Token.Name.Function.Magic: ("#94e2d5", Pango.Weight.BOLD, Pango.Style.NORMAL),
-    Token.Name.Class: ("#f9e2af", Pango.Weight.BOLD, Pango.Style.NORMAL),
-    Token.Name.Decorator: ("#fab387", Pango.Weight.BOLD, Pango.Style.ITALIC),
-    Token.Name.Tag: ("#89b4fa", Pango.Weight.BOLD, Pango.Style.NORMAL),
-    Token.Name.Attribute: ("#f9e2af", Pango.Weight.NORMAL, Pango.Style.ITALIC),
-    Token.Name.Constant: ("#fab387", Pango.Weight.NORMAL, Pango.Style.NORMAL),
-    Token.Name.Exception: ("#eba0ac", Pango.Weight.BOLD, Pango.Style.NORMAL),
-    Token.Name.Variable: ("#cdd6f4", Pango.Weight.NORMAL, Pango.Style.NORMAL),
-    Token.Literal.String: ("#a6e3a1", Pango.Weight.NORMAL, Pango.Style.NORMAL),
-    Token.Literal.String.Doc: ("#94e2d5", Pango.Weight.NORMAL, Pango.Style.ITALIC),
-    Token.Literal.String.Escape: ("#f2cdcd", Pango.Weight.BOLD, Pango.Style.NORMAL),
-    Token.Literal.String.Interpol: ("#fab387", Pango.Weight.NORMAL, Pango.Style.NORMAL),
-    Token.Literal.Number: ("#fab387", Pango.Weight.NORMAL, Pango.Style.NORMAL),
-    Token.Operator: ("#89dceb", Pango.Weight.NORMAL, Pango.Style.NORMAL),
-    Token.Operator.Word: ("#cba6f7", Pango.Weight.BOLD, Pango.Style.NORMAL),
-    Token.Punctuation: ("#9399b2", Pango.Weight.NORMAL, Pango.Style.NORMAL),
-    Token.Comment: ("#6c7086", Pango.Weight.NORMAL, Pango.Style.ITALIC),
-    Token.Generic.Heading: ("#89b4fa", Pango.Weight.BOLD, Pango.Style.NORMAL),
-    Token.Generic.Subheading: ("#74c7ec", Pango.Weight.BOLD, Pango.Style.NORMAL),
-    Token.Generic.Inserted: ("#a6e3a1", Pango.Weight.NORMAL, Pango.Style.NORMAL),
-    Token.Generic.Deleted: ("#f38ba8", Pango.Weight.NORMAL, Pango.Style.NORMAL),
-    Token.Generic.Emph: ("#cdd6f4", Pango.Weight.NORMAL, Pango.Style.ITALIC),
-    Token.Generic.Strong: ("#cdd6f4", Pango.Weight.BOLD, Pango.Style.NORMAL),
-}
+def syntax_tag_colors(dark: bool) -> dict:
+    """Return a desaturated syntax palette: one blue, grey, diff-only colour."""
+    palette = _code_palette(dark)
+    accent = palette["accent"]
+    text = palette["code_text"]
+    muted = palette["muted"]
+    green = palette["green"]
+    red = palette["red"]
+    return {
+        Token.Keyword: (accent, Pango.Weight.BOLD, Pango.Style.NORMAL),
+        Token.Keyword.Constant: (accent, Pango.Weight.BOLD, Pango.Style.NORMAL),
+        Token.Keyword.Declaration: (accent, Pango.Weight.BOLD, Pango.Style.NORMAL),
+        Token.Keyword.Namespace: (accent, Pango.Weight.BOLD, Pango.Style.NORMAL),
+        Token.Keyword.Type: (accent, Pango.Weight.BOLD, Pango.Style.NORMAL),
+        Token.Name: (text, Pango.Weight.NORMAL, Pango.Style.NORMAL),
+        Token.Name.Builtin: (text, Pango.Weight.NORMAL, Pango.Style.NORMAL),
+        Token.Name.Builtin.Pseudo: (text, Pango.Weight.NORMAL, Pango.Style.ITALIC),
+        Token.Name.Function: (accent, Pango.Weight.BOLD, Pango.Style.NORMAL),
+        Token.Name.Function.Magic: (accent, Pango.Weight.BOLD, Pango.Style.NORMAL),
+        Token.Name.Class: (accent, Pango.Weight.BOLD, Pango.Style.NORMAL),
+        Token.Name.Decorator: (muted, Pango.Weight.BOLD, Pango.Style.ITALIC),
+        Token.Name.Tag: (accent, Pango.Weight.BOLD, Pango.Style.NORMAL),
+        Token.Name.Attribute: (text, Pango.Weight.NORMAL, Pango.Style.ITALIC),
+        Token.Name.Constant: (text, Pango.Weight.NORMAL, Pango.Style.NORMAL),
+        Token.Name.Exception: (text, Pango.Weight.BOLD, Pango.Style.NORMAL),
+        Token.Name.Variable: (text, Pango.Weight.NORMAL, Pango.Style.NORMAL),
+        Token.Literal.String: (text, Pango.Weight.NORMAL, Pango.Style.NORMAL),
+        Token.Literal.String.Doc: (muted, Pango.Weight.NORMAL, Pango.Style.ITALIC),
+        Token.Literal.String.Escape: (muted, Pango.Weight.BOLD, Pango.Style.NORMAL),
+        Token.Literal.String.Interpol: (accent, Pango.Weight.NORMAL, Pango.Style.NORMAL),
+        Token.Literal.Number: (text, Pango.Weight.NORMAL, Pango.Style.NORMAL),
+        Token.Operator: (muted, Pango.Weight.NORMAL, Pango.Style.NORMAL),
+        Token.Operator.Word: (accent, Pango.Weight.BOLD, Pango.Style.NORMAL),
+        Token.Punctuation: (muted, Pango.Weight.NORMAL, Pango.Style.NORMAL),
+        Token.Comment: (muted, Pango.Weight.NORMAL, Pango.Style.ITALIC),
+        Token.Generic.Heading: (accent, Pango.Weight.BOLD, Pango.Style.NORMAL),
+        Token.Generic.Subheading: (accent, Pango.Weight.BOLD, Pango.Style.NORMAL),
+        Token.Generic.Inserted: (green, Pango.Weight.NORMAL, Pango.Style.NORMAL),
+        Token.Generic.Deleted: (red, Pango.Weight.NORMAL, Pango.Style.NORMAL),
+        Token.Generic.Emph: (text, Pango.Weight.NORMAL, Pango.Style.ITALIC),
+        Token.Generic.Strong: (text, Pango.Weight.BOLD, Pango.Style.NORMAL),
+    }
 
 
 def detect_lexer_and_label(file_path: str = None, content: str = "", lang_hint: str = None):
     """Detect Pygments lexer and a human-readable language badge name."""
     if not HAS_PYGMENTS:
         ext = os.path.splitext(file_path or "")[1].lstrip(".").upper()
-        return None, (lang_hint or ext or "TEXT").upper()
+        return None, (lang_hint or ext or "").upper() or _("TEXT")
 
     lexer = None
     if lang_hint:
@@ -187,12 +269,12 @@ def detect_lexer_and_label(file_path: str = None, content: str = "", lang_hint: 
         try:
             lexer = lexers.get_lexer_by_name("text")
         except Exception:
-            return None, "TEXT"
+            return None, _("TEXT")
 
     name = getattr(lexer, "name", "Text")
     if name.lower() in ("text only", "plaintext", "text"):
         ext = os.path.splitext(file_path or "")[1].lstrip(".").upper()
-        label = (lang_hint or ext or "TEXT").upper()
+        label = (lang_hint or ext or "").upper() or _("TEXT")
     else:
         label = name.upper()
     return lexer, label
@@ -213,16 +295,16 @@ def highlight_buffer_with_pygments(
         return label
 
     tag_table = buffer.get_tag_table()
-    for tok_type, (color, weight, style) in SYNTAX_TAG_COLORS.items():
+    palette = syntax_tag_colors(is_dark_theme())
+    for tok_type, (color, weight, style) in palette.items():
         tag_name = str(tok_type)
-        if not tag_table.lookup(tag_name):
+        tag = tag_table.lookup(tag_name)
+        if tag is None:
             tag = Gtk.TextTag.new(tag_name)
-            tag.set_property("foreground", color)
-            if weight != Pango.Weight.NORMAL:
-                tag.set_property("weight", weight)
-            if style != Pango.Style.NORMAL:
-                tag.set_property("style", style)
             tag_table.add(tag)
+        tag.set_property("foreground", color)
+        tag.set_property("weight", weight)
+        tag.set_property("style", style)
 
     buffer.set_text("")
     tokens = pygments.lex(content, lexer)
@@ -234,7 +316,7 @@ def highlight_buffer_with_pygments(
         matched_tag = None
         cur_type = tok_type
         while cur_type:
-            if cur_type in SYNTAX_TAG_COLORS:
+            if cur_type in palette:
                 matched_tag = str(cur_type)
                 break
             cur_type = cur_type.parent
@@ -260,66 +342,77 @@ class TextViewer(Gtk.Box):
         self.search_matches = []
         self.current_match_idx = -1
 
-        # Top Code Preview Toolbar
+        self._size_bytes = 0
+        self._word_count = 0
+        self._copy_timeout_id = None
+        self._search_open = False
+        self.search_state_callback = None
+
+        # Controls live in the window header now. The widgets are kept as
+        # parentless controls so the window can pack them in its header; no
+        # per-viewer toolbar row is appended to this widget.
+        self.toolbar = None
+        self.lbl_lang = Gtk.Label(label=_("CODE"))
+        self.lbl_lang.add_css_class("code-lang-badge")
+        self.lbl_stats = Gtk.Label(label="")
+        self.lbl_stats.add_css_class("code-meta-label")
+        self.lbl_stats.set_halign(Gtk.Align.START)
+        self.lbl_stats.set_hexpand(True)
+
         if show_toolbar:
-            self.toolbar = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=10)
-            self.toolbar.add_css_class("code-toolbar")
-
-            self.lbl_lang = Gtk.Label(label="CODE")
-            self.lbl_lang.add_css_class("code-lang-badge")
-            self.toolbar.append(self.lbl_lang)
-
-            self.lbl_stats = Gtk.Label(label="")
-            self.lbl_stats.add_css_class("code-meta-label")
-            self.lbl_stats.set_halign(Gtk.Align.START)
-            self.lbl_stats.set_hexpand(True)
-            self.toolbar.append(self.lbl_stats)
-
             # Optional JSON Pretty-Print toggle button
-            self.btn_json_pretty = Gtk.ToggleButton(label="Pretty JSON")
+            self.btn_json_pretty = Gtk.ToggleButton(label="{}")
             self.btn_json_pretty.add_css_class("code-btn-small")
+            self.btn_json_pretty.set_tooltip_text(_("Pretty-print JSON"))
+            self.btn_json_pretty.update_property(
+                [Gtk.AccessibleProperty.LABEL], [_("Pretty-print JSON")]
+            )
             self.btn_json_pretty.set_active(True)
             self.btn_json_pretty.set_visible(False)
             self.btn_json_pretty.connect("toggled", self.on_json_pretty_toggled)
-            self.toolbar.append(self.btn_json_pretty)
 
             # Word Wrap toggle button
-            self.btn_wrap = Gtk.ToggleButton(label="Wrap")
+            self.btn_wrap = Gtk.ToggleButton()
+            self.btn_wrap.set_icon_name("format-justify-fill-symbolic")
             self.btn_wrap.add_css_class("code-btn-small")
+            self.btn_wrap.set_tooltip_text(_("Toggle word wrap"))
+            self.btn_wrap.update_property(
+                [Gtk.AccessibleProperty.LABEL], [_("Toggle word wrap")]
+            )
             self.btn_wrap.set_active(True)
             self.btn_wrap.connect("toggled", self.on_wrap_toggled)
-            self.toolbar.append(self.btn_wrap)
 
             # Find in Code button
-            self.btn_find = Gtk.Button(label="Find")
+            self.btn_find = Gtk.Button.new_from_icon_name("edit-find-symbolic")
             self.btn_find.add_css_class("code-btn-small")
-            self.btn_find.set_tooltip_text("Find in code (Ctrl+F)")
+            self.btn_find.set_tooltip_text(_("Find in code (Ctrl+F)"))
+            self.btn_find.update_property(
+                [Gtk.AccessibleProperty.LABEL], [_("Find in code")]
+            )
             self.btn_find.connect("clicked", lambda *_: self.toggle_search())
-            self.toolbar.append(self.btn_find)
 
             # Copy Code button
-            self.btn_copy = Gtk.Button(label="Copy")
+            self.btn_copy = Gtk.Button.new_from_icon_name("edit-copy-symbolic")
             self.btn_copy.add_css_class("code-btn-small")
+            self.btn_copy.set_tooltip_text(_("Copy code"))
+            self.btn_copy.update_property(
+                [Gtk.AccessibleProperty.LABEL], [_("Copy code")]
+            )
             self.btn_copy.connect("clicked", self.on_copy_clicked)
-            self.toolbar.append(self.btn_copy)
-
-            self.append(self.toolbar)
         else:
-            self.lbl_lang = None
-            self.lbl_stats = None
             self.btn_json_pretty = None
+            self.btn_wrap = None
+            self.btn_find = None
+            self.btn_copy = None
 
-        # Integrated In-File Search Bar (Ctrl+F)
-        self.search_revealer = Gtk.Revealer()
-        self.search_revealer.set_transition_type(Gtk.RevealerTransitionType.SLIDE_DOWN)
-        self.search_revealer.set_reveal_child(False)
-
+        # In-file search (Ctrl+F). The window hosts this box in a
+        # non-grabbing overlay; it is intentionally not appended here.
         self.search_box = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=8)
         self.search_box.add_css_class("code-search-bar")
 
         self.search_entry = Gtk.SearchEntry()
         self.search_entry.add_css_class("search-entry-flat")
-        self.search_entry.set_placeholder_text("Find in code... (Enter to find next)")
+        self.search_entry.set_placeholder_text(_("Find in code... (Enter to find next)"))
         self.search_entry.set_hexpand(False)
         self.search_box.append(self.search_entry)
 
@@ -329,19 +422,19 @@ class TextViewer(Gtk.Box):
 
         self.btn_search_prev = Gtk.Button.new_from_icon_name("go-up-symbolic")
         self.btn_search_prev.add_css_class("code-btn-small")
-        self.btn_search_prev.set_tooltip_text("Previous match (Shift+Enter)")
+        self.btn_search_prev.set_tooltip_text(_("Previous match (Shift+Enter)"))
         self.btn_search_prev.connect("clicked", lambda *_: self.on_find_prev())
         self.search_box.append(self.btn_search_prev)
 
         self.btn_search_next = Gtk.Button.new_from_icon_name("go-down-symbolic")
         self.btn_search_next.add_css_class("code-btn-small")
-        self.btn_search_next.set_tooltip_text("Next match (Enter)")
+        self.btn_search_next.set_tooltip_text(_("Next match (Enter)"))
         self.btn_search_next.connect("clicked", lambda *_: self.on_find_next())
         self.search_box.append(self.btn_search_next)
 
         self.btn_search_case = Gtk.ToggleButton(label="Aa")
         self.btn_search_case.add_css_class("code-btn-small")
-        self.btn_search_case.set_tooltip_text("Match Case")
+        self.btn_search_case.set_tooltip_text(_("Match Case"))
         self.btn_search_case.connect("toggled", lambda *_: self.on_search_query_changed())
         self.search_box.append(self.btn_search_case)
 
@@ -351,12 +444,9 @@ class TextViewer(Gtk.Box):
 
         self.btn_search_close = Gtk.Button.new_from_icon_name("window-close-symbolic")
         self.btn_search_close.add_css_class("code-btn-small")
-        self.btn_search_close.set_tooltip_text("Close Search (Esc)")
+        self.btn_search_close.set_tooltip_text(_("Close Search (Esc)"))
         self.btn_search_close.connect("clicked", lambda *_: self.close_search())
         self.search_box.append(self.btn_search_close)
-
-        self.search_revealer.set_child(self.search_box)
-        self.append(self.search_revealer)
 
         # Connect search signals
         self.search_entry.connect("search-changed", self.on_search_query_changed)
@@ -423,7 +513,9 @@ class TextViewer(Gtk.Box):
                 size = os.path.getsize(self.file_path)
                 if size > 5 * 1024 * 1024:
                     with open(self.file_path, "r", encoding="utf-8", errors="replace") as f:
-                        content = f.read(1024 * 512) + "\n\n... [Truncated preview: file is larger than 5MB] ..."
+                        content = f.read(1024 * 512) + _(
+                            "\n\n... [Truncated preview: file is larger than 5 MB] ..."
+                        )
                 else:
                     with open(self.file_path, "r", encoding="utf-8", errors="replace") as f:
                         content = f.read()
@@ -444,12 +536,16 @@ class TextViewer(Gtk.Box):
             self._render_content(content, size)
 
         except Exception as e:
-            self.buffer.set_text(f"Could not read text file:\n{e}")
+            self.buffer.set_text(
+                _("Could not read text file:\n{error}").format(error=e)
+            )
 
     def _render_content(self, content: str, size: int):
         self.displayed_content = content
         self.line_count = content.count("\n") + 1
-        words = sum(1 for _ in re.finditer(r'\S+', content))
+        words = len(re.findall(r"\S+", content))
+        self._size_bytes = size
+        self._word_count = words
 
         digits = max(3, len(str(self.line_count)))
         self.gutter.set_content_width(digits * 9 + 24)
@@ -461,13 +557,23 @@ class TextViewer(Gtk.Box):
         if self.lbl_lang:
             self.lbl_lang.set_text(lang_label)
         if self.lbl_stats:
-            self.lbl_stats.set_text(f"{self.line_count:,} lines  •  {words:,} words  •  {format_size(size)}")
+            lines_text = ngettext("{count} line", "{count} lines", self.line_count).format(
+                count=f"{self.line_count:,}"
+            )
+            words_text = ngettext("{count} word", "{count} words", words).format(
+                count=f"{words:,}"
+            )
+            self.lbl_stats.set_text(
+                _("{lines}  •  {words}  •  {size}").format(
+                    lines=lines_text, words=words_text, size=format_size(size)
+                )
+            )
 
         self.gutter.queue_draw()
 
     def draw_line_numbers(self, area, cr, width, height):
-        # Background fill
-        cr.set_source_rgba(0.094, 0.094, 0.145, 1.0)
+        palette = _code_palette(is_dark_theme())
+        cr.set_source_rgb(*hex_to_rgb(palette["code_surface"]))
         cr.rectangle(0, 0, width, height)
         cr.fill()
 
@@ -478,7 +584,7 @@ class TextViewer(Gtk.Box):
         layout = PangoCairo.create_layout(cr)
         font_desc = Pango.FontDescription.from_string("Monospace 10")
         layout.set_font_description(font_desc)
-        cr.set_source_rgba(0.45, 0.48, 0.60, 0.85)
+        cr.set_source_rgba(*hex_to_rgb(palette["muted"]), 0.85)
 
         y_buf = max(0, scroll_y - top_margin)
         end_buf_y = scroll_y + height
@@ -533,8 +639,16 @@ class TextViewer(Gtk.Box):
         if display and self.displayed_content:
             clipboard = display.get_clipboard()
             clipboard.set(self.displayed_content)
-            btn.set_label("Copied!")
-            GLib.timeout_add(1400, lambda: (btn.set_label("Copy"), False)[1])
+            btn.set_label(_("Copied!"))
+            if self._copy_timeout_id is not None:
+                GLib.source_remove(self._copy_timeout_id)
+            self._copy_timeout_id = GLib.timeout_add(1400, self._reset_copy_label)
+
+    def _reset_copy_label(self):
+        self._copy_timeout_id = None
+        if self.btn_copy is not None:
+            self.btn_copy.set_label(_("Copy"))
+        return False
 
     # -------------------------------------------------------------
     # Search Engine & In-File Search Bar Methods
@@ -552,18 +666,26 @@ class TextViewer(Gtk.Box):
         return False
 
     def _ensure_search_tags(self):
+        palette = _code_palette(is_dark_theme())
+        red, green, blue = hex_to_rgb(palette["accent"])
+        match_background = (
+            f"rgba({int(red * 255)}, {int(green * 255)}, {int(blue * 255)}, 0.28)"
+        )
         tag_table = self.buffer.get_tag_table()
-        if not tag_table.lookup("search_match"):
-            tag_match = Gtk.TextTag.new("search_match")
-            tag_match.set_property("background", "#45475a")
-            tag_match.set_property("foreground", "#cdd6f4")
-            tag_table.add(tag_match)
 
-        if not tag_table.lookup("search_current"):
+        tag_match = tag_table.lookup("search_match")
+        if tag_match is None:
+            tag_match = Gtk.TextTag.new("search_match")
+            tag_table.add(tag_match)
+        tag_match.set_property("background", match_background)
+        tag_match.set_property("foreground", palette["code_text"])
+
+        tag_current = tag_table.lookup("search_current")
+        if tag_current is None:
             tag_current = Gtk.TextTag.new("search_current")
-            tag_current.set_property("background", "#fab387")
-            tag_current.set_property("foreground", "#11111b")
             tag_table.add(tag_current)
+        tag_current.set_property("background", palette["accent"])
+        tag_current.set_property("foreground", palette["code_surface"])
 
     def _clear_search_highlights(self):
         tag_table = self.buffer.get_tag_table()
@@ -609,7 +731,7 @@ class TextViewer(Gtk.Box):
                 break
 
         if not self.search_matches:
-            self.lbl_search_count.set_text("0 matches")
+            self.lbl_search_count.set_text(_("No matches"))
             return
 
         # Highlight all matches
@@ -637,7 +759,10 @@ class TextViewer(Gtk.Box):
         # Scroll TextView to center match smoothly
         self.text_view.scroll_to_iter(s_it, 0.1, True, 0.0, 0.4)
         self.lbl_search_count.set_text(
-            f"{self.current_match_idx + 1} / {len(self.search_matches)}"
+            _("{current} / {total}").format(
+                current=self.current_match_idx + 1,
+                total=len(self.search_matches),
+            )
         )
 
     def on_find_next(self):
@@ -653,8 +778,8 @@ class TextViewer(Gtk.Box):
         self._highlight_and_scroll_current_match()
 
     def toggle_search(self):
-        if not self.search_revealer.get_reveal_child():
-            self.search_revealer.set_reveal_child(True)
+        if not self._search_open:
+            self._search_open = True
             self.search_entry.grab_focus()
             self.search_entry.select_region(0, -1)
             q = self.search_entry.get_text()
@@ -663,21 +788,70 @@ class TextViewer(Gtk.Box):
         else:
             self.search_entry.grab_focus()
             self.search_entry.select_region(0, -1)
+        self._notify_search_state()
 
     def close_search(self):
-        if self.search_revealer.get_reveal_child():
-            self.search_revealer.set_reveal_child(False)
+        if self._search_open:
+            self._search_open = False
             self._clear_search_highlights()
             self.text_view.grab_focus()
+            self._notify_search_state()
 
     def is_search_open(self) -> bool:
-        return self.search_revealer.get_reveal_child()
+        return self._search_open
+
+    def set_search_state_callback(self, callback) -> None:
+        """Let the window show or hide the overlay that hosts this search box."""
+        self.search_state_callback = callback
+
+    def _notify_search_state(self) -> None:
+        callback = self.search_state_callback
+        if callable(callback):
+            try:
+                callback(self._search_open)
+            except Exception:
+                logging.getLogger(__name__).exception("Search state callback failed")
+
+    def get_header_controls(self) -> list:
+        """Return at most three controls, highest priority first."""
+        controls = []
+        for control in (
+            self.btn_find,
+            self.btn_wrap,
+            self.btn_json_pretty,
+            self.btn_copy,
+        ):
+            if control is not None and control.get_visible():
+                controls.append(control)
+            if len(controls) == 3:
+                break
+        return controls
+
+    def get_status_items(self) -> list[tuple[str, str]]:
+        lines_text = ngettext(
+            "{count} line", "{count} lines", self.line_count
+        ).format(count=f"{self.line_count:,}")
+        return [
+            (_("Size"), format_size(self._size_bytes)),
+            (_("Lines"), lines_text),
+            (_("Encoding"), "UTF-8"),
+        ]
+
+    def get_search_widget(self):
+        """Return the search container for the window overlay."""
+        return self.search_box
+
+    def teardown(self) -> None:
+        """Cancel the viewer-owned timer; there is no other async work."""
+        if self._copy_timeout_id is not None:
+            GLib.source_remove(self._copy_timeout_id)
+            self._copy_timeout_id = None
 
     def get_desired_size(self, screen_w: int, screen_h: int):
         target_w = min(1180, int(screen_w * 0.85))
-        # Responsive height calculation: header (48) + toolbar (42) + margins (30) + lines * 21px
+        # Header + status bar + margins + lines * 21px.
         line_h = 21.0
-        overhead = 120
+        overhead = 96
         content_h = int(overhead + self.line_count * line_h)
         min_h = 380
         max_h = min(980, int(screen_h * 0.82))

@@ -1,0 +1,409 @@
+# en translation for Space Previewer.
+# Copyright (C) 2026 todo-laterx
+# This file is distributed under the same license as the space-previewer package.
+#
+msgid ""
+msgstr ""
+"Project-Id-Version: space-previewer 0.1.0\n"
+"Report-Msgid-Bugs-To: \n"
+"PO-Revision-Date: 2026-10-27 00:00+0000\n"
+"Last-Translator: todo-laterx\n"
+"Language-Team: en\n"
+"Language: en\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=UTF-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+"Plural-Forms: nplurals=2; plural=(n != 1);\n"
+
+
+#: src/viewers/text_viewer.py:516
+msgid "\n\n... [Truncated preview: file is larger than 5 MB] ..."
+msgstr "\n\n... [Truncated preview: file is larger than 5 MB] ..."
+
+#: src/utils/formatters.py:31
+msgid "%Y-%m-%d %H:%M"
+msgstr "%Y-%m-%d %H:%M"
+
+#: src/viewers/html_viewer.py:105
+msgid "Allow remote content"
+msgstr "Allow remote content"
+
+#: src/viewers/html_viewer.py:102
+msgid "Allow remote content in this preview"
+msgstr "Allow remote content in this preview"
+
+#: src/utils/formatters.py:18
+msgid "B"
+msgstr "B"
+
+#: src/viewers/html_viewer.py:144
+msgid "Blocked"
+msgstr "Blocked"
+
+#: src/viewers/markdown_viewer.py:1225
+msgid "CAUTION"
+msgstr "CAUTION"
+
+#: src/viewers/markdown_viewer.py:1158
+#: src/viewers/text_viewer.py:355
+msgid "CODE"
+msgstr "CODE"
+
+#: src/viewers/markdown_viewer.py:311
+msgid "Class Diagram"
+msgstr "Class Diagram"
+
+#: src/viewers/text_viewer.py:447
+msgid "Close Search (Esc)"
+msgstr "Close Search (Esc)"
+
+#: src/viewers/markdown_viewer.py:764
+#: src/viewers/markdown_viewer.py:1472
+#: src/viewers/text_viewer.py:642
+msgid "Copied!"
+msgstr "Copied!"
+
+#: src/viewers/markdown_viewer.py:589
+#: src/viewers/markdown_viewer.py:773
+#: src/viewers/markdown_viewer.py:1166
+#: src/viewers/markdown_viewer.py:1477
+#: src/viewers/text_viewer.py:650
+msgid "Copy"
+msgstr "Copy"
+
+#: src/viewers/text_viewer.py:397
+#: src/viewers/text_viewer.py:399
+msgid "Copy code"
+msgstr "Copy code"
+
+#: src/viewers/markdown_viewer.py:1168
+msgid "Copy code block"
+msgstr "Copy code block"
+
+#: src/viewers/markdown_viewer.py:591
+msgid "Copy diagram source"
+msgstr "Copy diagram source"
+
+#: src/viewers/markdown_viewer.py:899
+#: src/viewers/markdown_viewer.py:901
+msgid "Copy source"
+msgstr "Copy source"
+
+#: src/viewers/html_viewer.py:388
+msgid "Could not build a URI for this file."
+msgstr "Could not build a URI for this file."
+
+#: src/viewers/html_viewer.py:409
+msgid "Could not load this HTML file."
+msgstr "Could not load this HTML file."
+
+#: src/viewers/html_viewer.py:547
+msgid "Could not open this link in the default browser."
+msgstr "Could not open this link in the default browser."
+
+#: src/viewers/text_viewer.py:540
+msgid "Could not read text file:\n{error}"
+msgstr "Could not read text file:\n{error}"
+
+#: src/viewers/markdown_viewer.py:974
+msgid "Could not render preview:\n{error}"
+msgstr "Could not render preview:\n{error}"
+
+#: src/viewers/html_viewer.py:259
+msgid "Could not show this file."
+msgstr "Could not show this file."
+
+#: src/viewers/markdown_viewer.py:314
+msgid "ER Diagram"
+msgstr "ER Diagram"
+
+#: src/viewers/markdown_viewer.py:1520
+#: src/viewers/text_viewer.py:837
+msgid "Encoding"
+msgstr "Encoding"
+
+#: src/window.py:359
+msgid "FILE"
+msgstr "FILE"
+
+#: src/window.py:352
+msgid "FOLDER"
+msgstr "FOLDER"
+
+#: src/viewers/__init__.py:25
+msgid "File not found: %s"
+msgstr "File not found: %s"
+
+#: src/viewers/text_viewer.py:390
+msgid "Find in code"
+msgstr "Find in code"
+
+#: src/viewers/text_viewer.py:388
+msgid "Find in code (Ctrl+F)"
+msgstr "Find in code (Ctrl+F)"
+
+#: src/viewers/text_viewer.py:415
+msgid "Find in code... (Enter to find next)"
+msgstr "Find in code... (Enter to find next)"
+
+#: src/viewers/markdown_viewer.py:308
+msgid "Flowchart"
+msgstr "Flowchart"
+
+#: src/viewers/markdown_viewer.py:309
+msgid "Flowchart Graph"
+msgstr "Flowchart Graph"
+
+#: src/utils/formatters.py:24
+msgid "GB"
+msgstr "GB"
+
+#: src/viewers/markdown_viewer.py:315
+msgid "Gantt Chart"
+msgstr "Gantt Chart"
+
+#: src/viewers/markdown_viewer.py:319
+msgid "Git Graph"
+msgstr "Git Graph"
+
+#: src/viewers/markdown_viewer.py:1215
+msgid "IMPORTANT"
+msgstr "IMPORTANT"
+
+#: src/utils/formatters.py:20
+msgid "KB"
+msgstr "KB"
+
+#: src/viewers/text_viewer.py:836
+msgid "Lines"
+msgstr "Lines"
+
+#: src/utils/formatters.py:22
+msgid "MB"
+msgstr "MB"
+
+#: src/viewers/markdown_viewer.py:553
+msgid "MERMAID"
+msgstr "MERMAID"
+
+#: src/viewers/text_viewer.py:437
+msgid "Match Case"
+msgstr "Match Case"
+
+#: src/viewers/markdown_viewer.py:323
+msgid "Mermaid Diagram"
+msgstr "Mermaid Diagram"
+
+#: src/viewers/markdown_viewer.py:317
+msgid "Mindmap"
+msgstr "Mindmap"
+
+#: src/viewers/markdown_viewer.py:1210
+msgid "NOTE"
+msgstr "NOTE"
+
+#: src/viewers/text_viewer.py:431
+msgid "Next match (Enter)"
+msgstr "Next match (Enter)"
+
+#: src/viewers/text_viewer.py:734
+msgid "No matches"
+msgstr "No matches"
+
+#: src/viewers/html_viewer.py:115
+msgid "Open in browser"
+msgstr "Open in browser"
+
+#: src/viewers/html_viewer.py:112
+msgid "Open this file in the default browser"
+msgstr "Open this file in the default browser"
+
+#: src/window.py:98
+msgid "Open with App"
+msgstr "Open with App"
+
+#: src/viewers/markdown_viewer.py:871
+msgid "PREVIEW"
+msgstr "PREVIEW"
+
+#: src/viewers/markdown_viewer.py:316
+msgid "Pie Chart"
+msgstr "Pie Chart"
+
+#: src/viewers/text_viewer.py:366
+#: src/viewers/text_viewer.py:368
+msgid "Pretty-print JSON"
+msgstr "Pretty-print JSON"
+
+#: src/viewers/markdown_viewer.py:882
+msgid "Preview"
+msgstr "Preview"
+
+#: src/viewers/text_viewer.py:425
+msgid "Previous match (Shift+Enter)"
+msgstr "Previous match (Shift+Enter)"
+
+#: src/window.py:80
+msgid "Quick Look"
+msgstr "Quick Look"
+
+#: src/viewers/markdown_viewer.py:887
+msgid "Raw Code"
+msgstr "Raw Code"
+
+#: src/viewers/html_viewer.py:144
+msgid "Remote"
+msgstr "Remote"
+
+#: src/viewers/html_viewer.py:587
+msgid "Remote content blocked"
+msgstr "Remote content blocked"
+
+#: src/viewers/markdown_viewer.py:614
+msgid "Rendering Mermaid diagram..."
+msgstr "Rendering Mermaid diagram..."
+
+#: src/viewers/markdown_viewer.py:572
+msgid "Reset zoom"
+msgstr "Reset zoom"
+
+#: src/viewers/markdown_viewer.py:310
+msgid "Sequence Diagram"
+msgstr "Sequence Diagram"
+
+#: src/viewers/markdown_viewer.py:585
+msgid "Show diagram source"
+msgstr "Show diagram source"
+
+#: src/viewers/markdown_viewer.py:889
+msgid "Show raw source"
+msgstr "Show raw source"
+
+#: src/viewers/markdown_viewer.py:884
+msgid "Show rendered preview"
+msgstr "Show rendered preview"
+
+#: src/viewers/html_viewer.py:140
+#: src/viewers/markdown_viewer.py:1518
+#: src/viewers/text_viewer.py:835
+#: src/window.py:366
+msgid "Size"
+msgstr "Size"
+
+#: src/viewers/markdown_viewer.py:583
+msgid "Source"
+msgstr "Source"
+
+#: src/viewers/markdown_viewer.py:312
+#: src/viewers/markdown_viewer.py:313
+msgid "State Diagram"
+msgstr "State Diagram"
+
+#: src/viewers/text_viewer.py:217
+#: src/viewers/text_viewer.py:272
+#: src/viewers/text_viewer.py:277
+msgid "TEXT"
+msgstr "TEXT"
+
+#: src/viewers/markdown_viewer.py:1211
+msgid "TIP"
+msgstr "TIP"
+
+#: src/viewers/html_viewer.py:208
+msgid "This HTML file is too large to preview; showing the source instead."
+msgstr "This HTML file is too large to preview; showing the source instead."
+
+#: src/viewers/markdown_viewer.py:320
+msgid "Timeline"
+msgstr "Timeline"
+
+#: src/viewers/text_viewer.py:378
+#: src/viewers/text_viewer.py:380
+msgid "Toggle word wrap"
+msgstr "Toggle word wrap"
+
+#: src/viewers/__init__.py:142
+msgid "Type: %(mime)s\nSize: %(size)s\nModified: %(date)s"
+msgstr "Type: %(mime)s\nSize: %(size)s\nModified: %(date)s"
+
+#: src/viewers/markdown_viewer.py:318
+msgid "User Journey"
+msgstr "User Journey"
+
+#: src/viewers/markdown_viewer.py:1220
+msgid "WARNING"
+msgstr "WARNING"
+
+#: src/viewers/html_viewer.py:220
+msgid "WebKit is not available; showing the source instead."
+msgstr "WebKit is not available; showing the source instead."
+
+#: src/viewers/markdown_viewer.py:1519
+msgid "Words"
+msgstr "Words"
+
+#: src/viewers/markdown_viewer.py:321
+msgid "XY Chart"
+msgstr "XY Chart"
+
+#: src/viewers/markdown_viewer.py:578
+msgid "Zoom in"
+msgstr "Zoom in"
+
+#: src/viewers/markdown_viewer.py:566
+msgid "Zoom out"
+msgstr "Zoom out"
+
+#: src/viewers/markdown_viewer.py:830
+msgid "[image] {alt}"
+msgstr "[image] {alt}"
+
+#: src/viewers/markdown_viewer.py:827
+msgid "image"
+msgstr "image"
+
+#: src/viewers/markdown_viewer.py:1099
+msgid "{count} Mermaid diagram"
+msgid_plural "{count} Mermaid diagrams"
+msgstr[0] "{count} Mermaid diagram"
+msgstr[1] "{count} Mermaid diagrams"
+
+#: src/viewers/markdown_viewer.py:1107
+msgid "{count} code block"
+msgid_plural "{count} code blocks"
+msgstr[0] "{count} code block"
+msgstr[1] "{count} code blocks"
+
+#: src/viewers/markdown_viewer.py:953
+#: src/viewers/markdown_viewer.py:1087
+#: src/viewers/text_viewer.py:560
+#: src/viewers/text_viewer.py:831
+msgid "{count} line"
+msgid_plural "{count} lines"
+msgstr[0] "{count} line"
+msgstr[1] "{count} lines"
+
+#: src/viewers/markdown_viewer.py:1093
+msgid "{count} section"
+msgid_plural "{count} sections"
+msgstr[0] "{count} section"
+msgstr[1] "{count} sections"
+
+#: src/viewers/markdown_viewer.py:1514
+#: src/viewers/text_viewer.py:563
+msgid "{count} word"
+msgid_plural "{count} words"
+msgstr[0] "{count} word"
+msgstr[1] "{count} words"
+
+#: src/viewers/text_viewer.py:762
+msgid "{current} / {total}"
+msgstr "{current} / {total}"
+
+#: src/viewers/markdown_viewer.py:957
+msgid "{diagram}  •  {lines}  •  {size}"
+msgstr "{diagram}  •  {lines}  •  {size}"
+
+#: src/viewers/text_viewer.py:567
+msgid "{lines}  •  {words}  •  {size}"
+msgstr "{lines}  •  {words}  •  {size}"
