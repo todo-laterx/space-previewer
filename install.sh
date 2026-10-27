@@ -273,15 +273,37 @@ install_files() {
     cp -R "$PROJECT_DIR/po/." "$APP_INSTALL_DIR/po/"
 }
 
+compile_po() {
+    local po_file="$1" mo_file="$2"
+
+    if command -v msgfmt >/dev/null 2>&1; then
+        msgfmt --check --output-file="$mo_file" "$po_file"
+        return
+    fi
+
+    # gettext is the usual tool, but Ubuntu images often lack it while Babel
+    # is already present for the test suite. Compile the same catalog in Python
+    # so translations keep working without root.
+    if /usr/bin/python3 -c "import babel" >/dev/null 2>&1; then
+        /usr/bin/python3 - "$po_file" "$mo_file" <<'PY'
+import sys
+from babel.messages import pofile
+from babel.messages.mofile import write_mo
+
+with open(sys.argv[1], "rb") as handle:
+    catalog = pofile.read_po(handle)
+with open(sys.argv[2], "wb") as handle:
+    write_mo(handle, catalog)
+PY
+        return
+    fi
+
+    return 1
+}
+
 build_locales() {
     local locale_dir="$APP_INSTALL_DIR/locale"
-    local po_file lang
-
-    if ! command -v msgfmt >/dev/null 2>&1; then
-        echo "WARNING: msgfmt not found; translations will not be compiled." >&2
-        echo "         Install gettext and re-run this script to enable them." >&2
-        return 0
-    fi
+    local po_file lang failed=0
 
     # Rebuild from scratch so removed languages do not leave stale catalogs.
     rm -rf "$locale_dir"
@@ -291,12 +313,15 @@ build_locales() {
         [ -e "$po_file" ] || continue
         lang="$(basename "$po_file" .po)"
         mkdir -p "$locale_dir/$lang/LC_MESSAGES"
-        if ! msgfmt --check \
-            --output-file="$locale_dir/$lang/LC_MESSAGES/space-previewer.mo" \
-            "$po_file"; then
-            echo "WARNING: failed to compile $po_file" >&2
+        if ! compile_po "$po_file" "$locale_dir/$lang/LC_MESSAGES/space-previewer.mo"; then
+            echo "WARNING: failed to compile $po_file (install msgfmt or python3-babel)" >&2
+            failed=1
         fi
     done
+
+    if [ "$failed" -eq 1 ]; then
+        echo "WARNING: translations are missing from the installed copy." >&2
+    fi
 }
 
 write_dbus_service() {

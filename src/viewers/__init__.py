@@ -1,4 +1,6 @@
+import logging
 import os
+
 from .image_viewer import ImageViewer
 from .text_viewer import TextViewer
 from .markdown_viewer import MarkdownViewer, is_mermaid_content
@@ -16,6 +18,8 @@ from .registry import find_plugin
 from utils.mime_detector import detect_mime_type
 from utils.formatters import format_size, format_date
 from utils.i18n import _
+
+logger = logging.getLogger(__name__)
 
 def create_viewer_for_file(file_path: str):
     """Factory function to instantiate the proper viewer widget for a file path."""
@@ -104,7 +108,7 @@ def create_viewer_for_file(file_path: str):
             if is_mermaid_content(sample) or "```mermaid" in sample:
                 return MarkdownViewer(file_path)
         except Exception:
-            pass
+            logger.debug("Could not sniff text content in %s", file_path, exc_info=True)
         return TextViewer(file_path)
 
     # Fallback to MarkdownViewer / TextViewer if readable, else info
@@ -117,7 +121,7 @@ def create_viewer_for_file(file_path: str):
                     return MarkdownViewer(file_path)
                 return TextViewer(file_path)
     except Exception:
-        pass
+        logger.debug("Could not sniff binary content in %s", file_path, exc_info=True)
 
     # Generic binary file info
     from gi.repository import Gtk

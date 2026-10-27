@@ -1,6 +1,17 @@
 src/utils/formatters.py
 src/viewers/__init__.py
+src/viewers/archive_viewer.py
+src/viewers/csv_viewer.py
+src/viewers/docx_viewer.py
+src/viewers/excel_viewer.py
+src/viewers/folder_viewer.py
+src/viewers/font_viewer.py
 src/viewers/html_viewer.py
+src/viewers/image_viewer.py
 src/viewers/markdown_viewer.py
+src/viewers/media_viewer.py
+src/viewers/office_common.py
+src/viewers/pdf_viewer.py
+src/viewers/pptx_viewer.py
 src/viewers/text_viewer.py
 src/window.py

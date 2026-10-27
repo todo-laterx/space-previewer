@@ -1,17 +1,27 @@
+import logging
 import os
-import io
-import zipfile
-import xml.etree.ElementTree as ET
+import re
+
 import gi
 gi.require_version('Gtk', '4.0')
 from gi.repository import Gtk, Pango
 
 from utils.formatters import format_size
+from utils.i18n import _, ngettext
+from viewers.office_common import OfficeParseError, open_office_zip, read_xml
+
+log = logging.getLogger(__name__)
 
 class DocxViewer(Gtk.Box):
     def __init__(self, file_path: str):
         super().__init__(orientation=Gtk.Orientation.VERTICAL, spacing=0)
         self.file_path = file_path
+        self._paragraph_count = 0
+        self._word_count = 0
+        try:
+            self._size_bytes = os.path.getsize(file_path)
+        except OSError:
+            self._size_bytes = 0
 
         self.scrolled = Gtk.ScrolledWindow()
         self.scrolled.set_hexpand(True)
@@ -91,12 +101,9 @@ class DocxViewer(Gtk.Box):
 
     def load_docx(self):
         try:
-            with open(self.file_path, "rb") as f:
-                raw_bytes = f.read(50 * 1024 * 1024)
-            with zipfile.ZipFile(io.BytesIO(raw_bytes), "r") as zf:
-                xml_content = zf.read("word/document.xml")
+            with open_office_zip(self.file_path) as zf:
+                root = read_xml(zf, "word/document.xml")
 
-            root = ET.fromstring(xml_content)
             namespaces = {
                 "w": "http://schemas.openxmlformats.org/wordprocessingml/2006/main"
             }
@@ -107,7 +114,8 @@ class DocxViewer(Gtk.Box):
             # Traverse body
             body = root.find("w:body", namespaces)
             if body is None:
-                self.buffer.set_text("Document body is empty.")
+                self.buffer.set_text(_("Document body is empty."))
+                self._update_info()
                 return
 
             for child in body:
@@ -191,11 +199,18 @@ class DocxViewer(Gtk.Box):
                         iter_end = self.buffer.get_end_iter()
                         self.buffer.insert_with_tags_by_name(iter_end, sep_line + "\n", "table")
 
-            size = os.path.getsize(self.file_path)
-            self.lbl_info.set_text(f"Word Document (.docx) • {p_count:,} paragraphs • {word_count:,} words • {format_size(size)}")
+            self._paragraph_count = p_count
+            self._word_count = word_count
+            self._update_info()
 
-        except Exception as e:
-            self.buffer.set_text(f"Could not load Word document:\n{e}")
+        except OfficeParseError as exc:
+            self.buffer.set_text(
+                _("Could not load Word document:\n%(error)s")
+                % {"error": str(exc)}
+            )
+        except Exception:
+            log.exception("Could not load Word document %s", self.file_path)
+            self.buffer.set_text(_("Could not load Word document."))
 
     def load_legacy_doc(self):
         try:
@@ -203,11 +218,48 @@ class DocxViewer(Gtk.Box):
             with open(self.file_path, "rb") as f:
                 raw = f.read(5 * 1024 * 1024)
             # Filter printable strings
-            import re
             strings = re.findall(b'[\x20-\x7E\r\n\t]{4,}', raw)
             decoded = "\n".join(s.decode('latin-1', errors='ignore') for s in strings[:1000])
-            self.buffer.set_text(decoded if decoded else "Legacy .doc file (binary format)")
-            size = os.path.getsize(self.file_path)
-            self.lbl_info.set_text(f"Legacy Word Document (.doc) • {format_size(size)}")
-        except Exception as e:
-            self.buffer.set_text(f"Could not load .doc file:\n{e}")
+            self.buffer.set_text(decoded if decoded else _("Legacy .doc file (binary format)"))
+            self.lbl_info.set_text(
+                _("Legacy Word Document (.doc) • %(size)s")
+                % {"size": format_size(self._size_bytes)}
+            )
+        except OSError:
+            log.exception("Could not read .doc file %s", self.file_path)
+            self.buffer.set_text(_("Could not load .doc file."))
+        except Exception:
+            log.exception("Could not parse .doc file %s", self.file_path)
+            self.buffer.set_text(_("Could not load .doc file."))
+
+    def _update_info(self) -> None:
+        paragraphs = ngettext(
+            "{count} paragraph", "{count} paragraphs", self._paragraph_count
+        ).format(count=f"{self._paragraph_count:,}")
+        words = ngettext(
+            "{count} word", "{count} words", self._word_count
+        ).format(count=f"{self._word_count:,}")
+        self.lbl_info.set_text(
+            _("%(type)s • %(paragraphs)s • %(words)s • %(size)s")
+            % {
+                "type": _("Word Document (.docx)"),
+                "paragraphs": paragraphs,
+                "words": words,
+                "size": format_size(self._size_bytes),
+            }
+        )
+
+    def get_status_items(self) -> list[tuple[str, str]]:
+        size_item = (_("Size"), format_size(self._size_bytes))
+        # A legacy .doc body is not parsed, so do not claim zero paragraphs
+        # and words for it.
+        if os.path.splitext(self.file_path)[1].lower() != ".docx":
+            return [size_item]
+        return [
+            (_("Paragraphs"), f"{self._paragraph_count:,}"),
+            (_("Words"), f"{self._word_count:,}"),
+            size_item,
+        ]
+
+    def teardown(self) -> None:
+        """The viewer owns no external resources."""

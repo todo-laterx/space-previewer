@@ -85,8 +85,10 @@ unbounded parsing, stale state. Style comments come last.
 ## Plugins
 
 Third-party viewers live in `~/.local/share/space-previewer/plugins/1` and run in-process
-with full user permissions. There is no sandbox. Document the trust boundary in the plugin
-README and keep the `SPACE_PREVIEWER_PLUGINS=0` escape hatch working.
+with full user permissions. There is no sandbox. The module and viewer contract, matching
+order, lifecycle rules and a worked example are in [docs/PLUGINS.md](docs/PLUGINS.md).
+Document the trust boundary in the plugin README and keep the
+`SPACE_PREVIEWER_PLUGINS=0` escape hatch working.
 
 ## Licensing
 

@@ -1,23 +1,40 @@
+import logging
 import os
+
 import gi
 gi.require_version('Gtk', '4.0')
 gi.require_version('Gdk', '4.0')
 from gi.repository import Gtk, Gdk, GLib
+
+logger = logging.getLogger(__name__)
 
 try:
     gi.require_version('Poppler', '0.18')
     from gi.repository import Poppler
     import cairo
     HAS_POPPLER = True
-except Exception:
+except Exception as error:
     HAS_POPPLER = False
+    logger.debug("Poppler is not available: %s", error)
 
 from utils.formatters import format_size
+from utils.i18n import _, ngettext
+
+# Untrusted input cap: render at most this many pages of a PDF.
+MAX_PAGES = 100
+
 
 class PDFViewer(Gtk.Box):
     def __init__(self, file_path: str):
         super().__init__(orientation=Gtk.Orientation.VERTICAL, spacing=0)
         self.file_path = file_path
+        self._status_callback = None
+        self._page_count = 0
+
+        try:
+            self._file_size = os.path.getsize(file_path)
+        except OSError:
+            self._file_size = None
 
         self.scrolled = Gtk.ScrolledWindow()
         self.scrolled.set_hexpand(True)
@@ -45,77 +62,113 @@ class PDFViewer(Gtk.Box):
 
         self.load_pdf()
 
-    def load_pdf(self):
+    def load_pdf(self) -> None:
         if not HAS_POPPLER:
-            self.pages_box.append(Gtk.Label(label="Poppler library is not installed for PDF rendering."))
+            self.pages_box.append(
+                Gtk.Label(
+                    label=_("Poppler library is not installed for PDF rendering.")
+                )
+            )
+            self.lbl_info.set_text(self._size_text())
             return
 
         try:
-            uri = f"file://{os.path.abspath(self.file_path)}"
+            uri = GLib.filename_to_uri(os.path.abspath(self.file_path), None)
             doc = Poppler.Document.new_from_file(uri, None)
-            n_pages = doc.get_n_pages()
+            n_pages = int(doc.get_n_pages())
+            self._page_count = n_pages
 
-            size = os.path.getsize(self.file_path)
-            self.lbl_info.set_text(f"{n_pages} pages • {format_size(size)}")
+            page_text = ngettext(
+                "{count} page", "{count} pages", n_pages
+            ).format(count=f"{n_pages:,}")
+            self.lbl_info.set_text(
+                _("{pages} • {size}").format(
+                    pages=page_text, size=self._size_text()
+                )
+            )
 
-            # Render up to 20 pages preview
-            render_count = min(n_pages, 20)
-            for i in range(render_count):
-                page = doc.get_page(i)
-                w, h = page.get_size()
-                scale = 1.5
-                img_w = int(w * scale)
-                img_h = int(h * scale)
+            # Render only the capped number of pages, but report the real
+            # page count in the status bar and info line.
+            render_count = min(n_pages, MAX_PAGES)
+            for index in range(render_count):
+                self._render_page(doc, index)
 
-                surface = cairo.ImageSurface(cairo.FORMAT_ARGB32, img_w, img_h)
-                ctx = cairo.Context(surface)
-                ctx.scale(scale, scale)
-                # White background
-                ctx.set_source_rgb(1.0, 1.0, 1.0)
-                ctx.paint()
-                page.render(ctx)
-
-                data = surface.get_data()
-                bytes_data = GLib.Bytes.new(data.tobytes())
-                pixbuf = Gdk.Texture.new_for_pixbuf(
-                    Gdk.Pixbuf.new_from_bytes(
-                        bytes_data,
-                        Gdk.Colorspace.RGB,
-                        True,
-                        8,
-                        img_w,
-                        img_h,
-                        surface.get_stride()
-                    )
-                ) if hasattr(Gdk, 'Pixbuf') else None
-
-                picture = Gtk.Picture.new_for_paintable(
-                    Gdk.Texture.new_for_pixbuf(
-                        Gdk.Pixbuf.new_from_data(
-                            data.tobytes(),
-                            GdkPixbuf.Colorspace.RGB,
-                            True,
-                            8,
-                            img_w,
-                            img_h,
-                            surface.get_stride()
-                        )
-                    ) if False else Gdk.MemoryTexture.new(
-                        img_w,
-                        img_h,
-                        Gdk.MemoryFormat.B8G8R8A8_PREMULTIPLIED,
-                        bytes_data,
-                        surface.get_stride()
+            if n_pages > MAX_PAGES:
+                more_lbl = Gtk.Label(
+                    label=_("Showing the first {shown} of {total} pages.").format(
+                        shown=MAX_PAGES, total=n_pages
                     )
                 )
-                picture.set_can_shrink(True)
-                picture.add_css_class("card")
-                self.pages_box.append(picture)
-
-            if n_pages > 20:
-                more_lbl = Gtk.Label(label=f"... [Showing first 20 of {n_pages} pages] ...")
                 more_lbl.add_css_class("dim-label")
+                more_lbl.set_wrap(True)
                 self.pages_box.append(more_lbl)
 
-        except Exception as e:
-            self.pages_box.append(Gtk.Label(label=f"Could not load PDF:\n{e}"))
+        except Exception as error:
+            logger.exception("Could not load PDF %s", self.file_path)
+            self.pages_box.append(
+                Gtk.Label(
+                    label=_("Could not load PDF:\n{error}").format(error=error)
+                )
+            )
+
+    def _render_page(self, doc, index: int) -> None:
+        page = doc.get_page(index)
+        width, height = page.get_size()
+        if width <= 0 or height <= 0:
+            return
+
+        scale = 1.5
+        img_w = int(width * scale)
+        img_h = int(height * scale)
+
+        surface = cairo.ImageSurface(cairo.FORMAT_ARGB32, img_w, img_h)
+        ctx = cairo.Context(surface)
+        ctx.scale(scale, scale)
+        # White background
+        ctx.set_source_rgb(1.0, 1.0, 1.0)
+        ctx.paint()
+        page.render(ctx)
+
+        data = surface.get_data()
+        bytes_data = GLib.Bytes.new(data.tobytes())
+        texture = Gdk.MemoryTexture.new(
+            img_w,
+            img_h,
+            Gdk.MemoryFormat.B8G8R8A8_PREMULTIPLIED,
+            bytes_data,
+            surface.get_stride(),
+        )
+        picture = Gtk.Picture.new_for_paintable(texture)
+        picture.set_can_shrink(True)
+        picture.add_css_class("card")
+        self.pages_box.append(picture)
+
+    # ------------------------------------------------------------- contract
+
+    def set_status_callback(self, callback) -> None:
+        self._status_callback = callback
+
+    def _size_text(self) -> str:
+        if self._file_size is None:
+            return _("Unknown")
+        return format_size(self._file_size)
+
+    def get_status_items(self) -> list[tuple[str, str]]:
+        if self._page_count > 0:
+            page_text = f"{self._page_count:,}"
+        else:
+            page_text = _("Unknown")
+        return [
+            (_("Pages"), page_text),
+            (_("Size"), self._size_text()),
+        ]
+
+    def teardown(self) -> None:
+        """Clear rendered pages and drop the window callback."""
+        child = self.pages_box.get_first_child()
+        while child is not None:
+            next_child = child.get_next_sibling()
+            self.pages_box.remove(child)
+            child = next_child
+        self._page_count = 0
+        self._status_callback = None

@@ -91,7 +91,10 @@ Any new parser must state its input cap in code and in `SECURITY.md`.
 - Search is a non-grabbing overlay card, shown and hidden instantly. It never reflows content.
 - Motion: hover and press 100 ms, content crossfade 120 ms. Nothing above 150 ms.
   Animate only `opacity`, `color`, `background-color`, `transform`. Honour `gtk-enable-animations`.
-- One accent: `#4C8DFF` light, `#6EA8FF` dark. Only for focus, links, selection, primary action.
+- One accent family: primary fill `#3867D6` with white text; links and focus rings
+  `#2F5FC4` light, `#8AB4FF` dark. Override libadwaita through the `--accent-*` CSS
+  variables on `:root`, not only the `@accent_*` named colours. Only for focus, links,
+  selection, primary action.
 - No pure `#000` or `#fff`, no gradients, no glow, no decorative dots, no emoji in the UI.
 - Use symbolic icons from the system theme. No bundled fonts.
 - Type, size and metadata appear in the status bar, never duplicated inside content.

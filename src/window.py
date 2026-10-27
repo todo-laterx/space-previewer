@@ -40,6 +40,54 @@ log = logging.getLogger(__name__)
 
 RENAME_DELAY_MS = 200
 
+_ACCENT_PROVIDER = None
+
+ACCENT_BG = "#3867D6"
+ACCENT_FG = "#FFFFFF"
+ACCENT_LIGHT = "#2F5FC4"
+ACCENT_DARK = "#8AB4FF"
+
+
+def _install_accent_css():
+    """Apply the single accent to Adwaita widgets instead of the theme accent."""
+    global _ACCENT_PROVIDER
+    if _ACCENT_PROVIDER is not None:
+        return
+
+    display = Gdk.Display.get_default()
+    if display is None:
+        return
+
+    provider = Gtk.CssProvider()
+    Gtk.StyleContext.add_provider_for_display(
+        display, provider, Gtk.STYLE_PROVIDER_PRIORITY_APPLICATION
+    )
+    manager = Adw.StyleManager.get_default()
+
+    def apply(*_args):
+        accent = ACCENT_DARK if manager.get_dark() else ACCENT_LIGHT
+        # libadwaita 1.6+ resolves its accent through CSS custom properties on
+        # :root, so overriding the named colours alone is not enough. Define
+        # both: older widgets still read the @accent_* names.
+        css = (
+            f"@define-color accent_bg_color {ACCENT_BG};"
+            f" @define-color accent_fg_color {ACCENT_FG};"
+            f" @define-color accent_color {accent};"
+            " :root {"
+            f" --accent-bg-color: {ACCENT_BG};"
+            f" --accent-fg-color: {ACCENT_FG};"
+            f" --accent-color: {accent};"
+            " }"
+        )
+        try:
+            provider.load_from_data(css.encode("utf-8"))
+        except Exception:
+            log.exception("Could not load the accent stylesheet")
+
+    apply()
+    manager.connect("notify::dark", apply)
+    _ACCENT_PROVIDER = provider
+
 TYPE_BY_EXT = {
     ".md": "MARKDOWN",
     ".markdown": "MARKDOWN",
@@ -77,6 +125,7 @@ class PreviewWindow(Adw.ApplicationWindow):
     def __init__(self, app, file_path: str, parent_handle: str = "", activation_token: str = ""):
         super().__init__(application=app)
         self.app = app
+        _install_accent_css()
         self.set_title(_("Quick Look"))
         self.set_default_size(1180, 780)
         self.set_resizable(True)
@@ -85,6 +134,7 @@ class PreviewWindow(Adw.ApplicationWindow):
         self.current_viewer = None
         self.parent_handle = parent_handle or ""
         self.activation_token = activation_token or ""
+        self._shortcuts_window = None
 
         self.main_box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=0)
         self.set_content(self.main_box)
@@ -297,6 +347,38 @@ class PreviewWindow(Adw.ApplicationWindow):
             except Exception:
                 log.exception("Could not register the search state callback")
 
+        setter = getattr(viewer, "set_status_callback", None)
+        if callable(setter):
+            try:
+                setter(self._refresh_status)
+            except Exception:
+                log.exception("Could not register the status callback")
+
+        setter = getattr(viewer, "set_ready_callback", None)
+        if callable(setter):
+            try:
+                setter(self._on_viewer_ready)
+            except Exception:
+                log.exception("Could not register the ready callback")
+
+    def _on_viewer_ready(self):
+        # Async viewers finish after the window was sized from an empty shell;
+        # re-measure once the real content exists.
+        self.apply_responsive_size()
+
+    def _refresh_status(self, *_args):
+        viewer = self.current_viewer
+        if viewer is None:
+            return
+        items = []
+        getter = getattr(viewer, "get_status_items", None)
+        if callable(getter):
+            try:
+                items = list(getter() or [])
+            except Exception:
+                log.exception("Viewer status items failed")
+        self.status_bar.set_items(items or self._default_status_items())
+
     def _on_search_state_changed(self, _is_open=None):
         self._sync_search_card()
 
@@ -402,6 +484,13 @@ class PreviewWindow(Adw.ApplicationWindow):
                 return True
             return False
 
+        if is_ctrl and not is_alt and not is_super and keyval in (
+            Gdk.KEY_question,
+            Gdk.KEY_slash,
+        ):
+            self._show_shortcuts()
+            return True
+
         if keyval == Gdk.KEY_Escape:
             if self._search_is_open():
                 self.current_viewer.close_search()
@@ -484,6 +573,64 @@ class PreviewWindow(Adw.ApplicationWindow):
         GLib.timeout_add(RENAME_DELAY_MS, emit_later)
 
     # ----------------------------------------------------------------- actions
+
+    def _show_shortcuts(self):
+        if self._shortcuts_window is not None:
+            self._shortcuts_window.present()
+            return
+
+        window = Adw.Window()
+        window.set_transient_for(self)
+        window.set_modal(True)
+        window.set_title(_("Keyboard Shortcuts"))
+        window.set_default_size(440, 560)
+
+        content = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=0)
+        content.append(Adw.HeaderBar())
+
+        scrolled = Gtk.ScrolledWindow()
+        scrolled.set_vexpand(True)
+
+        listbox = Gtk.ListBox()
+        listbox.add_css_class("boxed-list")
+        listbox.set_selection_mode(Gtk.SelectionMode.NONE)
+        listbox.set_margin_top(12)
+        listbox.set_margin_bottom(12)
+        listbox.set_margin_start(12)
+        listbox.set_margin_end(12)
+
+        shortcuts = [
+            (_("Close preview"), "space"),
+            (_("Close search, then preview"), "Escape"),
+            (_("Find in file"), "<Control>f"),
+            (_("Next match"), "Return"),
+            (_("Previous match"), "<Shift>Return"),
+            (_("Move selection in Files (arrow keys)"), "Left"),
+            (_("Open with the default app"), "o"),
+            (_("Play or pause media"), "p"),
+            (_("Toggle fullscreen"), "F11"),
+            (_("Rename in Files"), "F2"),
+            (_("Move to trash"), "Delete"),
+            (_("Show this window"), "<Control>question"),
+        ]
+
+        for title, accelerator in shortcuts:
+            row = Adw.ActionRow(title=title)
+            key = Gtk.ShortcutLabel(accelerator=accelerator)
+            key.set_valign(Gtk.Align.CENTER)
+            row.add_suffix(key)
+            listbox.append(row)
+
+        scrolled.set_child(listbox)
+        content.append(scrolled)
+        window.set_content(content)
+        window.connect("destroy", self._on_shortcuts_destroyed)
+
+        self._shortcuts_window = window
+        window.present()
+
+    def _on_shortcuts_destroyed(self, *_args):
+        self._shortcuts_window = None
 
     def on_open_clicked(self, btn):
         if self.current_file_path and os.path.exists(self.current_file_path):

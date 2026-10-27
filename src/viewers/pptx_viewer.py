@@ -1,17 +1,25 @@
+import logging
 import os
-import io
-import zipfile
-import xml.etree.ElementTree as ET
+
 import gi
 gi.require_version('Gtk', '4.0')
-from gi.repository import Gtk, Pango
+from gi.repository import Gtk
 
 from utils.formatters import format_size
+from utils.i18n import _, ngettext
+from viewers.office_common import OfficeParseError, open_office_zip, read_xml
+
+log = logging.getLogger(__name__)
 
 class PptxViewer(Gtk.Box):
     def __init__(self, file_path: str):
         super().__init__(orientation=Gtk.Orientation.VERTICAL, spacing=0)
         self.file_path = file_path
+        self._slide_count = 0
+        try:
+            self._size_bytes = os.path.getsize(file_path)
+        except OSError:
+            self._size_bytes = 0
 
         self.scrolled = Gtk.ScrolledWindow()
         self.scrolled.set_hexpand(True)
@@ -42,16 +50,15 @@ class PptxViewer(Gtk.Box):
 
     def load_pptx(self):
         try:
-            with open(self.file_path, "rb") as f:
-                raw_bytes = f.read(50 * 1024 * 1024)
-            with zipfile.ZipFile(io.BytesIO(raw_bytes), "r") as zf:
+            with open_office_zip(self.file_path) as zf:
                 slide_files = sorted(
                     [f for f in zf.namelist() if f.startswith("ppt/slides/slide") and f.endswith(".xml")],
                     key=lambda x: int("".join(filter(str.isdigit, x)) or 0)
                 )
 
                 if not slide_files:
-                    self.slides_box.append(Gtk.Label(label="No slides found in PowerPoint presentation."))
+                    self._update_info()
+                    self.slides_box.append(Gtk.Label(label=_("No slides found in PowerPoint presentation.")))
                     return
 
                 ns = {
@@ -65,7 +72,9 @@ class PptxViewer(Gtk.Box):
                     card.set_margin_top(4)
                     card.set_margin_bottom(4)
 
-                    header_badge = Gtk.Label(label=f"SLIDE {s_idx + 1}")
+                    header_badge = Gtk.Label(
+                        label=_("SLIDE %(number)s") % {"number": s_idx + 1}
+                    )
                     header_badge.add_css_class("caption")
                     header_badge.add_css_class("dim-label")
                     header_badge.set_halign(Gtk.Align.START)
@@ -73,8 +82,7 @@ class PptxViewer(Gtk.Box):
                     header_badge.set_margin_top(12)
                     card.append(header_badge)
 
-                    slide_xml = zf.read(s_file)
-                    root_slide = ET.fromstring(slide_xml)
+                    root_slide = read_xml(zf, s_file)
 
                     text_paragraphs = []
                     for p in root_slide.findall(".//a:p", ns):
@@ -95,7 +103,9 @@ class PptxViewer(Gtk.Box):
                         card.append(title_lbl)
 
                         for body_line in text_paragraphs[1:]:
-                            line_lbl = Gtk.Label(label=f"•  {body_line}")
+                            line_lbl = Gtk.Label(
+                                label=_("•  %(text)s") % {"text": body_line}
+                            )
                             line_lbl.set_halign(Gtk.Align.START)
                             line_lbl.set_wrap(True)
                             line_lbl.set_margin_start(24)
@@ -103,7 +113,7 @@ class PptxViewer(Gtk.Box):
                             line_lbl.set_margin_bottom(4)
                             card.append(line_lbl)
                     else:
-                        empty_lbl = Gtk.Label(label="(Visual or graphical slide content)")
+                        empty_lbl = Gtk.Label(label=_("(Visual or graphical slide content)"))
                         empty_lbl.add_css_class("dim-label")
                         empty_lbl.set_halign(Gtk.Align.START)
                         empty_lbl.set_margin_start(16)
@@ -112,8 +122,35 @@ class PptxViewer(Gtk.Box):
 
                     self.slides_box.append(card)
 
-                size = os.path.getsize(self.file_path)
-                self.lbl_info.set_text(f"PowerPoint (.pptx) • {len(slide_files)} slides • {format_size(size)}")
+                self._slide_count = len(slide_files)
+                self._update_info()
 
-        except Exception as e:
-            self.slides_box.append(Gtk.Label(label=f"Could not load PowerPoint presentation:\n{e}"))
+        except OfficeParseError as exc:
+            self.slides_box.append(Gtk.Label(
+                label=_("Could not load PowerPoint presentation:\n%(error)s")
+                % {"error": str(exc)}
+            ))
+        except Exception:
+            log.exception("Could not load PowerPoint presentation %s", self.file_path)
+            self.slides_box.append(Gtk.Label(
+                label=_("Could not load PowerPoint presentation.")
+            ))
+
+    def _update_info(self) -> None:
+        slides = ngettext(
+            "{count} slide", "{count} slides", self._slide_count
+        ).format(count=f"{self._slide_count:,}")
+        self.lbl_info.set_text(
+            _("PowerPoint (.pptx) • %(slides)s • %(size)s")
+            % {"slides": slides, "size": format_size(self._size_bytes)}
+        )
+
+    def get_status_items(self) -> list[tuple[str, str]]:
+        size_item = (_("Size"), format_size(self._size_bytes))
+        # A legacy .ppt body is not parsed, so report only its size.
+        if os.path.splitext(self.file_path)[1].lower() != ".pptx":
+            return [size_item]
+        return [(_("Slides"), f"{self._slide_count:,}"), size_item]
+
+    def teardown(self) -> None:
+        """The viewer owns no external resources."""

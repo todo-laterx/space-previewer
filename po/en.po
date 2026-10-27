@@ -16,13 +16,41 @@ msgstr ""
 "Plural-Forms: nplurals=2; plural=(n != 1);\n"
 
 
-#: src/viewers/text_viewer.py:516
+#: src/viewers/text_viewer.py:687
+msgid "\n\n... [Syntax highlighting disabled: file is larger than 1 MB; showing plain text] ..."
+msgstr "\n\n... [Syntax highlighting disabled: file is larger than 1 MB; showing plain text] ..."
+
+#: src/viewers/markdown_viewer.py:888
+msgid "\n\n... [Truncated preview: file is larger than 2 MB] ..."
+msgstr "\n\n... [Truncated preview: file is larger than 2 MB] ..."
+
+#: src/viewers/text_viewer.py:386
 msgid "\n\n... [Truncated preview: file is larger than 5 MB] ..."
 msgstr "\n\n... [Truncated preview: file is larger than 5 MB] ..."
+
+#: src/viewers/excel_viewer.py:191
+msgid "%(letter)s: %(header)s"
+msgstr "%(letter)s: %(header)s"
+
+#: src/viewers/docx_viewer.py:243
+msgid "%(type)s • %(paragraphs)s • %(words)s • %(size)s"
+msgstr "%(type)s • %(paragraphs)s • %(words)s • %(size)s"
 
 #: src/utils/formatters.py:31
 msgid "%Y-%m-%d %H:%M"
 msgstr "%Y-%m-%d %H:%M"
+
+#: src/viewers/pptx_viewer.py:116
+msgid "(Visual or graphical slide content)"
+msgstr "(Visual or graphical slide content)"
+
+#: src/viewers/office_common.py:54
+msgid "A part of this Office document is too large to preview."
+msgstr "A part of this Office document is too large to preview."
+
+#: src/viewers/office_common.py:49
+msgid "A required part of this Office document is missing."
+msgstr "A required part of this Office document is missing."
 
 #: src/viewers/html_viewer.py:105
 msgid "Allow remote content"
@@ -32,6 +60,15 @@ msgstr "Allow remote content"
 msgid "Allow remote content in this preview"
 msgstr "Allow remote content in this preview"
 
+#: src/viewers/archive_viewer.py:334
+#: src/viewers/archive_viewer.py:339
+msgid "Archive Size"
+msgstr "Archive Size"
+
+#: src/viewers/archive_viewer.py:183
+msgid "Archive is empty."
+msgstr "Archive is empty."
+
 #: src/utils/formatters.py:18
 msgid "B"
 msgstr "B"
@@ -40,58 +77,128 @@ msgstr "B"
 msgid "Blocked"
 msgstr "Blocked"
 
-#: src/viewers/markdown_viewer.py:1225
+#: src/viewers/markdown_viewer.py:1384
 msgid "CAUTION"
 msgstr "CAUTION"
 
-#: src/viewers/markdown_viewer.py:1158
-#: src/viewers/text_viewer.py:355
+#: src/viewers/markdown_viewer.py:1300
+#: src/viewers/text_viewer.py:421
 msgid "CODE"
 msgstr "CODE"
 
-#: src/viewers/markdown_viewer.py:311
+#: src/viewers/csv_viewer.py:148
+msgid "CSV file is empty."
+msgstr "CSV file is empty."
+
+#: src/viewers/folder_viewer.py:367
+#: src/viewers/folder_viewer.py:400
+#: src/viewers/folder_viewer.py:401
+msgid "Calculating..."
+msgstr "Calculating..."
+
+#: src/viewers/markdown_viewer.py:321
 msgid "Class Diagram"
 msgstr "Class Diagram"
 
-#: src/viewers/text_viewer.py:447
+#: src/viewers/text_viewer.py:513
 msgid "Close Search (Esc)"
 msgstr "Close Search (Esc)"
 
-#: src/viewers/markdown_viewer.py:764
-#: src/viewers/markdown_viewer.py:1472
-#: src/viewers/text_viewer.py:642
+#: src/window.py:603
+msgid "Close preview"
+msgstr "Close preview"
+
+#: src/window.py:604
+msgid "Close search, then preview"
+msgstr "Close search, then preview"
+
+#: src/viewers/csv_viewer.py:170
+msgid "Column {number}"
+msgstr "Column {number}"
+
+#: src/viewers/csv_viewer.py:271
+#: src/viewers/csv_viewer.py:277
+msgid "Columns"
+msgstr "Columns"
+
+#: src/viewers/markdown_viewer.py:779
+#: src/viewers/markdown_viewer.py:1631
+#: src/viewers/text_viewer.py:785
 msgid "Copied!"
 msgstr "Copied!"
 
-#: src/viewers/markdown_viewer.py:589
-#: src/viewers/markdown_viewer.py:773
-#: src/viewers/markdown_viewer.py:1166
-#: src/viewers/markdown_viewer.py:1477
-#: src/viewers/text_viewer.py:650
+#: src/viewers/markdown_viewer.py:599
+#: src/viewers/markdown_viewer.py:788
+#: src/viewers/markdown_viewer.py:1308
+#: src/viewers/markdown_viewer.py:1636
+#: src/viewers/text_viewer.py:793
 msgid "Copy"
 msgstr "Copy"
 
-#: src/viewers/text_viewer.py:397
-#: src/viewers/text_viewer.py:399
+#: src/viewers/text_viewer.py:463
+#: src/viewers/text_viewer.py:465
 msgid "Copy code"
 msgstr "Copy code"
 
-#: src/viewers/markdown_viewer.py:1168
+#: src/viewers/markdown_viewer.py:1310
 msgid "Copy code block"
 msgstr "Copy code block"
 
-#: src/viewers/markdown_viewer.py:591
+#: src/viewers/markdown_viewer.py:601
 msgid "Copy diagram source"
 msgstr "Copy diagram source"
 
-#: src/viewers/markdown_viewer.py:899
-#: src/viewers/markdown_viewer.py:901
+#: src/viewers/markdown_viewer.py:951
+#: src/viewers/markdown_viewer.py:953
 msgid "Copy source"
 msgstr "Copy source"
 
 #: src/viewers/html_viewer.py:388
 msgid "Could not build a URI for this file."
 msgstr "Could not build a URI for this file."
+
+#: src/viewers/folder_viewer.py:342
+msgid "Could not calculate folder totals."
+msgstr "Could not calculate folder totals."
+
+#: src/viewers/docx_viewer.py:230
+#: src/viewers/docx_viewer.py:233
+msgid "Could not load .doc file."
+msgstr "Could not load .doc file."
+
+#: src/viewers/excel_viewer.py:231
+msgid "Could not load Excel spreadsheet."
+msgstr "Could not load Excel spreadsheet."
+
+#: src/viewers/excel_viewer.py:225
+msgid "Could not load Excel spreadsheet:\n%(error)s"
+msgstr "Could not load Excel spreadsheet:\n%(error)s"
+
+#: src/viewers/pdf_viewer.py:110
+msgid "Could not load PDF:\n{error}"
+msgstr "Could not load PDF:\n{error}"
+
+#: src/viewers/pptx_viewer.py:136
+msgid "Could not load PowerPoint presentation."
+msgstr "Could not load PowerPoint presentation."
+
+#: src/viewers/pptx_viewer.py:130
+msgid "Could not load PowerPoint presentation:\n%(error)s"
+msgstr "Could not load PowerPoint presentation:\n%(error)s"
+
+#: src/viewers/docx_viewer.py:213
+msgid "Could not load Word document."
+msgstr "Could not load Word document."
+
+#: src/viewers/docx_viewer.py:208
+msgid "Could not load Word document:\n%(error)s"
+msgstr "Could not load Word document:\n%(error)s"
+
+#: src/viewers/image_viewer.py:194
+#: src/viewers/image_viewer.py:234
+#: src/viewers/image_viewer.py:273
+msgid "Could not load image: {error}"
+msgstr "Could not load image: {error}"
 
 #: src/viewers/html_viewer.py:409
 msgid "Could not load this HTML file."
@@ -101,11 +208,26 @@ msgstr "Could not load this HTML file."
 msgid "Could not open this link in the default browser."
 msgstr "Could not open this link in the default browser."
 
-#: src/viewers/text_viewer.py:540
+#: src/viewers/csv_viewer.py:135
+#: src/viewers/csv_viewer.py:142
+msgid "Could not parse CSV: {error}"
+msgstr "Could not parse CSV: {error}"
+
+#: src/viewers/archive_viewer.py:167
+#: src/viewers/archive_viewer.py:173
+msgid "Could not read archive: {error}"
+msgstr "Could not read archive: {error}"
+
+#: src/viewers/folder_viewer.py:131
+msgid "Could not read directory: {error}"
+msgstr "Could not read directory: {error}"
+
+#: src/viewers/text_viewer.py:640
 msgid "Could not read text file:\n{error}"
 msgstr "Could not read text file:\n{error}"
 
-#: src/viewers/markdown_viewer.py:974
+#: src/viewers/markdown_viewer.py:1058
+#: src/viewers/markdown_viewer.py:1104
 msgid "Could not render preview:\n{error}"
 msgstr "Could not render preview:\n{error}"
 
@@ -113,102 +235,214 @@ msgstr "Could not render preview:\n{error}"
 msgid "Could not show this file."
 msgstr "Could not show this file."
 
-#: src/viewers/markdown_viewer.py:314
+#: src/viewers/archive_viewer.py:219
+msgid "Date Modified"
+msgstr "Date Modified"
+
+#: src/viewers/image_viewer.py:483
+msgid "Dimensions"
+msgstr "Dimensions"
+
+#: src/viewers/docx_viewer.py:117
+msgid "Document body is empty."
+msgstr "Document body is empty."
+
+#: src/viewers/media_viewer.py:165
+msgid "Duration"
+msgstr "Duration"
+
+#: src/viewers/markdown_viewer.py:324
 msgid "ER Diagram"
 msgstr "ER Diagram"
 
-#: src/viewers/markdown_viewer.py:1520
-#: src/viewers/text_viewer.py:837
+#: src/viewers/markdown_viewer.py:1692
+#: src/viewers/text_viewer.py:993
 msgid "Encoding"
 msgstr "Encoding"
 
-#: src/window.py:359
+#: src/viewers/office_common.py:95
+msgid "Encrypted Office documents are not supported."
+msgstr "Encrypted Office documents are not supported."
+
+#: src/viewers/archive_viewer.py:333
+#: src/viewers/archive_viewer.py:338
+msgid "Entries"
+msgstr "Entries"
+
+#: src/viewers/excel_viewer.py:252
+msgid "Excel (.xlsx) • %(sheet)s • %(cols)s × %(rows)s • %(size)s"
+msgstr "Excel (.xlsx) • %(sheet)s • %(cols)s × %(rows)s • %(size)s"
+
+#: src/viewers/excel_viewer.py:262
+msgid "Excel (.xlsx) • %(size)s"
+msgstr "Excel (.xlsx) • %(size)s"
+
+#: src/viewers/excel_viewer.py:245
+msgid "Excel Binary (.xls) • %(size)s"
+msgstr "Excel Binary (.xls) • %(size)s"
+
+#: src/window.py:441
 msgid "FILE"
 msgstr "FILE"
 
-#: src/window.py:352
+#: src/window.py:434
 msgid "FOLDER"
 msgstr "FOLDER"
 
-#: src/viewers/__init__.py:25
+#: src/viewers/font_viewer.py:190
+msgid "Family"
+msgstr "Family"
+
+#: src/viewers/archive_viewer.py:201
+msgid "File Name"
+msgstr "File Name"
+
+#: src/viewers/__init__.py:29
 msgid "File not found: %s"
 msgstr "File not found: %s"
 
-#: src/viewers/text_viewer.py:390
+#: src/viewers/text_viewer.py:456
 msgid "Find in code"
 msgstr "Find in code"
 
-#: src/viewers/text_viewer.py:388
+#: src/viewers/text_viewer.py:454
 msgid "Find in code (Ctrl+F)"
 msgstr "Find in code (Ctrl+F)"
 
-#: src/viewers/text_viewer.py:415
+#: src/viewers/text_viewer.py:481
 msgid "Find in code... (Enter to find next)"
 msgstr "Find in code... (Enter to find next)"
 
-#: src/viewers/markdown_viewer.py:308
+#: src/window.py:605
+msgid "Find in file"
+msgstr "Find in file"
+
+#: src/viewers/markdown_viewer.py:318
 msgid "Flowchart"
 msgstr "Flowchart"
 
-#: src/viewers/markdown_viewer.py:309
+#: src/viewers/markdown_viewer.py:319
 msgid "Flowchart Graph"
 msgstr "Flowchart Graph"
+
+#: src/viewers/font_viewer.py:132
+msgid "Font file • {size}"
+msgstr "Font file • {size}"
 
 #: src/utils/formatters.py:24
 msgid "GB"
 msgstr "GB"
 
-#: src/viewers/markdown_viewer.py:315
+#: src/viewers/markdown_viewer.py:325
 msgid "Gantt Chart"
 msgstr "Gantt Chart"
 
-#: src/viewers/markdown_viewer.py:319
+#: src/viewers/markdown_viewer.py:329
 msgid "Git Graph"
 msgstr "Git Graph"
 
-#: src/viewers/markdown_viewer.py:1215
+#: src/viewers/markdown_viewer.py:1374
 msgid "IMPORTANT"
 msgstr "IMPORTANT"
+
+#: src/viewers/image_viewer.py:415
+msgid "Image is too large to preview (limit: {limit} megapixels)."
+msgstr "Image is too large to preview (limit: {limit} megapixels)."
+
+#: src/viewers/folder_viewer.py:394
+#: src/viewers/folder_viewer.py:400
+#: src/viewers/folder_viewer.py:405
+msgid "Items"
+msgstr "Items"
 
 #: src/utils/formatters.py:20
 msgid "KB"
 msgstr "KB"
 
-#: src/viewers/text_viewer.py:836
+#: src/window.py:585
+msgid "Keyboard Shortcuts"
+msgstr "Keyboard Shortcuts"
+
+#: src/viewers/docx_viewer.py:223
+msgid "Legacy .doc file (binary format)"
+msgstr "Legacy .doc file (binary format)"
+
+#: src/viewers/excel_viewer.py:237
+msgid "Legacy Excel (.xls) binary spreadsheet.\nSize: %(size)s\nClick 'Open with App' to view in full office suite."
+msgstr "Legacy Excel (.xls) binary spreadsheet.\nSize: %(size)s\nClick 'Open with App' to view in full office suite."
+
+#: src/viewers/docx_viewer.py:225
+msgid "Legacy Word Document (.doc) • %(size)s"
+msgstr "Legacy Word Document (.doc) • %(size)s"
+
+#: src/viewers/text_viewer.py:992
 msgid "Lines"
 msgstr "Lines"
+
+#: src/viewers/markdown_viewer.py:1091
+msgid "MARKDOWN"
+msgstr "MARKDOWN"
 
 #: src/utils/formatters.py:22
 msgid "MB"
 msgstr "MB"
 
-#: src/viewers/markdown_viewer.py:553
+#: src/viewers/markdown_viewer.py:563
+#: src/viewers/markdown_viewer.py:1076
 msgid "MERMAID"
 msgstr "MERMAID"
 
-#: src/viewers/text_viewer.py:437
+#: src/viewers/text_viewer.py:503
 msgid "Match Case"
 msgstr "Match Case"
 
-#: src/viewers/markdown_viewer.py:323
+#: src/viewers/markdown_viewer.py:333
 msgid "Mermaid Diagram"
 msgstr "Mermaid Diagram"
 
-#: src/viewers/markdown_viewer.py:317
+#: src/viewers/markdown_viewer.py:327
 msgid "Mindmap"
 msgstr "Mindmap"
 
-#: src/viewers/markdown_viewer.py:1210
+#: src/viewers/folder_viewer.py:118
+msgid "Modified time unavailable"
+msgstr "Modified time unavailable"
+
+#: src/viewers/folder_viewer.py:114
+msgid "Modified: {date}"
+msgstr "Modified: {date}"
+
+#: src/window.py:608
+msgid "Move selection in Files (arrow keys)"
+msgstr "Move selection in Files (arrow keys)"
+
+#: src/window.py:613
+msgid "Move to trash"
+msgstr "Move to trash"
+
+#: src/viewers/markdown_viewer.py:1369
 msgid "NOTE"
 msgstr "NOTE"
 
-#: src/viewers/text_viewer.py:431
+#: src/window.py:606
+msgid "Next match"
+msgstr "Next match"
+
+#: src/viewers/text_viewer.py:497
 msgid "Next match (Enter)"
 msgstr "Next match (Enter)"
 
-#: src/viewers/text_viewer.py:734
+#: src/viewers/text_viewer.py:877
 msgid "No matches"
 msgstr "No matches"
+
+#: src/viewers/excel_viewer.py:110
+msgid "No sheets found in spreadsheet."
+msgstr "No sheets found in spreadsheet."
+
+#: src/viewers/pptx_viewer.py:61
+msgid "No slides found in PowerPoint presentation."
+msgstr "No slides found in PowerPoint presentation."
 
 #: src/viewers/html_viewer.py:115
 msgid "Open in browser"
@@ -218,38 +452,86 @@ msgstr "Open in browser"
 msgid "Open this file in the default browser"
 msgstr "Open this file in the default browser"
 
-#: src/window.py:98
+#: src/window.py:148
 msgid "Open with App"
 msgstr "Open with App"
 
-#: src/viewers/markdown_viewer.py:871
+#: src/window.py:609
+msgid "Open with the default app"
+msgstr "Open with the default app"
+
+#: src/viewers/markdown_viewer.py:923
 msgid "PREVIEW"
 msgstr "PREVIEW"
 
-#: src/viewers/markdown_viewer.py:316
+#: src/viewers/pdf_viewer.py:162
+msgid "Pages"
+msgstr "Pages"
+
+#: src/viewers/docx_viewer.py:259
+msgid "Paragraphs"
+msgstr "Paragraphs"
+
+#: src/viewers/markdown_viewer.py:326
 msgid "Pie Chart"
 msgstr "Pie Chart"
 
-#: src/viewers/text_viewer.py:366
-#: src/viewers/text_viewer.py:368
+#: src/window.py:610
+msgid "Play or pause media"
+msgstr "Play or pause media"
+
+#: src/viewers/pdf_viewer.py:69
+msgid "Poppler library is not installed for PDF rendering."
+msgstr "Poppler library is not installed for PDF rendering."
+
+#: src/viewers/pptx_viewer.py:144
+msgid "PowerPoint (.pptx) • %(slides)s • %(size)s"
+msgstr "PowerPoint (.pptx) • %(slides)s • %(size)s"
+
+#: src/viewers/text_viewer.py:432
+#: src/viewers/text_viewer.py:434
 msgid "Pretty-print JSON"
 msgstr "Pretty-print JSON"
 
-#: src/viewers/markdown_viewer.py:882
+#: src/viewers/markdown_viewer.py:934
 msgid "Preview"
 msgstr "Preview"
 
-#: src/viewers/text_viewer.py:425
+#: src/viewers/csv_viewer.py:211
+msgid "Preview truncated at {columns} columns."
+msgstr "Preview truncated at {columns} columns."
+
+#: src/viewers/archive_viewer.py:241
+msgid "Preview truncated at {entries} entries or {size} uncompressed."
+msgstr "Preview truncated at {entries} entries or {size} uncompressed."
+
+#: src/viewers/csv_viewer.py:200
+msgid "Preview truncated at {rows} rows and {columns} columns."
+msgstr "Preview truncated at {rows} rows and {columns} columns."
+
+#: src/viewers/csv_viewer.py:207
+msgid "Preview truncated at {rows} rows."
+msgstr "Preview truncated at {rows} rows."
+
+#: src/window.py:607
+msgid "Previous match"
+msgstr "Previous match"
+
+#: src/viewers/text_viewer.py:491
 msgid "Previous match (Shift+Enter)"
 msgstr "Previous match (Shift+Enter)"
 
-#: src/window.py:80
+#: src/window.py:129
 msgid "Quick Look"
 msgstr "Quick Look"
 
-#: src/viewers/markdown_viewer.py:887
+#: src/viewers/markdown_viewer.py:939
 msgid "Raw Code"
 msgstr "Raw Code"
+
+#: src/viewers/font_viewer.py:94
+msgid "Regular"
+msgstr "Regular"
 
 #: src/viewers/html_viewer.py:144
 msgid "Remote"
@@ -259,78 +541,211 @@ msgstr "Remote"
 msgid "Remote content blocked"
 msgstr "Remote content blocked"
 
-#: src/viewers/markdown_viewer.py:614
+#: src/window.py:612
+msgid "Rename in Files"
+msgstr "Rename in Files"
+
+#: src/viewers/markdown_viewer.py:624
 msgid "Rendering Mermaid diagram..."
 msgstr "Rendering Mermaid diagram..."
 
-#: src/viewers/markdown_viewer.py:572
+#: src/viewers/markdown_viewer.py:582
 msgid "Reset zoom"
 msgstr "Reset zoom"
 
-#: src/viewers/markdown_viewer.py:310
+#: src/viewers/csv_viewer.py:270
+#: src/viewers/csv_viewer.py:276
+#: src/viewers/excel_viewer.py:273
+msgid "Rows"
+msgstr "Rows"
+
+#: src/viewers/pptx_viewer.py:76
+msgid "SLIDE %(number)s"
+msgstr "SLIDE %(number)s"
+
+#: src/viewers/markdown_viewer.py:320
 msgid "Sequence Diagram"
 msgstr "Sequence Diagram"
 
-#: src/viewers/markdown_viewer.py:585
+#: src/viewers/excel_viewer.py:92
+#: src/viewers/excel_viewer.py:158
+msgid "Sheet %(number)s"
+msgstr "Sheet %(number)s"
+
+#: src/viewers/excel_viewer.py:272
+msgid "Sheets"
+msgstr "Sheets"
+
+#: src/viewers/markdown_viewer.py:595
 msgid "Show diagram source"
 msgstr "Show diagram source"
 
-#: src/viewers/markdown_viewer.py:889
+#: src/viewers/markdown_viewer.py:941
 msgid "Show raw source"
 msgstr "Show raw source"
 
-#: src/viewers/markdown_viewer.py:884
+#: src/viewers/markdown_viewer.py:936
 msgid "Show rendered preview"
 msgstr "Show rendered preview"
 
+#: src/window.py:614
+msgid "Show this window"
+msgstr "Show this window"
+
+#: src/viewers/pdf_viewer.py:98
+msgid "Showing the first {shown} of {total} pages."
+msgstr "Showing the first {shown} of {total} pages."
+
+#: src/viewers/archive_viewer.py:210
+#: src/viewers/csv_viewer.py:272
+#: src/viewers/csv_viewer.py:278
+#: src/viewers/docx_viewer.py:253
+#: src/viewers/excel_viewer.py:266
+#: src/viewers/folder_viewer.py:395
+#: src/viewers/folder_viewer.py:401
+#: src/viewers/folder_viewer.py:406
+#: src/viewers/font_viewer.py:192
 #: src/viewers/html_viewer.py:140
-#: src/viewers/markdown_viewer.py:1518
-#: src/viewers/text_viewer.py:835
-#: src/window.py:366
+#: src/viewers/image_viewer.py:484
+#: src/viewers/markdown_viewer.py:1690
+#: src/viewers/media_viewer.py:166
+#: src/viewers/pdf_viewer.py:163
+#: src/viewers/pptx_viewer.py:149
+#: src/viewers/text_viewer.py:991
+#: src/window.py:448
 msgid "Size"
 msgstr "Size"
 
-#: src/viewers/markdown_viewer.py:583
+#: src/viewers/pptx_viewer.py:153
+msgid "Slides"
+msgstr "Slides"
+
+#: src/viewers/markdown_viewer.py:593
 msgid "Source"
 msgstr "Source"
 
-#: src/viewers/markdown_viewer.py:312
-#: src/viewers/markdown_viewer.py:313
+#: src/viewers/excel_viewer.py:165
+msgid "Spreadsheet is empty."
+msgstr "Spreadsheet is empty."
+
+#: src/viewers/markdown_viewer.py:322
+#: src/viewers/markdown_viewer.py:323
 msgid "State Diagram"
 msgstr "State Diagram"
 
-#: src/viewers/text_viewer.py:217
-#: src/viewers/text_viewer.py:272
-#: src/viewers/text_viewer.py:277
+#: src/viewers/font_viewer.py:191
+msgid "Style"
+msgstr "Style"
+
+#: src/viewers/text_viewer.py:228
+#: src/viewers/text_viewer.py:283
+#: src/viewers/text_viewer.py:288
 msgid "TEXT"
 msgstr "TEXT"
 
-#: src/viewers/markdown_viewer.py:1211
+#: src/viewers/markdown_viewer.py:1370
 msgid "TIP"
 msgstr "TIP"
+
+#: src/viewers/archive_viewer.py:180
+msgid "The archive exceeds the preview limits."
+msgstr "The archive exceeds the preview limits."
+
+#: src/viewers/folder_viewer.py:355
+msgid "The listing is capped at {count} entries."
+msgstr "The listing is capped at {count} entries."
+
+#: src/viewers/font_viewer.py:149
+msgid "The quick brown fox jumps over the lazy dog"
+msgstr "The quick brown fox jumps over the lazy dog"
 
 #: src/viewers/html_viewer.py:208
 msgid "This HTML file is too large to preview; showing the source instead."
 msgstr "This HTML file is too large to preview; showing the source instead."
 
-#: src/viewers/markdown_viewer.py:320
+#: src/viewers/office_common.py:171
+msgid "This Office document contains invalid XML."
+msgstr "This Office document contains invalid XML."
+
+#: src/viewers/office_common.py:164
+msgid "This Office document contains unsupported XML declarations."
+msgstr "This Office document contains unsupported XML declarations."
+
+#: src/viewers/office_common.py:59
+msgid "This Office document could not be read."
+msgstr "This Office document could not be read."
+
+#: src/viewers/office_common.py:86
+msgid "This Office document has too many parts to preview."
+msgstr "This Office document has too many parts to preview."
+
+#: src/viewers/office_common.py:100
+msgid "This Office document is too large to preview."
+msgstr "This Office document is too large to preview."
+
+#: src/viewers/archive_viewer.py:110
+msgid "This archive contains encrypted entries and cannot be previewed."
+msgstr "This archive contains encrypted entries and cannot be previewed."
+
+#: src/viewers/folder_viewer.py:141
+msgid "This folder is empty."
+msgstr "This folder is empty."
+
+#: src/viewers/office_common.py:80
+msgid "This is not a valid Office document."
+msgstr "This is not a valid Office document."
+
+#: src/viewers/markdown_viewer.py:330
 msgid "Timeline"
 msgstr "Timeline"
 
-#: src/viewers/text_viewer.py:378
-#: src/viewers/text_viewer.py:380
+#: src/window.py:611
+msgid "Toggle fullscreen"
+msgstr "Toggle fullscreen"
+
+#: src/viewers/text_viewer.py:444
+#: src/viewers/text_viewer.py:446
 msgid "Toggle word wrap"
 msgstr "Toggle word wrap"
 
-#: src/viewers/__init__.py:142
+#: src/viewers/folder_viewer.py:353
+msgid "Totals are partial because the scan reached its limit."
+msgstr "Totals are partial because the scan reached its limit."
+
+#: src/viewers/__init__.py:146
 msgid "Type: %(mime)s\nSize: %(size)s\nModified: %(date)s"
 msgstr "Type: %(mime)s\nSize: %(size)s\nModified: %(date)s"
 
-#: src/viewers/markdown_viewer.py:318
+#: src/viewers/archive_viewer.py:333
+#: src/viewers/csv_viewer.py:270
+#: src/viewers/csv_viewer.py:271
+#: src/viewers/folder_viewer.py:394
+#: src/viewers/folder_viewer.py:395
+msgid "Unavailable"
+msgstr "Unavailable"
+
+#: src/viewers/font_viewer.py:185
+#: src/viewers/image_viewer.py:481
+#: src/viewers/media_viewer.py:17
+#: src/viewers/media_viewer.py:160
+#: src/viewers/pdf_viewer.py:153
+#: src/viewers/pdf_viewer.py:160
+msgid "Unknown"
+msgstr "Unknown"
+
+#: src/viewers/folder_viewer.py:409
+msgid "Unreadable"
+msgstr "Unreadable"
+
+#: src/viewers/archive_viewer.py:161
+msgid "Unsupported archive format or corrupted file."
+msgstr "Unsupported archive format or corrupted file."
+
+#: src/viewers/markdown_viewer.py:328
 msgid "User Journey"
 msgstr "User Journey"
 
-#: src/viewers/markdown_viewer.py:1220
+#: src/viewers/markdown_viewer.py:1379
 msgid "WARNING"
 msgstr "WARNING"
 
@@ -338,72 +753,163 @@ msgstr "WARNING"
 msgid "WebKit is not available; showing the source instead."
 msgstr "WebKit is not available; showing the source instead."
 
-#: src/viewers/markdown_viewer.py:1519
+#: src/viewers/docx_viewer.py:245
+msgid "Word Document (.docx)"
+msgstr "Word Document (.docx)"
+
+#: src/viewers/docx_viewer.py:260
+#: src/viewers/markdown_viewer.py:1691
 msgid "Words"
 msgstr "Words"
 
-#: src/viewers/markdown_viewer.py:321
+#: src/viewers/markdown_viewer.py:331
 msgid "XY Chart"
 msgstr "XY Chart"
 
-#: src/viewers/markdown_viewer.py:578
+#: src/viewers/image_viewer.py:485
+msgid "Zoom"
+msgstr "Zoom"
+
+#: src/viewers/markdown_viewer.py:588
 msgid "Zoom in"
 msgstr "Zoom in"
 
-#: src/viewers/markdown_viewer.py:566
+#: src/viewers/markdown_viewer.py:576
 msgid "Zoom out"
 msgstr "Zoom out"
 
-#: src/viewers/markdown_viewer.py:830
+#: src/viewers/markdown_viewer.py:845
 msgid "[image] {alt}"
 msgstr "[image] {alt}"
 
-#: src/viewers/markdown_viewer.py:827
+#: src/viewers/markdown_viewer.py:842
 msgid "image"
 msgstr "image"
 
-#: src/viewers/markdown_viewer.py:1099
+#: src/viewers/image_viewer.py:195
+msgid "not a valid SVG document"
+msgstr "not a valid SVG document"
+
+#: src/viewers/markdown_viewer.py:1241
 msgid "{count} Mermaid diagram"
 msgid_plural "{count} Mermaid diagrams"
 msgstr[0] "{count} Mermaid diagram"
-msgstr[1] "{count} Mermaid diagrams"
+msgstr[1] "{count} Mermaid diagram"
 
-#: src/viewers/markdown_viewer.py:1107
+#: src/viewers/markdown_viewer.py:1249
 msgid "{count} code block"
 msgid_plural "{count} code blocks"
 msgstr[0] "{count} code block"
-msgstr[1] "{count} code blocks"
+msgstr[1] "{count} code block"
 
-#: src/viewers/markdown_viewer.py:953
-#: src/viewers/markdown_viewer.py:1087
-#: src/viewers/text_viewer.py:560
-#: src/viewers/text_viewer.py:831
+#: src/viewers/csv_viewer.py:187
+msgid "{count} column"
+msgid_plural "{count} columns"
+msgstr[0] "{count} column"
+msgstr[1] "{count} column"
+
+#: src/viewers/archive_viewer.py:226
+msgid "{count} entry"
+msgid_plural "{count} entries"
+msgstr[0] "{count} entry"
+msgstr[1] "{count} entry"
+
+#: src/viewers/folder_viewer.py:372
+msgid "{count} item"
+msgid_plural "{count} items"
+msgstr[0] "{count} item"
+msgstr[1] "{count} item"
+
+#: src/viewers/markdown_viewer.py:1077
+#: src/viewers/markdown_viewer.py:1229
+#: src/viewers/text_viewer.py:703
 msgid "{count} line"
 msgid_plural "{count} lines"
 msgstr[0] "{count} line"
-msgstr[1] "{count} lines"
+msgstr[1] "{count} line"
 
-#: src/viewers/markdown_viewer.py:1093
+#: src/viewers/pdf_viewer.py:81
+msgid "{count} page"
+msgid_plural "{count} pages"
+msgstr[0] "{count} page"
+msgstr[1] "{count} page"
+
+#: src/viewers/docx_viewer.py:236
+msgid "{count} paragraph"
+msgid_plural "{count} paragraphs"
+msgstr[0] "{count} paragraph"
+msgstr[1] "{count} paragraph"
+
+#: src/viewers/csv_viewer.py:184
+msgid "{count} row"
+msgid_plural "{count} rows"
+msgstr[0] "{count} row"
+msgstr[1] "{count} row"
+
+#: src/viewers/markdown_viewer.py:1235
 msgid "{count} section"
 msgid_plural "{count} sections"
 msgstr[0] "{count} section"
-msgstr[1] "{count} sections"
+msgstr[1] "{count} section"
 
-#: src/viewers/markdown_viewer.py:1514
-#: src/viewers/text_viewer.py:563
+#: src/viewers/pptx_viewer.py:140
+msgid "{count} slide"
+msgid_plural "{count} slides"
+msgstr[0] "{count} slide"
+msgstr[1] "{count} slide"
+
+#: src/viewers/docx_viewer.py:239
+#: src/viewers/text_viewer.py:706
 msgid "{count} word"
 msgid_plural "{count} words"
 msgstr[0] "{count} word"
-msgstr[1] "{count} words"
+msgstr[1] "{count} word"
 
-#: src/viewers/text_viewer.py:762
+#: src/viewers/text_viewer.py:905
 msgid "{current} / {total}"
 msgstr "{current} / {total}"
 
-#: src/viewers/markdown_viewer.py:957
+#: src/viewers/markdown_viewer.py:1081
 msgid "{diagram}  •  {lines}  •  {size}"
 msgstr "{diagram}  •  {lines}  •  {size}"
 
-#: src/viewers/text_viewer.py:567
+#: src/viewers/archive_viewer.py:230
+msgid "{entries}, {compressed} compressed, {uncompressed} uncompressed"
+msgstr "{entries}, {compressed} compressed, {uncompressed} uncompressed"
+
+#: src/viewers/text_viewer.py:710
 msgid "{lines}  •  {words}  •  {size}"
 msgstr "{lines}  •  {words}  •  {size}"
+
+#: src/viewers/pdf_viewer.py:85
+msgid "{pages} • {size}"
+msgstr "{pages} • {size}"
+
+#: src/viewers/csv_viewer.py:192
+msgid "{rows}, {columns}, {size}"
+msgstr "{rows}, {columns}, {size}"
+
+#: src/viewers/font_viewer.py:160
+msgid "{size} pt"
+msgstr "{size} pt"
+
+#: src/viewers/folder_viewer.py:349
+msgid "{unreadable} entries could not be read."
+msgstr "{unreadable} entries could not be read."
+
+#: src/viewers/folder_viewer.py:344
+msgid "{unreadable} entries could not be read; totals are partial because the scan reached its limit."
+msgstr "{unreadable} entries could not be read; totals are partial because the scan reached its limit."
+
+#: src/viewers/image_viewer.py:399
+#: src/viewers/image_viewer.py:477
+msgid "{width} × {height} px"
+msgstr "{width} × {height} px"
+
+#: src/viewers/image_viewer.py:391
+msgid "{width} × {height} px ({percent}%)"
+msgstr "{width} × {height} px ({percent}%)"
+
+#: src/viewers/pptx_viewer.py:107
+msgid "•  %(text)s"
+msgstr "•  %(text)s"

@@ -1,13 +1,16 @@
+import logging
 import os
-import io
-import zipfile
 import re
-import xml.etree.ElementTree as ET
+
 import gi
 gi.require_version('Gtk', '4.0')
 from gi.repository import Gtk, Gio, GObject, Pango
 
 from utils.formatters import format_size
+from utils.i18n import _
+from viewers.office_common import OfficeParseError, open_office_zip, read_xml
+
+log = logging.getLogger(__name__)
 
 class ExcelRow(GObject.Object):
     def __init__(self, values):
@@ -18,6 +21,14 @@ class ExcelViewer(Gtk.Box):
     def __init__(self, file_path: str):
         super().__init__(orientation=Gtk.Orientation.VERTICAL, spacing=0)
         self.file_path = file_path
+        self._sheet_count = 0
+        self._row_count = 0
+        self._col_count = 0
+        self._sheet_name = ""
+        try:
+            self._size_bytes = os.path.getsize(file_path)
+        except OSError:
+            self._size_bytes = 0
 
         self.scrolled = Gtk.ScrolledWindow()
         self.scrolled.set_hexpand(True)
@@ -57,14 +68,13 @@ class ExcelViewer(Gtk.Box):
 
     def load_xlsx(self):
         try:
-            with open(self.file_path, "rb") as f:
-                raw_bytes = f.read(50 * 1024 * 1024)
-            with zipfile.ZipFile(io.BytesIO(raw_bytes), "r") as zf:
+            with open_office_zip(self.file_path) as zf:
+                entries = zf.namelist()
+
                 # 1. Parse shared strings
                 shared_strings = []
-                if "xl/sharedStrings.xml" in zf.namelist():
-                    ss_xml = zf.read("xl/sharedStrings.xml")
-                    root_ss = ET.fromstring(ss_xml)
+                if "xl/sharedStrings.xml" in entries:
+                    root_ss = read_xml(zf, "xl/sharedStrings.xml")
                     for si in root_ss.findall("{http://schemas.openxmlformats.org/spreadsheetml/2006/main}si"):
                         t_parts = []
                         for t in si.findall(".//{http://schemas.openxmlformats.org/spreadsheetml/2006/main}t"):
@@ -74,25 +84,33 @@ class ExcelViewer(Gtk.Box):
 
                 # 2. Get sheet names from workbook
                 sheet_names = []
-                if "xl/workbook.xml" in zf.namelist():
-                    wb_xml = zf.read("xl/workbook.xml")
-                    root_wb = ET.fromstring(wb_xml)
+                if "xl/workbook.xml" in entries:
+                    root_wb = read_xml(zf, "xl/workbook.xml")
                     for s in root_wb.findall(".//{http://schemas.openxmlformats.org/spreadsheetml/2006/main}sheet"):
-                        name = s.attrib.get("name", "Sheet")
+                        name = s.attrib.get("name")
+                        if not name:
+                            name = _("Sheet %(number)s") % {
+                                "number": len(sheet_names) + 1
+                            }
                         sheet_names.append(name)
 
                 # 3. Read sheet1
                 sheet_file = "xl/worksheets/sheet1.xml"
-                if sheet_file not in zf.namelist():
-                    sheets = [f for f in zf.namelist() if f.startswith("xl/worksheets/sheet") and f.endswith(".xml")]
+                if sheet_file not in entries:
+                    sheets = [
+                        f for f in entries
+                        if f.startswith("xl/worksheets/sheet") and f.endswith(".xml")
+                    ]
                     if sheets:
                         sheet_file = sheets[0]
                     else:
-                        self.scrolled.set_child(Gtk.Label(label="No sheets found in spreadsheet."))
+                        self._sheet_count = len(sheet_names)
+                        self._sheet_name = sheet_names[0] if sheet_names else ""
+                        self._update_info()
+                        self.scrolled.set_child(Gtk.Label(label=_("No sheets found in spreadsheet.")))
                         return
 
-                sheet_xml = zf.read(sheet_file)
-                root_sheet = ET.fromstring(sheet_xml)
+                root_sheet = read_xml(zf, sheet_file)
                 ns = {"s": "http://schemas.openxmlformats.org/spreadsheetml/2006/main"}
 
                 grid_data = []
@@ -133,8 +151,18 @@ class ExcelViewer(Gtk.Box):
 
                     grid_data.append(row_dict)
 
+                self._sheet_count = len(sheet_names) if sheet_names else 1
+                self._sheet_name = (
+                    sheet_names[0]
+                    if sheet_names
+                    else _("Sheet %(number)s") % {"number": 1}
+                )
+
                 if not grid_data:
-                    self.scrolled.set_child(Gtk.Label(label="Spreadsheet is empty."))
+                    self._row_count = 0
+                    self._col_count = 0
+                    self._update_info()
+                    self.scrolled.set_child(Gtk.Label(label=_("Spreadsheet is empty.")))
                     return
 
                 # Convert grid_data to 2D rows
@@ -159,7 +187,11 @@ class ExcelViewer(Gtk.Box):
                 for idx in range(max_cols):
                     h_val = headers[idx] if idx < len(headers) else ""
                     letter = get_col_letter(idx)
-                    col_names.append(f"{letter}: {h_val}" if h_val.strip() else letter)
+                    col_names.append(
+                        _("%(letter)s: %(header)s") % {"letter": letter, "header": h_val}
+                        if h_val.strip()
+                        else letter
+                    )
 
                 # Create ListStore
                 store = Gio.ListStore.new(ExcelRow)
@@ -184,20 +216,66 @@ class ExcelViewer(Gtk.Box):
 
                 self.scrolled.set_child(column_view)
 
-                size = os.path.getsize(self.file_path)
-                sheet_info = f"Sheet: {sheet_names[0]}" if sheet_names else "Sheet 1"
-                self.lbl_info.set_text(f"Excel (.xlsx) • {sheet_info} • {max_cols} cols × {len(grid_data):,} rows • {format_size(size)}")
+                self._row_count = len(grid_data)
+                self._col_count = max_cols
+                self._update_info()
 
-        except Exception as e:
-            self.scrolled.set_child(Gtk.Label(label=f"Could not load Excel spreadsheet:\n{e}"))
+        except OfficeParseError as exc:
+            self.scrolled.set_child(Gtk.Label(
+                label=_("Could not load Excel spreadsheet:\n%(error)s")
+                % {"error": str(exc)}
+            ))
+        except Exception:
+            log.exception("Could not load Excel spreadsheet %s", self.file_path)
+            self.scrolled.set_child(Gtk.Label(
+                label=_("Could not load Excel spreadsheet.")
+            ))
 
     def load_legacy_xls(self):
-        try:
-            size = os.path.getsize(self.file_path)
-            self.scrolled.set_child(Gtk.Label(label=f"Legacy Excel (.xls) binary spreadsheet.\nSize: {format_size(size)}\nClick 'Open with App' to view in full office suite."))
-            self.lbl_info.set_text(f"Excel Binary (.xls) • {format_size(size)}")
-        except Exception as e:
-            self.scrolled.set_child(Gtk.Label(label=f"Could not load .xls:\n{e}"))
+        size = format_size(self._size_bytes)
+        self.scrolled.set_child(Gtk.Label(
+            label=_(
+                "Legacy Excel (.xls) binary spreadsheet.\n"
+                "Size: %(size)s\n"
+                "Click 'Open with App' to view in full office suite."
+            )
+            % {"size": size}
+        ))
+        self.lbl_info.set_text(
+            _("Excel Binary (.xls) • %(size)s") % {"size": size}
+        )
+
+    def _update_info(self) -> None:
+        size = format_size(self._size_bytes)
+        if self._sheet_name:
+            self.lbl_info.set_text(
+                _("Excel (.xlsx) • %(sheet)s • %(cols)s × %(rows)s • %(size)s")
+                % {
+                    "sheet": self._sheet_name,
+                    "cols": f"{self._col_count:,}",
+                    "rows": f"{self._row_count:,}",
+                    "size": size,
+                }
+            )
+        else:
+            self.lbl_info.set_text(
+                _("Excel (.xlsx) • %(size)s") % {"size": size}
+            )
+
+    def get_status_items(self) -> list[tuple[str, str]]:
+        size_item = (_("Size"), format_size(self._size_bytes))
+        # A legacy .xls body is not parsed, so do not claim zero sheets and
+        # rows for it.
+        if os.path.splitext(self.file_path)[1].lower() != ".xlsx":
+            return [size_item]
+        return [
+            (_("Sheets"), f"{self._sheet_count:,}"),
+            (_("Rows"), f"{self._row_count:,}"),
+            size_item,
+        ]
+
+    def teardown(self) -> None:
+        """The viewer owns no external resources."""
 
     def _factory_setup(self, factory, list_item):
         label = Gtk.Label()

@@ -2,12 +2,13 @@ import os
 import re
 import json
 import logging
+import threading
 import gi
 gi.require_version('Gtk', '4.0')
 gi.require_version('Gdk', '4.0')
 gi.require_version('PangoCairo', '1.0')
 gi.require_version('Adw', '1')
-from gi.repository import Gtk, Gdk, GLib, Pango, PangoCairo, Adw
+from gi.repository import Gtk, Gdk, GLib, Gio, Pango, PangoCairo, Adw
 
 try:
     import pygments
@@ -24,13 +25,23 @@ _CSS_INSTALLED = False
 _CSS_PROVIDER = None
 _DARK_HANDLER_CONNECTED = False
 
+logger = logging.getLogger(__name__)
+
 # One accent, one dedicated code surface and its text colour (light / dark).
-ACCENT_LIGHT = "#4C8DFF"
-ACCENT_DARK = "#6EA8FF"
+ACCENT_LIGHT = "#3867D6"
+ACCENT_DARK = "#8AB4FF"
 CODE_SURFACE_LIGHT = "#F6F6F7"
 CODE_SURFACE_DARK = "#1C1C1E"
 CODE_TEXT_LIGHT = "#1F2328"
 CODE_TEXT_DARK = "#E6E6E6"
+
+# Documented untrusted-input limits (SECURITY.md). Content is read as bytes
+# and capped before decoding; syntax highlighting only ever sees a prefix.
+TEXT_READ_LIMIT = 5 * 1024 * 1024
+TEXT_TRUNCATED_PREVIEW_BYTES = 512 * 1024
+TEXT_HIGHLIGHT_LIMIT = 1024 * 1024
+TEXT_ASYNC_READ_THRESHOLD = 1024 * 1024
+_READ_CHUNK_SIZE = 64 * 1024
 
 CODE_VIEWER_CSS = """
 @define-color sp_accent %(accent)s;
@@ -285,12 +296,16 @@ def highlight_buffer_with_pygments(
     content: str,
     file_path: str = None,
     lang_hint: str = None,
+    max_bytes: int = TEXT_HIGHLIGHT_LIMIT,
 ) -> str:
-    """Populate a Gtk.TextBuffer with syntax-highlighted tokens and return language label."""
-    lexer, label = detect_lexer_and_label(file_path=file_path, content=content, lang_hint=lang_hint)
-    lines = content.count("\n") + 1
+    """Populate a Gtk.TextBuffer with syntax-highlighted tokens and return language label.
 
-    if not HAS_PYGMENTS or lexer is None or lines > 3000 or len(content) > 300 * 1024:
+    ``max_bytes`` bounds the text handed to Pygments. Content above the cap is
+    rendered as plain text so a hostile file cannot stall the main thread.
+    """
+    lexer, label = detect_lexer_and_label(file_path=file_path, content=content, lang_hint=lang_hint)
+
+    if not HAS_PYGMENTS or lexer is None or len(content.encode("utf-8", errors="replace")) > max_bytes:
         buffer.set_text(content)
         return label
 
@@ -329,6 +344,49 @@ def highlight_buffer_with_pygments(
     return label
 
 
+def split_at_byte_limit(content: str, max_bytes: int) -> tuple[str, str]:
+    """Split ``content`` so the prefix holds at most ``max_bytes`` of UTF-8.
+
+    The suffix starts at the first character that did not fit, so no content
+    is lost when the cut lands inside a multi-byte character.
+    """
+    encoded = content.encode("utf-8", errors="replace")
+    if len(encoded) <= max_bytes:
+        return content, ""
+    prefix = encoded[:max_bytes].decode("utf-8", errors="ignore")
+    return prefix, content[len(prefix):]
+
+
+def _read_text_file(file_path: str, size: int, cancellable=None):
+    """Read at most the documented byte cap and decode it.
+
+    Files above ``TEXT_READ_LIMIT`` yield a short prefix plus a translated
+    truncation note. ``cancellable`` is checked between chunks so teardown
+    does not have to wait for a large read. Returns ``None`` when cancelled.
+    """
+    truncated = size > TEXT_READ_LIMIT
+    read_limit = TEXT_TRUNCATED_PREVIEW_BYTES if truncated else TEXT_READ_LIMIT
+    chunks = []
+    remaining = read_limit
+    with open(file_path, "rb") as handle:
+        while remaining > 0:
+            if cancellable is not None and cancellable.is_cancelled():
+                return None
+            chunk = handle.read(min(_READ_CHUNK_SIZE, remaining))
+            if not chunk:
+                break
+            chunks.append(chunk)
+            remaining -= len(chunk)
+        # ``getsize`` can be stale; detect a file that grew past the cap.
+        if not truncated and handle.read(1):
+            truncated = True
+
+    content = b"".join(chunks).decode("utf-8", errors="replace")
+    if truncated:
+        content += _("\n\n... [Truncated preview: file is larger than 5 MB] ...")
+    return content
+
+
 class TextViewer(Gtk.Box):
     def __init__(self, file_path: str, raw_content: str = None, show_toolbar: bool = True):
         super().__init__(orientation=Gtk.Orientation.VERTICAL, spacing=0)
@@ -347,6 +405,14 @@ class TextViewer(Gtk.Box):
         self._copy_timeout_id = None
         self._search_open = False
         self.search_state_callback = None
+        self._status_callback = None
+        self._ready_callback = None
+
+        # Every load gets a generation; results from an older generation are
+        # discarded. Reads above TEXT_ASYNC_READ_THRESHOLD run on a worker.
+        self._load_generation = 0
+        self._load_cancellable = None
+        self._load_thread = None
 
         # Controls live in the window header now. The widgets are kept as
         # parentless controls so the window can pack them in its header; no
@@ -505,40 +571,106 @@ class TextViewer(Gtk.Box):
         self.load_text()
 
     def load_text(self):
+        """Start a load, synchronously for small files and on a worker above 1 MB."""
+        self._load_generation += 1
+        generation = self._load_generation
+        self._cancel_pending_load()
+        cancellable = Gio.Cancellable()
+        self._load_cancellable = cancellable
+
         try:
             if self.raw_content is not None:
                 content = self.raw_content
                 size = len(content.encode("utf-8", errors="replace"))
-            else:
-                size = os.path.getsize(self.file_path)
-                if size > 5 * 1024 * 1024:
-                    with open(self.file_path, "r", encoding="utf-8", errors="replace") as f:
-                        content = f.read(1024 * 512) + _(
-                            "\n\n... [Truncated preview: file is larger than 5 MB] ..."
-                        )
-                else:
-                    with open(self.file_path, "r", encoding="utf-8", errors="replace") as f:
-                        content = f.read()
-                self.raw_content = content
+                self._apply_loaded_content(content, size, generation)
+                return
 
-            ext = os.path.splitext(self.file_path or "")[1].lower()
-            if ext in (".json", ".jsonc") and len(content) <= 512 * 1024:
-                try:
-                    parsed = json.loads(content)
-                    pretty = json.dumps(parsed, indent=2, ensure_ascii=False)
-                    if self.btn_json_pretty:
-                        self.btn_json_pretty.set_visible(True)
-                    if self.is_json_pretty:
-                        content = pretty
-                except Exception:
-                    pass
+            size = os.path.getsize(self.file_path)
+            if size > TEXT_ASYNC_READ_THRESHOLD:
+                self._load_thread = threading.Thread(
+                    target=self._worker_load_file,
+                    args=(size, generation, cancellable),
+                    daemon=True,
+                )
+                self._load_thread.start()
+                return
 
-            self._render_content(content, size)
-
+            content = _read_text_file(self.file_path, size, cancellable)
+            if content is not None:
+                self._apply_loaded_content(content, size, generation)
         except Exception as e:
-            self.buffer.set_text(
-                _("Could not read text file:\n{error}").format(error=e)
-            )
+            self._show_load_error(e)
+
+    def _worker_load_file(self, size: int, generation: int, cancellable) -> None:
+        try:
+            content = _read_text_file(self.file_path, size, cancellable)
+        except Exception as e:
+            if not cancellable.is_cancelled():
+                GLib.idle_add(self._on_load_failed, generation, str(e))
+            return
+        if content is None or cancellable.is_cancelled():
+            return
+        GLib.idle_add(self._on_load_ready, generation, content, size)
+
+    def _on_load_ready(self, generation: int, content: str, size: int):
+        if generation != self._load_generation or self._load_cancellable is None:
+            return False
+        if self._load_cancellable.is_cancelled():
+            return False
+        self._load_thread = None
+        self._load_cancellable = None
+        self._apply_loaded_content(content, size, generation)
+        return False
+
+    def _on_load_failed(self, generation: int, error: str):
+        if generation != self._load_generation:
+            return False
+        self._load_thread = None
+        self._load_cancellable = None
+        self._show_load_error(error)
+        return False
+
+    def _cancel_pending_load(self) -> None:
+        if self._load_cancellable is not None:
+            self._load_cancellable.cancel()
+            self._load_cancellable = None
+
+    def _show_load_error(self, error) -> None:
+        self.buffer.set_text(
+            _("Could not read text file:\n{error}").format(error=error)
+        )
+
+    def _apply_loaded_content(self, content: str, size: int, generation: int) -> None:
+        if generation != self._load_generation:
+            return
+        self.raw_content = content
+
+        ext = os.path.splitext(self.file_path or "")[1].lower()
+        if ext in (".json", ".jsonc") and len(content) <= 512 * 1024:
+            try:
+                parsed = json.loads(content)
+                pretty = json.dumps(parsed, indent=2, ensure_ascii=False)
+                if self.btn_json_pretty:
+                    self.btn_json_pretty.set_visible(True)
+                if self.is_json_pretty:
+                    content = pretty
+            except Exception:
+                logger.debug(
+                    "Could not pretty-print JSON %s", self.file_path, exc_info=True
+                )
+
+        self._render_content(content, size)
+        self._notify_status_changed()
+        self._notify_ready()
+
+    def _notify_status_changed(self) -> None:
+        callback = self._status_callback
+        if callback is None:
+            return
+        try:
+            callback()
+        except Exception:
+            logging.getLogger(__name__).exception("Text status callback failed")
 
     def _render_content(self, content: str, size: int):
         self.displayed_content = content
@@ -550,9 +682,20 @@ class TextViewer(Gtk.Box):
         digits = max(3, len(str(self.line_count)))
         self.gutter.set_content_width(digits * 9 + 24)
 
-        lang_label = highlight_buffer_with_pygments(
-            self.buffer, content, file_path=self.file_path
-        )
+        if len(content.encode("utf-8", errors="replace")) > TEXT_HIGHLIGHT_LIMIT:
+            # Above the highlight cap, never hand the buffer to Pygments.
+            note = _(
+                "\n\n... [Syntax highlighting disabled: file is larger than 1 MB; "
+                "showing plain text] ..."
+            )
+            self.buffer.set_text(content + note)
+            lang_label = detect_lexer_and_label(
+                file_path=self.file_path, content=content
+            )[1]
+        else:
+            lang_label = highlight_buffer_with_pygments(
+                self.buffer, content, file_path=self.file_path
+            )
 
         if self.lbl_lang:
             self.lbl_lang.set_text(lang_label)
@@ -804,6 +947,22 @@ class TextViewer(Gtk.Box):
         """Let the window show or hide the overlay that hosts this search box."""
         self.search_state_callback = callback
 
+    def set_status_callback(self, callback) -> None:
+        """Register a callback invoked when the status metadata changes."""
+        self._status_callback = callback if callable(callback) else None
+
+    def set_ready_callback(self, callback) -> None:
+        """Register a callback invoked after the first content render lands."""
+        self._ready_callback = callback if callable(callback) else None
+
+    def _notify_ready(self) -> None:
+        callback = self._ready_callback
+        if callable(callback):
+            try:
+                callback()
+            except Exception:
+                logging.getLogger(__name__).exception("Ready callback failed")
+
     def _notify_search_state(self) -> None:
         callback = self.search_state_callback
         if callable(callback):
@@ -828,12 +987,9 @@ class TextViewer(Gtk.Box):
         return controls
 
     def get_status_items(self) -> list[tuple[str, str]]:
-        lines_text = ngettext(
-            "{count} line", "{count} lines", self.line_count
-        ).format(count=f"{self.line_count:,}")
         return [
             (_("Size"), format_size(self._size_bytes)),
-            (_("Lines"), lines_text),
+            (_("Lines"), f"{self.line_count:,}"),
             (_("Encoding"), "UTF-8"),
         ]
 
@@ -842,7 +998,11 @@ class TextViewer(Gtk.Box):
         return self.search_box
 
     def teardown(self) -> None:
-        """Cancel the viewer-owned timer; there is no other async work."""
+        """Cancel the timer and any in-flight background load."""
+        self._load_generation += 1
+        self._cancel_pending_load()
+        self._load_thread = None
+        self._status_callback = None
         if self._copy_timeout_id is not None:
             GLib.source_remove(self._copy_timeout_id)
             self._copy_timeout_id = None

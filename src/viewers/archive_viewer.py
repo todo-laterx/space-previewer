@@ -1,11 +1,32 @@
-import os
-import zipfile
-import tarfile
-import gi
-gi.require_version('Gtk', '4.0')
-from gi.repository import Gtk, Gio, GObject, Pango
+"""Archive preview: a bounded listing of ZIP/TAR members, never extracted."""
 
-from utils.formatters import format_size, format_date
+from __future__ import annotations
+
+import datetime
+import logging
+import os
+import tarfile
+import zipfile
+from typing import Callable, Optional
+
+import gi
+
+gi.require_version("Gtk", "4.0")
+
+from gi.repository import Gio, GObject, Gtk, Pango
+
+from utils.formatters import format_date, format_size
+from utils.i18n import _, ngettext
+
+logger = logging.getLogger(__name__)
+
+# Untrusted-input limits (see SECURITY.md). Members are only listed, never
+# extracted, so member names are safe to display exactly as stored.
+MAX_ARCHIVE_ENTRIES = 5000
+MAX_ARCHIVE_UNCOMPRESSED_BYTES = 200 * 1024 * 1024
+
+StatusCallback = Callable[[], None]
+
 
 class ArchiveItem(GObject.Object):
     def __init__(self, name: str, size: int, is_dir: bool, date_str: str):
@@ -15,10 +36,16 @@ class ArchiveItem(GObject.Object):
         self.is_dir = is_dir
         self.date_str = date_str
 
+
 class ArchiveViewer(Gtk.Box):
     def __init__(self, file_path: str):
         super().__init__(orientation=Gtk.Orientation.VERTICAL, spacing=0)
         self.file_path = file_path
+
+        self._entry_count = 0
+        self._archive_size = self._safe_file_size()
+        self._load_failed = False
+        self._status_callback: Optional[StatusCallback] = None
 
         self.scrolled = Gtk.ScrolledWindow()
         self.scrolled.set_hexpand(True)
@@ -36,78 +63,207 @@ class ArchiveViewer(Gtk.Box):
         self.lbl_info.add_css_class("dim-label")
         self.info_bar.append(self.lbl_info)
 
+        self.lbl_note = Gtk.Label()
+        self.lbl_note.add_css_class("dim-label")
+        self.lbl_note.set_ellipsize(Pango.EllipsizeMode.END)
+        self.lbl_note.set_hexpand(True)
+        self.info_bar.append(self.lbl_note)
+
         self.append(self.info_bar)
 
         self.load_archive()
 
-    def load_archive(self):
-        items = []
+    def _safe_file_size(self) -> int:
+        try:
+            return os.path.getsize(self.file_path)
+        except OSError:
+            return 0
+
+    # ---------------------------------------------------------------- loading
+
+    def _zip_date(self, info: zipfile.ZipInfo) -> str:
+        try:
+            return format_date(datetime.datetime(*info.date_time).timestamp())
+        except (ValueError, OverflowError, OSError):
+            return ""
+
+    def _tar_date(self, member: tarfile.TarInfo) -> str:
+        if not member.mtime:
+            return ""
+        try:
+            return format_date(member.mtime)
+        except (ValueError, OverflowError, OSError):
+            return ""
+
+    def load_archive(self) -> None:
+        items: list[ArchiveItem] = []
         total_uncompressed = 0
+        truncated = False
+
         try:
             if zipfile.is_zipfile(self.file_path):
                 with zipfile.ZipFile(self.file_path, "r") as zf:
                     for info in zf.infolist():
-                        dt_str = f"{info.date_time[0]}-{info.date_time[1]:02d}-{info.date_time[2]:02d} {info.date_time[3]:02d}:{info.date_time[4]:02d}"
-                        items.append(ArchiveItem(info.filename, info.file_size, info.is_dir(), dt_str))
+                        # Encrypted entries cannot be inspected safely.
+                        if info.flag_bits & 0x1:
+                            self._show_message(
+                                _(
+                                    "This archive contains encrypted entries "
+                                    "and cannot be previewed."
+                                )
+                            )
+                            return
+                        if len(items) >= MAX_ARCHIVE_ENTRIES:
+                            truncated = True
+                            break
+                        if (
+                            total_uncompressed + info.file_size
+                            > MAX_ARCHIVE_UNCOMPRESSED_BYTES
+                        ):
+                            truncated = True
+                            break
+
+                        items.append(
+                            ArchiveItem(
+                                info.filename,
+                                info.file_size,
+                                info.is_dir(),
+                                self._zip_date(info),
+                            )
+                        )
                         total_uncompressed += info.file_size
+
             elif tarfile.is_tarfile(self.file_path):
                 with tarfile.open(self.file_path, "r:*") as tf:
-                    for member in tf.getmembers():
-                        dt_str = format_date(member.mtime) if member.mtime else ""
-                        items.append(ArchiveItem(member.name, member.size, member.isdir(), dt_str))
+                    for member in tf:
+                        if len(items) >= MAX_ARCHIVE_ENTRIES:
+                            truncated = True
+                            break
+                        if (
+                            total_uncompressed + member.size
+                            > MAX_ARCHIVE_UNCOMPRESSED_BYTES
+                        ):
+                            truncated = True
+                            break
+
+                        items.append(
+                            ArchiveItem(
+                                member.name,
+                                member.size,
+                                member.isdir(),
+                                self._tar_date(member),
+                            )
+                        )
                         total_uncompressed += member.size
+
             else:
-                self.scrolled.set_child(Gtk.Label(label="Unsupported archive format or corrupted file."))
+                self._show_message(
+                    _("Unsupported archive format or corrupted file.")
+                )
                 return
 
-            if not items:
-                self.scrolled.set_child(Gtk.Label(label="Archive is empty."))
-                return
-
-            store = Gio.ListStore.new(ArchiveItem)
-            for item in items:
-                store.append(item)
-
-            sel_model = Gtk.SingleSelection.new(store)
-            column_view = Gtk.ColumnView.new(sel_model)
-            column_view.set_show_row_separators(True)
-            column_view.set_show_column_separators(True)
-
-            # Name column
-            factory_name = Gtk.SignalListItemFactory()
-            factory_name.connect("setup", self._factory_setup_name)
-            factory_name.connect("bind", self._factory_bind_name)
-            col_name = Gtk.ColumnViewColumn.new("File Name", factory_name)
-            col_name.set_expand(True)
-            col_name.set_resizable(True)
-            column_view.append_column(col_name)
-
-            # Size column
-            factory_size = Gtk.SignalListItemFactory()
-            factory_size.connect("setup", self._factory_setup_label)
-            factory_size.connect("bind", self._factory_bind_size)
-            col_size = Gtk.ColumnViewColumn.new("Size", factory_size)
-            col_size.set_fixed_width(100)
-            col_size.set_resizable(True)
-            column_view.append_column(col_size)
-
-            # Date column
-            factory_date = Gtk.SignalListItemFactory()
-            factory_date.connect("setup", self._factory_setup_label)
-            factory_date.connect("bind", self._factory_bind_date)
-            col_date = Gtk.ColumnViewColumn.new("Date Modified", factory_date)
-            col_date.set_fixed_width(160)
-            col_date.set_resizable(True)
-            column_view.append_column(col_date)
-
-            self.scrolled.set_child(column_view)
-            archive_size = os.path.getsize(self.file_path)
-            self.lbl_info.set_text(
-                f"{len(items):,} items • Compressed: {format_size(archive_size)} • Uncompressed: {format_size(total_uncompressed)}"
+        except (zipfile.BadZipFile, tarfile.TarError, EOFError, OSError) as exc:
+            self._show_message(
+                _("Could not read archive: {error}").format(error=exc)
             )
+            return
+        except Exception as exc:
+            logger.exception("Archive listing failed for %s", self.file_path)
+            self._show_message(
+                _("Could not read archive: {error}").format(error=exc)
+            )
+            return
 
-        except Exception as e:
-            self.scrolled.set_child(Gtk.Label(label=f"Could not read archive:\n{e}"))
+        if not items:
+            if truncated:
+                self._show_message(
+                    _("The archive exceeds the preview limits.")
+                )
+            else:
+                self._show_message(_("Archive is empty."), failed=False)
+            return
+
+        self._entry_count = len(items)
+
+        store = Gio.ListStore.new(ArchiveItem)
+        for item in items:
+            store.append(item)
+
+        sel_model = Gtk.SingleSelection.new(store)
+        column_view = Gtk.ColumnView.new(sel_model)
+        column_view.set_show_row_separators(True)
+        column_view.set_show_column_separators(True)
+
+        # Name column
+        factory_name = Gtk.SignalListItemFactory()
+        factory_name.connect("setup", self._factory_setup_name)
+        factory_name.connect("bind", self._factory_bind_name)
+        col_name = Gtk.ColumnViewColumn.new(_("File Name"), factory_name)
+        col_name.set_expand(True)
+        col_name.set_resizable(True)
+        column_view.append_column(col_name)
+
+        # Size column
+        factory_size = Gtk.SignalListItemFactory()
+        factory_size.connect("setup", self._factory_setup_label)
+        factory_size.connect("bind", self._factory_bind_size)
+        col_size = Gtk.ColumnViewColumn.new(_("Size"), factory_size)
+        col_size.set_fixed_width(100)
+        col_size.set_resizable(True)
+        column_view.append_column(col_size)
+
+        # Date column
+        factory_date = Gtk.SignalListItemFactory()
+        factory_date.connect("setup", self._factory_setup_label)
+        factory_date.connect("bind", self._factory_bind_date)
+        col_date = Gtk.ColumnViewColumn.new(_("Date Modified"), factory_date)
+        col_date.set_fixed_width(160)
+        col_date.set_resizable(True)
+        column_view.append_column(col_date)
+
+        self.scrolled.set_child(column_view)
+
+        entries_text = ngettext(
+            "{count} entry", "{count} entries", self._entry_count
+        ).format(count=f"{self._entry_count:,}")
+        self.lbl_info.set_text(
+            _(
+                "{entries}, {compressed} compressed, "
+                "{uncompressed} uncompressed"
+            ).format(
+                entries=entries_text,
+                compressed=format_size(self._archive_size),
+                uncompressed=format_size(total_uncompressed),
+            )
+        )
+        if truncated:
+            self.lbl_note.set_text(
+                _(
+                    "Preview truncated at {entries} entries or {size} "
+                    "uncompressed."
+                ).format(
+                    entries=f"{MAX_ARCHIVE_ENTRIES:,}",
+                    size=format_size(MAX_ARCHIVE_UNCOMPRESSED_BYTES),
+                )
+            )
+        else:
+            self.lbl_note.set_text("")
+
+        self._notify_status_changed()
+
+    def _show_message(self, message: str, failed: bool = True) -> None:
+        self._load_failed = failed
+        self._entry_count = 0
+        error_label = Gtk.Label(label=message)
+        error_label.set_wrap(True)
+        error_label.set_halign(Gtk.Align.CENTER)
+        error_label.set_valign(Gtk.Align.CENTER)
+        self.scrolled.set_child(error_label)
+        self.lbl_info.set_text("")
+        self.lbl_note.set_text("")
+        self._notify_status_changed()
+
+    # -------------------------------------------------------------- factories
 
     def _factory_setup_name(self, factory, list_item):
         box = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=8)
@@ -155,3 +311,40 @@ class ArchiveViewer(Gtk.Box):
         label = list_item.get_child()
         if item:
             label.set_text(item.date_str)
+
+    # ------------------------------------------------------------------ state
+
+    def _notify_status_changed(self) -> None:
+        callback = self._status_callback
+        if callback is None:
+            return
+        try:
+            callback()
+        except Exception:
+            logger.exception("Archive status callback failed")
+
+    def set_status_callback(self, callback: Optional[StatusCallback]) -> None:
+        """Register a callback invoked when the status metadata changes."""
+        self._status_callback = callback if callable(callback) else None
+
+    def get_status_items(self) -> list[tuple[str, str]]:
+        if self._load_failed:
+            return [
+                (_("Entries"), _("Unavailable")),
+                (_("Archive Size"), format_size(self._archive_size)),
+            ]
+
+        return [
+            (_("Entries"), f"{self._entry_count:,}"),
+            (_("Archive Size"), format_size(self._archive_size)),
+        ]
+
+    def teardown(self) -> None:
+        """No asynchronous resources are owned; the method is part of the contract."""
+        self._status_callback = None
+
+    def get_desired_size(self, screen_w: int, screen_h: int):
+        target_w = min(980, int(screen_w * 0.75))
+        min_h = 380
+        max_h = min(860, int(screen_h * 0.82))
+        return target_w, min(max_h, max(min_h, 560))

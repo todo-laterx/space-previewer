@@ -2,6 +2,7 @@ import os
 import re
 import io
 import json
+import logging
 import zlib
 import base64
 import hashlib
@@ -16,7 +17,7 @@ gi.require_version('Gdk', '4.0')
 gi.require_version('GdkPixbuf', '2.0')
 gi.require_version('PangoCairo', '1.0')
 gi.require_version('Adw', '1')
-from gi.repository import Gtk, Gdk, GdkPixbuf, GLib, Pango, PangoCairo, Adw
+from gi.repository import Gtk, Gdk, GdkPixbuf, GLib, Gio, Pango, PangoCairo, Adw
 
 try:
     from markdown_it import MarkdownIt
@@ -32,6 +33,7 @@ from .text_viewer import (
     highlight_buffer_with_pygments,
     is_dark_theme,
     hex_to_rgb,
+    split_at_byte_limit,
     ACCENT_LIGHT,
     ACCENT_DARK,
     CODE_SURFACE_LIGHT,
@@ -44,6 +46,16 @@ _MD_CSS_INSTALLED = False
 _MD_CSS_PROVIDER = None
 _MD_DARK_HANDLER_CONNECTED = False
 
+logger = logging.getLogger(__name__)
+
+# Documented untrusted-input limits (SECURITY.md). Files are read as bytes
+# and capped before decoding; code blocks above the highlight cap keep their
+# tail as plain text instead of being sent through Pygments.
+MARKDOWN_READ_LIMIT = 2 * 1024 * 1024
+MARKDOWN_ASYNC_READ_THRESHOLD = 1024 * 1024
+CODE_BLOCK_HIGHLIGHT_LIMIT = 512 * 1024
+_READ_CHUNK_SIZE = 64 * 1024
+
 MARKDOWN_VIEWER_CSS = """
 @define-color sp_accent %(accent)s;
 @define-color sp_code_surface %(code_surface)s;
@@ -53,9 +65,7 @@ MARKDOWN_VIEWER_CSS = """
     background-color: @window_bg_color;
 }
 .md-content-column {
-    background-color: @view_bg_color;
-    border-radius: 12px;
-    border: 1px solid @borders;
+    background-color: transparent;
     padding: 28px 36px;
 }
 .md-h1 {
@@ -484,7 +494,7 @@ def fetch_or_render_mermaid_png(code: str, cancel_event=None, dark=None) -> byte
                 f.write(data)
             return data
     except Exception:
-        pass
+        logger.debug("Offline Mermaid render failed", exc_info=True)
 
     if cancelled():
         return b""
@@ -519,7 +529,7 @@ def fetch_or_render_mermaid_png(code: str, cancel_event=None, dark=None) -> byte
                     f.write(net_data)
                 return net_data
     except Exception:
-        pass
+        logger.debug("Remote Mermaid render failed", exc_info=True)
 
     if cancelled():
         return b""
@@ -656,7 +666,12 @@ class MermaidDiagramCard(Gtk.Box):
         src_tv.set_right_margin(14)
         src_tv.set_top_margin(12)
         src_tv.set_bottom_margin(12)
-        highlight_buffer_with_pygments(src_tv.get_buffer(), self.code, lang_hint="mermaid")
+        highlight_buffer_with_pygments(
+            src_tv.get_buffer(),
+            self.code,
+            lang_hint="mermaid",
+            max_bytes=CODE_BLOCK_HIGHLIGHT_LIMIT,
+        )
         self.stack.add_named(src_tv, "source")
 
         self.stack.set_visible_child_name("diagram")
@@ -845,6 +860,35 @@ def inline_tokens_to_pango_markup(children) -> str:
     return "".join(parts)
 
 
+def _read_markdown_file(file_path: str, size: int, cancellable=None):
+    """Read at most the documented Markdown cap and decode it.
+
+    A file above ``MARKDOWN_READ_LIMIT`` is cut at the cap with a translated
+    truncation note. ``cancellable`` is checked between chunks. Returns
+    ``None`` when cancelled.
+    """
+    truncated = size > MARKDOWN_READ_LIMIT
+    chunks = []
+    remaining = MARKDOWN_READ_LIMIT
+    with open(file_path, "rb") as handle:
+        while remaining > 0:
+            if cancellable is not None and cancellable.is_cancelled():
+                return None
+            chunk = handle.read(min(_READ_CHUNK_SIZE, remaining))
+            if not chunk:
+                break
+            chunks.append(chunk)
+            remaining -= len(chunk)
+        # ``getsize`` can be stale; detect a file that grew past the cap.
+        if not truncated and handle.read(1):
+            truncated = True
+
+    content = b"".join(chunks).decode("utf-8", errors="replace")
+    if truncated:
+        content += _("\n\n... [Truncated preview: file is larger than 2 MB] ...")
+    return content
+
+
 class MarkdownViewer(Gtk.Box):
     """Rich Preview viewer for Markdown (.md) and Mermaid (.mmd, .mermaid) files."""
 
@@ -858,12 +902,20 @@ class MarkdownViewer(Gtk.Box):
         self.raw_viewer_loaded = False
         self.raw_viewer = None
         self.search_state_callback = None
+        self._status_callback = None
+        self._ready_callback = None
         self._is_mermaid = False
         self._size_bytes = 0
         self._line_count = 1
         self._word_count = 0
         self._mermaid_cards = []
         self._copy_timeout_ids = set()
+
+        # Every initial load gets a generation; results from an older
+        # generation are discarded. Reads above the threshold run on a worker.
+        self._load_generation = 0
+        self._load_cancellable = None
+        self._load_thread = None
 
         # Controls live in the window header now. They are kept parentless so
         # the window can pack them; no per-viewer toolbar row is appended.
@@ -924,7 +976,12 @@ class MarkdownViewer(Gtk.Box):
 
         self.doc_box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=12)
         self.doc_box.add_css_class("md-content-column")
-        self.outer_box.append(self.doc_box)
+
+        self.doc_clamp = Adw.Clamp()
+        self.doc_clamp.set_maximum_size(760)
+        self.doc_clamp.set_tightening_threshold(420)
+        self.doc_clamp.set_child(self.doc_box)
+        self.outer_box.append(self.doc_clamp)
 
         self.preview_scroll.set_child(self.outer_box)
         self.stack.add_named(self.preview_scroll, "preview")
@@ -936,44 +993,129 @@ class MarkdownViewer(Gtk.Box):
         self.load_file()
 
     def load_file(self):
+        """Start the initial load, synchronously for small files and on a worker above 1 MB."""
+        self._load_generation += 1
+        generation = self._load_generation
+        self._cancel_pending_load()
+        cancellable = Gio.Cancellable()
+        self._load_cancellable = cancellable
+
         try:
             size = os.path.getsize(self.file_path)
-            with open(self.file_path, "r", encoding="utf-8", errors="replace") as f:
-                self.raw_content = f.read(1024 * 1024)
+            if size > MARKDOWN_ASYNC_READ_THRESHOLD:
+                self._load_thread = threading.Thread(
+                    target=self._worker_load_file,
+                    args=(size, generation, cancellable),
+                    daemon=True,
+                )
+                self._load_thread.start()
+                return
 
+            content = _read_markdown_file(self.file_path, size, cancellable)
+        except Exception as e:
+            self._show_load_error(e)
+            return
+
+        if content is not None:
+            self._apply_loaded_content(content, size, generation)
+
+    def _worker_load_file(self, size: int, generation: int, cancellable) -> None:
+        try:
+            content = _read_markdown_file(self.file_path, size, cancellable)
+        except Exception as e:
+            if not cancellable.is_cancelled():
+                GLib.idle_add(self._on_load_failed, generation, str(e))
+            return
+        if content is None or cancellable.is_cancelled():
+            return
+        GLib.idle_add(self._on_load_ready, generation, content, size)
+
+    def _on_load_ready(self, generation: int, content: str, size: int):
+        if generation != self._load_generation or self._load_cancellable is None:
+            return False
+        if self._load_cancellable.is_cancelled():
+            return False
+        self._load_thread = None
+        self._load_cancellable = None
+        self._apply_loaded_content(content, size, generation)
+        return False
+
+    def _on_load_failed(self, generation: int, error: str):
+        if generation != self._load_generation:
+            return False
+        self._load_thread = None
+        self._load_cancellable = None
+        self._show_load_error(error)
+        return False
+
+    def _cancel_pending_load(self) -> None:
+        if self._load_cancellable is not None:
+            self._load_cancellable.cancel()
+            self._load_cancellable = None
+
+    def _show_load_error(self, error) -> None:
+        err = Gtk.Label(
+            label=_("Could not render preview:\n{error}").format(error=error)
+        )
+        self.doc_box.append(err)
+
+    def _apply_loaded_content(self, content: str, size: int, generation: int) -> None:
+        if generation != self._load_generation:
+            return
+        self.raw_content = content
+
+        try:
             ext = os.path.splitext(self.file_path)[1].lower()
-            is_standalone_mermaid = ext in (".mmd", ".mermaid") or is_mermaid_content(self.raw_content)
+            is_standalone_mermaid = ext in (".mmd", ".mermaid") or is_mermaid_content(content)
             self._is_mermaid = is_standalone_mermaid
             self._size_bytes = size
-            self._line_count = self.raw_content.count("\n") + 1
-            self._word_count = len(re.findall(r"\S+", self.raw_content))
+            self._line_count = content.count("\n") + 1
+            self._word_count = len(re.findall(r"\S+", content))
 
             if is_standalone_mermaid:
-                self.lbl_badge.set_text("MERMAID")
+                self.lbl_badge.set_text(_("MERMAID"))
                 lines_text = ngettext(
                     "{count} line", "{count} lines", self._line_count
                 ).format(count=f"{self._line_count:,}")
                 self.lbl_meta.set_text(
                     _("{diagram}  •  {lines}  •  {size}").format(
-                        diagram=detect_mermaid_diagram_type(self.raw_content),
+                        diagram=detect_mermaid_diagram_type(content),
                         lines=lines_text,
                         size=format_size(size),
                     )
                 )
-                card = MermaidDiagramCard(self.raw_content)
+                card = MermaidDiagramCard(content)
                 self._mermaid_cards.append(card)
                 self.doc_box.append(card)
             else:
-                self.lbl_badge.set_text("MARKDOWN")
-                self._render_markdown(self.raw_content, size)
+                self.lbl_badge.set_text(_("MARKDOWN"))
+                self._render_markdown(content, size)
 
             self.stack.set_visible_child_name("preview")
+
+            # If the user opened Raw while the background read was running,
+            # give the existing raw viewer the newly loaded source.
+            if self.raw_viewer_loaded and self.raw_viewer is not None:
+                self.raw_viewer.raw_content = content
+                self.raw_viewer.load_text()
 
         except Exception as e:
             err = Gtk.Label(
                 label=_("Could not render preview:\n{error}").format(error=e)
             )
             self.doc_box.append(err)
+
+        self._notify_status_changed()
+        self._notify_ready()
+
+    def _notify_status_changed(self) -> None:
+        callback = self._status_callback
+        if callback is None:
+            return
+        try:
+            callback()
+        except Exception:
+            logging.getLogger(__name__).exception("Markdown status callback failed")
 
     def _render_markdown(self, content: str, size: int):
         if not HAS_MARKDOWN_IT:
@@ -1190,9 +1332,26 @@ class MarkdownViewer(Gtk.Box):
         tv.set_pixels_above_lines(2)
         tv.set_pixels_below_lines(2)
 
-        detected_label = highlight_buffer_with_pygments(
-            tv.get_buffer(), code_text, lang_hint=lang_info or "text"
-        )
+        if len(code_text.encode("utf-8", errors="replace")) > CODE_BLOCK_HIGHLIGHT_LIMIT:
+            # Highlight only the prefix; keep the tail as plain text so
+            # Pygments never lexes a very large code block.
+            highlighted, remainder = split_at_byte_limit(
+                code_text, CODE_BLOCK_HIGHLIGHT_LIMIT
+            )
+            detected_label = highlight_buffer_with_pygments(
+                tv.get_buffer(),
+                highlighted,
+                lang_hint=lang_info or "text",
+                max_bytes=CODE_BLOCK_HIGHLIGHT_LIMIT,
+            )
+            if remainder:
+                tv.get_buffer().insert(
+                    tv.get_buffer().get_end_iter(), remainder
+                )
+        else:
+            detected_label = highlight_buffer_with_pygments(
+                tv.get_buffer(), code_text, lang_hint=lang_info or "text"
+            )
         lbl_lang.set_text(detected_label)
         card.append(tv)
         return card
@@ -1449,7 +1608,7 @@ class MarkdownViewer(Gtk.Box):
                 pic.set_size_request(-1, min(pb.get_height(), 420))
                 self.doc_box.append(pic)
             except Exception:
-                pass
+                logger.debug("Could not embed image %s", candidate, exc_info=True)
 
     def _ensure_raw_viewer(self):
         if not self.raw_viewer_loaded:
@@ -1506,17 +1665,30 @@ class MarkdownViewer(Gtk.Box):
         if self.raw_viewer is not None:
             self.raw_viewer.set_search_state_callback(callback)
 
+    def set_status_callback(self, callback) -> None:
+        """Register a callback invoked when the status metadata changes."""
+        self._status_callback = callback if callable(callback) else None
+
+    def set_ready_callback(self, callback) -> None:
+        """Register a callback invoked after the first content render lands."""
+        self._ready_callback = callback if callable(callback) else None
+
+    def _notify_ready(self) -> None:
+        callback = self._ready_callback
+        if callable(callback):
+            try:
+                callback()
+            except Exception:
+                logging.getLogger(__name__).exception("Ready callback failed")
+
     def get_header_controls(self) -> list:
         """Return the linked Preview/Raw toggle and Copy, highest priority first."""
         return [self.mode_box, self.btn_copy]
 
     def get_status_items(self) -> list[tuple[str, str]]:
-        words_text = ngettext(
-            "{count} word", "{count} words", self._word_count
-        ).format(count=f"{self._word_count:,}")
         return [
             (_("Size"), format_size(self._size_bytes)),
-            (_("Words"), words_text),
+            (_("Words"), f"{self._word_count:,}"),
             (_("Encoding"), "UTF-8"),
         ]
 
@@ -1526,7 +1698,11 @@ class MarkdownViewer(Gtk.Box):
         return self.raw_viewer.get_search_widget() if self.raw_viewer else None
 
     def teardown(self) -> None:
-        """Cancel mermaid renders and timers owned by this viewer."""
+        """Cancel the initial load, mermaid renders and timers owned here."""
+        self._load_generation += 1
+        self._cancel_pending_load()
+        self._load_thread = None
+        self._status_callback = None
         for card in self._mermaid_cards:
             card.teardown()
         self._mermaid_cards.clear()

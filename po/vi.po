@@ -1,4 +1,4 @@
-# vi translation for Space Previewer.
+# Vietnamese translation for Space Previewer.
 # Copyright (C) 2026 todo-laterx
 # This file is distributed under the same license as the space-previewer package.
 #
@@ -8,29 +8,65 @@ msgstr ""
 "Report-Msgid-Bugs-To: \n"
 "PO-Revision-Date: 2026-10-27 00:00+0000\n"
 "Last-Translator: todo-laterx\n"
-"Language-Team: vi\n"
+"Language-Team: Vietnamese\n"
 "Language: vi\n"
 "MIME-Version: 1.0\n"
 "Content-Type: text/plain; charset=UTF-8\n"
 "Content-Transfer-Encoding: 8bit\n"
 "Plural-Forms: nplurals=1; plural=0;\n"
 
+#: src/viewers/text_viewer.py:687
+msgid "\n\n... [Syntax highlighting disabled: file is larger than 1 MB; showing plain text] ..."
+msgstr "\n\n... [Đã tắt tô sáng cú pháp: tệp lớn hơn 1 MB; đang hiển thị văn bản thuần] ..."
 
-#: src/viewers/text_viewer.py:516
+#: src/viewers/markdown_viewer.py:888
+msgid "\n\n... [Truncated preview: file is larger than 2 MB] ..."
+msgstr "\n\n... [Bản xem trước bị cắt: tệp lớn hơn 2 MB] ..."
+
+#: src/viewers/text_viewer.py:386
 msgid "\n\n... [Truncated preview: file is larger than 5 MB] ..."
-msgstr ""
+msgstr "\n\n... [Bản xem trước bị cắt: tệp lớn hơn 5 MB] ..."
+
+#: src/viewers/excel_viewer.py:191
+msgid "%(letter)s: %(header)s"
+msgstr "%(letter)s: %(header)s"
+
+#: src/viewers/docx_viewer.py:243
+msgid "%(type)s • %(paragraphs)s • %(words)s • %(size)s"
+msgstr "%(type)s • %(paragraphs)s • %(words)s • %(size)s"
 
 #: src/utils/formatters.py:31
 msgid "%Y-%m-%d %H:%M"
 msgstr "%d/%m/%Y %H:%M"
 
+#: src/viewers/pptx_viewer.py:116
+msgid "(Visual or graphical slide content)"
+msgstr "(Nội dung slide dạng hình ảnh hoặc đồ họa)"
+
+#: src/viewers/office_common.py:54
+msgid "A part of this Office document is too large to preview."
+msgstr "Một phần của tài liệu Office này quá lớn để xem trước."
+
+#: src/viewers/office_common.py:49
+msgid "A required part of this Office document is missing."
+msgstr "Thiếu một phần bắt buộc của tài liệu Office này."
+
 #: src/viewers/html_viewer.py:105
 msgid "Allow remote content"
-msgstr ""
+msgstr "Cho phép nội dung từ xa"
 
 #: src/viewers/html_viewer.py:102
 msgid "Allow remote content in this preview"
-msgstr ""
+msgstr "Cho phép nội dung từ xa trong bản xem trước này"
+
+#: src/viewers/archive_viewer.py:334
+#: src/viewers/archive_viewer.py:339
+msgid "Archive Size"
+msgstr "Kích thước tệp nén"
+
+#: src/viewers/archive_viewer.py:183
+msgid "Archive is empty."
+msgstr "Tệp nén rỗng."
 
 #: src/utils/formatters.py:18
 msgid "B"
@@ -38,367 +74,829 @@ msgstr "B"
 
 #: src/viewers/html_viewer.py:144
 msgid "Blocked"
-msgstr ""
+msgstr "Đã chặn"
 
-#: src/viewers/markdown_viewer.py:1225
+#: src/viewers/markdown_viewer.py:1384
 msgid "CAUTION"
-msgstr ""
+msgstr "THẬN TRỌNG"
 
-#: src/viewers/markdown_viewer.py:1158
-#: src/viewers/text_viewer.py:355
+#: src/viewers/markdown_viewer.py:1300
+#: src/viewers/text_viewer.py:421
 msgid "CODE"
-msgstr ""
+msgstr "MÃ"
 
-#: src/viewers/markdown_viewer.py:311
+#: src/viewers/csv_viewer.py:148
+msgid "CSV file is empty."
+msgstr "Tệp CSV rỗng."
+
+#: src/viewers/folder_viewer.py:367
+#: src/viewers/folder_viewer.py:400
+#: src/viewers/folder_viewer.py:401
+msgid "Calculating..."
+msgstr "Đang tính..."
+
+#: src/viewers/markdown_viewer.py:321
 msgid "Class Diagram"
-msgstr ""
+msgstr "Biểu đồ lớp"
 
-#: src/viewers/text_viewer.py:447
+#: src/viewers/text_viewer.py:513
 msgid "Close Search (Esc)"
-msgstr ""
+msgstr "Đóng tìm kiếm (Esc)"
 
-#: src/viewers/markdown_viewer.py:764
-#: src/viewers/markdown_viewer.py:1472
-#: src/viewers/text_viewer.py:642
+#: src/window.py:603
+msgid "Close preview"
+msgstr "Đóng bản xem trước"
+
+#: src/window.py:604
+msgid "Close search, then preview"
+msgstr "Đóng tìm kiếm, sau đó đóng bản xem trước"
+
+#: src/viewers/csv_viewer.py:170
+msgid "Column {number}"
+msgstr "Cột {number}"
+
+#: src/viewers/csv_viewer.py:271
+#: src/viewers/csv_viewer.py:277
+msgid "Columns"
+msgstr "Cột"
+
+#: src/viewers/markdown_viewer.py:779
+#: src/viewers/markdown_viewer.py:1631
+#: src/viewers/text_viewer.py:785
 msgid "Copied!"
-msgstr ""
+msgstr "Đã sao chép!"
 
-#: src/viewers/markdown_viewer.py:589
-#: src/viewers/markdown_viewer.py:773
-#: src/viewers/markdown_viewer.py:1166
-#: src/viewers/markdown_viewer.py:1477
-#: src/viewers/text_viewer.py:650
+#: src/viewers/markdown_viewer.py:599
+#: src/viewers/markdown_viewer.py:788
+#: src/viewers/markdown_viewer.py:1308
+#: src/viewers/markdown_viewer.py:1636
+#: src/viewers/text_viewer.py:793
 msgid "Copy"
-msgstr ""
+msgstr "Sao chép"
 
-#: src/viewers/text_viewer.py:397
-#: src/viewers/text_viewer.py:399
+#: src/viewers/text_viewer.py:463
+#: src/viewers/text_viewer.py:465
 msgid "Copy code"
-msgstr ""
+msgstr "Sao chép mã"
 
-#: src/viewers/markdown_viewer.py:1168
+#: src/viewers/markdown_viewer.py:1310
 msgid "Copy code block"
-msgstr ""
+msgstr "Sao chép khối mã"
 
-#: src/viewers/markdown_viewer.py:591
+#: src/viewers/markdown_viewer.py:601
 msgid "Copy diagram source"
-msgstr ""
+msgstr "Sao chép mã nguồn biểu đồ"
 
-#: src/viewers/markdown_viewer.py:899
-#: src/viewers/markdown_viewer.py:901
+#: src/viewers/markdown_viewer.py:951
+#: src/viewers/markdown_viewer.py:953
 msgid "Copy source"
-msgstr ""
+msgstr "Sao chép mã nguồn"
 
 #: src/viewers/html_viewer.py:388
 msgid "Could not build a URI for this file."
-msgstr ""
+msgstr "Không thể tạo URI cho tệp này."
+
+#: src/viewers/folder_viewer.py:342
+msgid "Could not calculate folder totals."
+msgstr "Không thể tính tổng dung lượng thư mục."
+
+#: src/viewers/docx_viewer.py:230
+#: src/viewers/docx_viewer.py:233
+msgid "Could not load .doc file."
+msgstr "Không thể tải tệp .doc."
+
+#: src/viewers/excel_viewer.py:231
+msgid "Could not load Excel spreadsheet."
+msgstr "Không thể tải bảng tính Excel."
+
+#: src/viewers/excel_viewer.py:225
+msgid "Could not load Excel spreadsheet:\n%(error)s"
+msgstr "Không thể tải bảng tính Excel:\n%(error)s"
+
+#: src/viewers/pdf_viewer.py:110
+msgid "Could not load PDF:\n{error}"
+msgstr "Không thể tải PDF:\n{error}"
+
+#: src/viewers/pptx_viewer.py:136
+msgid "Could not load PowerPoint presentation."
+msgstr "Không thể tải bài trình bày PowerPoint."
+
+#: src/viewers/pptx_viewer.py:130
+msgid "Could not load PowerPoint presentation:\n%(error)s"
+msgstr "Không thể tải bài trình bày PowerPoint:\n%(error)s"
+
+#: src/viewers/docx_viewer.py:213
+msgid "Could not load Word document."
+msgstr "Không thể tải tài liệu Word."
+
+#: src/viewers/docx_viewer.py:208
+msgid "Could not load Word document:\n%(error)s"
+msgstr "Không thể tải tài liệu Word:\n%(error)s"
+
+#: src/viewers/image_viewer.py:194
+#: src/viewers/image_viewer.py:234
+#: src/viewers/image_viewer.py:273
+msgid "Could not load image: {error}"
+msgstr "Không thể tải hình ảnh: {error}"
 
 #: src/viewers/html_viewer.py:409
 msgid "Could not load this HTML file."
-msgstr ""
+msgstr "Không thể tải tệp HTML này."
 
 #: src/viewers/html_viewer.py:547
 msgid "Could not open this link in the default browser."
-msgstr ""
+msgstr "Không thể mở liên kết này bằng trình duyệt mặc định."
 
-#: src/viewers/text_viewer.py:540
+#: src/viewers/csv_viewer.py:135
+#: src/viewers/csv_viewer.py:142
+msgid "Could not parse CSV: {error}"
+msgstr "Không thể phân tích CSV: {error}"
+
+#: src/viewers/archive_viewer.py:167
+#: src/viewers/archive_viewer.py:173
+msgid "Could not read archive: {error}"
+msgstr "Không thể đọc tệp nén: {error}"
+
+#: src/viewers/folder_viewer.py:131
+msgid "Could not read directory: {error}"
+msgstr "Không thể đọc thư mục: {error}"
+
+#: src/viewers/text_viewer.py:640
 msgid "Could not read text file:\n{error}"
-msgstr ""
+msgstr "Không thể đọc tệp văn bản:\n{error}"
 
-#: src/viewers/markdown_viewer.py:974
+#: src/viewers/markdown_viewer.py:1058
+#: src/viewers/markdown_viewer.py:1104
 msgid "Could not render preview:\n{error}"
-msgstr ""
+msgstr "Không thể hiển thị bản xem trước:\n{error}"
 
 #: src/viewers/html_viewer.py:259
 msgid "Could not show this file."
-msgstr ""
+msgstr "Không thể hiển thị tệp này."
 
-#: src/viewers/markdown_viewer.py:314
+#: src/viewers/archive_viewer.py:219
+msgid "Date Modified"
+msgstr "Ngày sửa đổi"
+
+#: src/viewers/image_viewer.py:483
+msgid "Dimensions"
+msgstr "Kích thước ảnh"
+
+#: src/viewers/docx_viewer.py:117
+msgid "Document body is empty."
+msgstr "Nội dung tài liệu rỗng."
+
+#: src/viewers/media_viewer.py:165
+msgid "Duration"
+msgstr "Thời lượng"
+
+#: src/viewers/markdown_viewer.py:324
 msgid "ER Diagram"
-msgstr ""
+msgstr "Biểu đồ ER"
 
-#: src/viewers/markdown_viewer.py:1520
-#: src/viewers/text_viewer.py:837
+#: src/viewers/markdown_viewer.py:1692
+#: src/viewers/text_viewer.py:993
 msgid "Encoding"
 msgstr "Mã hóa"
 
-#: src/window.py:359
+#: src/viewers/office_common.py:95
+msgid "Encrypted Office documents are not supported."
+msgstr "Không hỗ trợ tài liệu Office được mã hóa."
+
+#: src/viewers/archive_viewer.py:333
+#: src/viewers/archive_viewer.py:338
+msgid "Entries"
+msgstr "Mục"
+
+#: src/viewers/excel_viewer.py:252
+msgid "Excel (.xlsx) • %(sheet)s • %(cols)s × %(rows)s • %(size)s"
+msgstr "Excel (.xlsx) • %(sheet)s • %(cols)s × %(rows)s • %(size)s"
+
+#: src/viewers/excel_viewer.py:262
+msgid "Excel (.xlsx) • %(size)s"
+msgstr "Excel (.xlsx) • %(size)s"
+
+#: src/viewers/excel_viewer.py:245
+msgid "Excel Binary (.xls) • %(size)s"
+msgstr "Excel nhị phân (.xls) • %(size)s"
+
+#: src/window.py:441
 msgid "FILE"
-msgstr ""
+msgstr "TỆP"
 
-#: src/window.py:352
+#: src/window.py:434
 msgid "FOLDER"
-msgstr ""
+msgstr "THƯ MỤC"
 
-#: src/viewers/__init__.py:25
+#: src/viewers/font_viewer.py:190
+msgid "Family"
+msgstr "Họ phông"
+
+#: src/viewers/archive_viewer.py:201
+msgid "File Name"
+msgstr "Tên tệp"
+
+#: src/viewers/__init__.py:29
 msgid "File not found: %s"
-msgstr ""
+msgstr "Không tìm thấy tệp: %s"
 
-#: src/viewers/text_viewer.py:390
+#: src/viewers/text_viewer.py:456
 msgid "Find in code"
-msgstr ""
+msgstr "Tìm trong mã"
 
-#: src/viewers/text_viewer.py:388
+#: src/viewers/text_viewer.py:454
 msgid "Find in code (Ctrl+F)"
-msgstr ""
+msgstr "Tìm trong mã (Ctrl+F)"
 
-#: src/viewers/text_viewer.py:415
+#: src/viewers/text_viewer.py:481
 msgid "Find in code... (Enter to find next)"
-msgstr ""
+msgstr "Tìm trong mã... (Enter để tìm tiếp)"
 
-#: src/viewers/markdown_viewer.py:308
+#: src/window.py:605
+msgid "Find in file"
+msgstr "Tìm trong tệp"
+
+#: src/viewers/markdown_viewer.py:318
 msgid "Flowchart"
-msgstr ""
+msgstr "Lưu đồ"
 
-#: src/viewers/markdown_viewer.py:309
+#: src/viewers/markdown_viewer.py:319
 msgid "Flowchart Graph"
-msgstr ""
+msgstr "Đồ thị lưu đồ"
+
+#: src/viewers/font_viewer.py:132
+msgid "Font file • {size}"
+msgstr "Tệp phông • {size}"
 
 #: src/utils/formatters.py:24
 msgid "GB"
 msgstr "GB"
 
-#: src/viewers/markdown_viewer.py:315
+#: src/viewers/markdown_viewer.py:325
 msgid "Gantt Chart"
-msgstr ""
+msgstr "Biểu đồ Gantt"
 
-#: src/viewers/markdown_viewer.py:319
+#: src/viewers/markdown_viewer.py:329
 msgid "Git Graph"
-msgstr ""
+msgstr "Đồ thị Git"
 
-#: src/viewers/markdown_viewer.py:1215
+#: src/viewers/markdown_viewer.py:1374
 msgid "IMPORTANT"
-msgstr ""
+msgstr "QUAN TRỌNG"
+
+#: src/viewers/image_viewer.py:415
+msgid "Image is too large to preview (limit: {limit} megapixels)."
+msgstr "Hình ảnh quá lớn để xem trước (giới hạn: {limit} megapixel)."
+
+#: src/viewers/folder_viewer.py:394
+#: src/viewers/folder_viewer.py:400
+#: src/viewers/folder_viewer.py:405
+msgid "Items"
+msgstr "Số mục"
 
 #: src/utils/formatters.py:20
 msgid "KB"
 msgstr "KB"
 
-#: src/viewers/text_viewer.py:836
+#: src/window.py:585
+msgid "Keyboard Shortcuts"
+msgstr "Phím tắt"
+
+#: src/viewers/docx_viewer.py:223
+msgid "Legacy .doc file (binary format)"
+msgstr "Tệp .doc cũ (định dạng nhị phân)"
+
+#: src/viewers/excel_viewer.py:237
+msgid "Legacy Excel (.xls) binary spreadsheet.\nSize: %(size)s\nClick 'Open with App' to view in full office suite."
+msgstr "Bảng tính Excel nhị phân (.xls) cũ.\nKích thước: %(size)s\nBấm 'Mở bằng ứng dụng' để xem trong bộ Office đầy đủ."
+
+#: src/viewers/docx_viewer.py:225
+msgid "Legacy Word Document (.doc) • %(size)s"
+msgstr "Tài liệu Word cũ (.doc) • %(size)s"
+
+#: src/viewers/text_viewer.py:992
 msgid "Lines"
 msgstr "Dòng"
+
+#: src/viewers/markdown_viewer.py:1091
+msgid "MARKDOWN"
+msgstr "MARKDOWN"
 
 #: src/utils/formatters.py:22
 msgid "MB"
 msgstr "MB"
 
-#: src/viewers/markdown_viewer.py:553
+#: src/viewers/markdown_viewer.py:563
+#: src/viewers/markdown_viewer.py:1076
 msgid "MERMAID"
-msgstr ""
+msgstr "MERMAID"
 
-#: src/viewers/text_viewer.py:437
+#: src/viewers/text_viewer.py:503
 msgid "Match Case"
-msgstr ""
+msgstr "Phân biệt hoa thường"
 
-#: src/viewers/markdown_viewer.py:323
+#: src/viewers/markdown_viewer.py:333
 msgid "Mermaid Diagram"
-msgstr ""
+msgstr "Biểu đồ Mermaid"
 
-#: src/viewers/markdown_viewer.py:317
+#: src/viewers/markdown_viewer.py:327
 msgid "Mindmap"
-msgstr ""
+msgstr "Sơ đồ tư duy"
 
-#: src/viewers/markdown_viewer.py:1210
+#: src/viewers/folder_viewer.py:118
+msgid "Modified time unavailable"
+msgstr "Không có thời gian sửa đổi"
+
+#: src/viewers/folder_viewer.py:114
+msgid "Modified: {date}"
+msgstr "Sửa đổi: {date}"
+
+#: src/window.py:608
+msgid "Move selection in Files (arrow keys)"
+msgstr "Di chuyển lựa chọn trong Tệp (phím mũi tên)"
+
+#: src/window.py:613
+msgid "Move to trash"
+msgstr "Chuyển vào thùng rác"
+
+#: src/viewers/markdown_viewer.py:1369
 msgid "NOTE"
-msgstr ""
+msgstr "GHI CHÚ"
 
-#: src/viewers/text_viewer.py:431
+#: src/window.py:606
+msgid "Next match"
+msgstr "Kết quả tiếp theo"
+
+#: src/viewers/text_viewer.py:497
 msgid "Next match (Enter)"
-msgstr ""
+msgstr "Kết quả tiếp theo (Enter)"
 
-#: src/viewers/text_viewer.py:734
+#: src/viewers/text_viewer.py:877
 msgid "No matches"
-msgstr ""
+msgstr "Không có kết quả"
+
+#: src/viewers/excel_viewer.py:110
+msgid "No sheets found in spreadsheet."
+msgstr "Không tìm thấy trang tính trong bảng tính."
+
+#: src/viewers/pptx_viewer.py:61
+msgid "No slides found in PowerPoint presentation."
+msgstr "Không tìm thấy slide trong bài trình bày PowerPoint."
 
 #: src/viewers/html_viewer.py:115
 msgid "Open in browser"
-msgstr ""
+msgstr "Mở bằng trình duyệt"
 
 #: src/viewers/html_viewer.py:112
 msgid "Open this file in the default browser"
-msgstr ""
+msgstr "Mở tệp này bằng trình duyệt mặc định"
 
-#: src/window.py:98
+#: src/window.py:148
 msgid "Open with App"
 msgstr "Mở bằng ứng dụng"
 
-#: src/viewers/markdown_viewer.py:871
+#: src/window.py:609
+msgid "Open with the default app"
+msgstr "Mở bằng ứng dụng mặc định"
+
+#: src/viewers/markdown_viewer.py:923
 msgid "PREVIEW"
-msgstr ""
+msgstr "XEM TRƯỚC"
 
-#: src/viewers/markdown_viewer.py:316
+#: src/viewers/pdf_viewer.py:162
+msgid "Pages"
+msgstr "Số trang"
+
+#: src/viewers/docx_viewer.py:259
+msgid "Paragraphs"
+msgstr "Đoạn văn"
+
+#: src/viewers/markdown_viewer.py:326
 msgid "Pie Chart"
-msgstr ""
+msgstr "Biểu đồ tròn"
 
-#: src/viewers/text_viewer.py:366
-#: src/viewers/text_viewer.py:368
+#: src/window.py:610
+msgid "Play or pause media"
+msgstr "Phát hoặc tạm dừng media"
+
+#: src/viewers/pdf_viewer.py:69
+msgid "Poppler library is not installed for PDF rendering."
+msgstr "Thư viện Poppler chưa được cài để hiển thị PDF."
+
+#: src/viewers/pptx_viewer.py:144
+msgid "PowerPoint (.pptx) • %(slides)s • %(size)s"
+msgstr "PowerPoint (.pptx) • %(slides)s • %(size)s"
+
+#: src/viewers/text_viewer.py:432
+#: src/viewers/text_viewer.py:434
 msgid "Pretty-print JSON"
-msgstr ""
+msgstr "Định dạng JSON"
 
-#: src/viewers/markdown_viewer.py:882
+#: src/viewers/markdown_viewer.py:934
 msgid "Preview"
-msgstr ""
+msgstr "Xem trước"
 
-#: src/viewers/text_viewer.py:425
+#: src/viewers/csv_viewer.py:211
+msgid "Preview truncated at {columns} columns."
+msgstr "Bản xem trước bị cắt ở {columns} cột."
+
+#: src/viewers/archive_viewer.py:241
+msgid "Preview truncated at {entries} entries or {size} uncompressed."
+msgstr "Bản xem trước bị cắt ở {entries} mục hoặc {size} khi giải nén."
+
+#: src/viewers/csv_viewer.py:200
+msgid "Preview truncated at {rows} rows and {columns} columns."
+msgstr "Bản xem trước bị cắt ở {rows} dòng và {columns} cột."
+
+#: src/viewers/csv_viewer.py:207
+msgid "Preview truncated at {rows} rows."
+msgstr "Bản xem trước bị cắt ở {rows} dòng."
+
+#: src/window.py:607
+msgid "Previous match"
+msgstr "Kết quả trước"
+
+#: src/viewers/text_viewer.py:491
 msgid "Previous match (Shift+Enter)"
-msgstr ""
+msgstr "Kết quả trước (Shift+Enter)"
 
-#: src/window.py:80
+#: src/window.py:129
 msgid "Quick Look"
-msgstr ""
+msgstr "Quick Look"
 
-#: src/viewers/markdown_viewer.py:887
+#: src/viewers/markdown_viewer.py:939
 msgid "Raw Code"
-msgstr ""
+msgstr "Mã nguồn"
+
+#: src/viewers/font_viewer.py:94
+msgid "Regular"
+msgstr "Thường"
 
 #: src/viewers/html_viewer.py:144
 msgid "Remote"
-msgstr ""
+msgstr "Từ xa"
 
 #: src/viewers/html_viewer.py:587
 msgid "Remote content blocked"
-msgstr ""
+msgstr "Đã chặn nội dung từ xa"
 
-#: src/viewers/markdown_viewer.py:614
+#: src/window.py:612
+msgid "Rename in Files"
+msgstr "Đổi tên trong Tệp"
+
+#: src/viewers/markdown_viewer.py:624
 msgid "Rendering Mermaid diagram..."
-msgstr ""
+msgstr "Đang vẽ biểu đồ Mermaid..."
 
-#: src/viewers/markdown_viewer.py:572
+#: src/viewers/markdown_viewer.py:582
 msgid "Reset zoom"
-msgstr ""
+msgstr "Đặt lại thu phóng"
 
-#: src/viewers/markdown_viewer.py:310
+#: src/viewers/csv_viewer.py:270
+#: src/viewers/csv_viewer.py:276
+#: src/viewers/excel_viewer.py:273
+msgid "Rows"
+msgstr "Số dòng"
+
+#: src/viewers/pptx_viewer.py:76
+msgid "SLIDE %(number)s"
+msgstr "SLIDE %(number)s"
+
+#: src/viewers/markdown_viewer.py:320
 msgid "Sequence Diagram"
-msgstr ""
+msgstr "Biểu đồ tuần tự"
 
-#: src/viewers/markdown_viewer.py:585
+#: src/viewers/excel_viewer.py:92
+#: src/viewers/excel_viewer.py:158
+msgid "Sheet %(number)s"
+msgstr "Trang tính %(number)s"
+
+#: src/viewers/excel_viewer.py:272
+msgid "Sheets"
+msgstr "Số trang tính"
+
+#: src/viewers/markdown_viewer.py:595
 msgid "Show diagram source"
-msgstr ""
+msgstr "Hiện mã nguồn biểu đồ"
 
-#: src/viewers/markdown_viewer.py:889
+#: src/viewers/markdown_viewer.py:941
 msgid "Show raw source"
-msgstr ""
+msgstr "Hiện mã nguồn"
 
-#: src/viewers/markdown_viewer.py:884
+#: src/viewers/markdown_viewer.py:936
 msgid "Show rendered preview"
-msgstr ""
+msgstr "Hiện bản xem trước"
 
+#: src/window.py:614
+msgid "Show this window"
+msgstr "Hiện cửa sổ này"
+
+#: src/viewers/pdf_viewer.py:98
+msgid "Showing the first {shown} of {total} pages."
+msgstr "Đang hiển thị {shown} trong tổng số {total} trang."
+
+#: src/viewers/archive_viewer.py:210
+#: src/viewers/csv_viewer.py:272
+#: src/viewers/csv_viewer.py:278
+#: src/viewers/docx_viewer.py:253
+#: src/viewers/excel_viewer.py:266
+#: src/viewers/folder_viewer.py:395
+#: src/viewers/folder_viewer.py:401
+#: src/viewers/folder_viewer.py:406
+#: src/viewers/font_viewer.py:192
 #: src/viewers/html_viewer.py:140
-#: src/viewers/markdown_viewer.py:1518
-#: src/viewers/text_viewer.py:835
-#: src/window.py:366
+#: src/viewers/image_viewer.py:484
+#: src/viewers/markdown_viewer.py:1690
+#: src/viewers/media_viewer.py:166
+#: src/viewers/pdf_viewer.py:163
+#: src/viewers/pptx_viewer.py:149
+#: src/viewers/text_viewer.py:991
+#: src/window.py:448
 msgid "Size"
 msgstr "Kích thước"
 
-#: src/viewers/markdown_viewer.py:583
+#: src/viewers/pptx_viewer.py:153
+msgid "Slides"
+msgstr "Số slide"
+
+#: src/viewers/markdown_viewer.py:593
 msgid "Source"
-msgstr ""
+msgstr "Mã nguồn"
 
-#: src/viewers/markdown_viewer.py:312
-#: src/viewers/markdown_viewer.py:313
+#: src/viewers/excel_viewer.py:165
+msgid "Spreadsheet is empty."
+msgstr "Bảng tính rỗng."
+
+#: src/viewers/markdown_viewer.py:322
+#: src/viewers/markdown_viewer.py:323
 msgid "State Diagram"
-msgstr ""
+msgstr "Biểu đồ trạng thái"
 
-#: src/viewers/text_viewer.py:217
-#: src/viewers/text_viewer.py:272
-#: src/viewers/text_viewer.py:277
+#: src/viewers/font_viewer.py:191
+msgid "Style"
+msgstr "Kiểu"
+
+#: src/viewers/text_viewer.py:228
+#: src/viewers/text_viewer.py:283
+#: src/viewers/text_viewer.py:288
 msgid "TEXT"
-msgstr ""
+msgstr "VĂN BẢN"
 
-#: src/viewers/markdown_viewer.py:1211
+#: src/viewers/markdown_viewer.py:1370
 msgid "TIP"
-msgstr ""
+msgstr "MẸO"
+
+#: src/viewers/archive_viewer.py:180
+msgid "The archive exceeds the preview limits."
+msgstr "Tệp nén vượt quá giới hạn xem trước."
+
+#: src/viewers/folder_viewer.py:355
+msgid "The listing is capped at {count} entries."
+msgstr "Danh sách bị giới hạn ở {count} mục."
+
+#: src/viewers/font_viewer.py:149
+msgid "The quick brown fox jumps over the lazy dog"
+msgstr "The quick brown fox jumps over the lazy dog"
 
 #: src/viewers/html_viewer.py:208
 msgid "This HTML file is too large to preview; showing the source instead."
-msgstr ""
+msgstr "Tệp HTML này quá lớn để xem trước; đang hiển thị mã nguồn."
 
-#: src/viewers/markdown_viewer.py:320
+#: src/viewers/office_common.py:171
+msgid "This Office document contains invalid XML."
+msgstr "Tài liệu Office này chứa XML không hợp lệ."
+
+#: src/viewers/office_common.py:164
+msgid "This Office document contains unsupported XML declarations."
+msgstr "Tài liệu Office này chứa khai báo XML không được hỗ trợ."
+
+#: src/viewers/office_common.py:59
+msgid "This Office document could not be read."
+msgstr "Không thể đọc tài liệu Office này."
+
+#: src/viewers/office_common.py:86
+msgid "This Office document has too many parts to preview."
+msgstr "Tài liệu Office này có quá nhiều phần để xem trước."
+
+#: src/viewers/office_common.py:100
+msgid "This Office document is too large to preview."
+msgstr "Tài liệu Office này quá lớn để xem trước."
+
+#: src/viewers/archive_viewer.py:110
+msgid "This archive contains encrypted entries and cannot be previewed."
+msgstr "Tệp nén này chứa mục được mã hóa và không thể xem trước."
+
+#: src/viewers/folder_viewer.py:141
+msgid "This folder is empty."
+msgstr "Thư mục này rỗng."
+
+#: src/viewers/office_common.py:80
+msgid "This is not a valid Office document."
+msgstr "Đây không phải tài liệu Office hợp lệ."
+
+#: src/viewers/markdown_viewer.py:330
 msgid "Timeline"
-msgstr ""
+msgstr "Dòng thời gian"
 
-#: src/viewers/text_viewer.py:378
-#: src/viewers/text_viewer.py:380
+#: src/window.py:611
+msgid "Toggle fullscreen"
+msgstr "Bật/tắt toàn màn hình"
+
+#: src/viewers/text_viewer.py:444
+#: src/viewers/text_viewer.py:446
 msgid "Toggle word wrap"
-msgstr ""
+msgstr "Bật/tắt ngắt dòng"
 
-#: src/viewers/__init__.py:142
+#: src/viewers/folder_viewer.py:353
+msgid "Totals are partial because the scan reached its limit."
+msgstr "Tổng số chỉ là một phần vì quá trình quét đã đạt giới hạn."
+
+#: src/viewers/__init__.py:146
 msgid "Type: %(mime)s\nSize: %(size)s\nModified: %(date)s"
-msgstr ""
+msgstr "Loại: %(mime)s\nKích thước: %(size)s\nSửa đổi: %(date)s"
 
-#: src/viewers/markdown_viewer.py:318
+#: src/viewers/archive_viewer.py:333
+#: src/viewers/csv_viewer.py:270
+#: src/viewers/csv_viewer.py:271
+#: src/viewers/folder_viewer.py:394
+#: src/viewers/folder_viewer.py:395
+msgid "Unavailable"
+msgstr "Không khả dụng"
+
+#: src/viewers/font_viewer.py:185
+#: src/viewers/image_viewer.py:481
+#: src/viewers/media_viewer.py:17
+#: src/viewers/media_viewer.py:160
+#: src/viewers/pdf_viewer.py:153
+#: src/viewers/pdf_viewer.py:160
+msgid "Unknown"
+msgstr "Không rõ"
+
+#: src/viewers/folder_viewer.py:409
+msgid "Unreadable"
+msgstr "Không đọc được"
+
+#: src/viewers/archive_viewer.py:161
+msgid "Unsupported archive format or corrupted file."
+msgstr "Định dạng tệp nén không được hỗ trợ hoặc tệp bị hỏng."
+
+#: src/viewers/markdown_viewer.py:328
 msgid "User Journey"
-msgstr ""
+msgstr "Hành trình người dùng"
 
-#: src/viewers/markdown_viewer.py:1220
+#: src/viewers/markdown_viewer.py:1379
 msgid "WARNING"
-msgstr ""
+msgstr "CẢNH BÁO"
 
 #: src/viewers/html_viewer.py:220
 msgid "WebKit is not available; showing the source instead."
-msgstr ""
+msgstr "WebKit không khả dụng; đang hiển thị mã nguồn."
 
-#: src/viewers/markdown_viewer.py:1519
+#: src/viewers/docx_viewer.py:245
+msgid "Word Document (.docx)"
+msgstr "Tài liệu Word (.docx)"
+
+#: src/viewers/docx_viewer.py:260
+#: src/viewers/markdown_viewer.py:1691
 msgid "Words"
 msgstr "Từ"
 
-#: src/viewers/markdown_viewer.py:321
+#: src/viewers/markdown_viewer.py:331
 msgid "XY Chart"
-msgstr ""
+msgstr "Biểu đồ XY"
 
-#: src/viewers/markdown_viewer.py:578
+#: src/viewers/image_viewer.py:485
+msgid "Zoom"
+msgstr "Thu phóng"
+
+#: src/viewers/markdown_viewer.py:588
 msgid "Zoom in"
-msgstr ""
+msgstr "Phóng to"
 
-#: src/viewers/markdown_viewer.py:566
+#: src/viewers/markdown_viewer.py:576
 msgid "Zoom out"
-msgstr ""
+msgstr "Thu nhỏ"
 
-#: src/viewers/markdown_viewer.py:830
+#: src/viewers/markdown_viewer.py:845
 msgid "[image] {alt}"
-msgstr ""
+msgstr "[hình ảnh] {alt}"
 
-#: src/viewers/markdown_viewer.py:827
+#: src/viewers/markdown_viewer.py:842
 msgid "image"
-msgstr ""
+msgstr "hình ảnh"
 
-#: src/viewers/markdown_viewer.py:1099
+#: src/viewers/image_viewer.py:195
+msgid "not a valid SVG document"
+msgstr "không phải tài liệu SVG hợp lệ"
+
+#: src/viewers/markdown_viewer.py:1241
 msgid "{count} Mermaid diagram"
 msgid_plural "{count} Mermaid diagrams"
-msgstr[0] ""
+msgstr[0] "{count} biểu đồ Mermaid"
 
-#: src/viewers/markdown_viewer.py:1107
+#: src/viewers/markdown_viewer.py:1249
 msgid "{count} code block"
 msgid_plural "{count} code blocks"
-msgstr[0] ""
+msgstr[0] "{count} khối mã"
 
-#: src/viewers/markdown_viewer.py:953
-#: src/viewers/markdown_viewer.py:1087
-#: src/viewers/text_viewer.py:560
-#: src/viewers/text_viewer.py:831
+#: src/viewers/csv_viewer.py:187
+msgid "{count} column"
+msgid_plural "{count} columns"
+msgstr[0] "{count} cột"
+
+#: src/viewers/archive_viewer.py:226
+msgid "{count} entry"
+msgid_plural "{count} entries"
+msgstr[0] "{count} mục"
+
+#: src/viewers/folder_viewer.py:372
+msgid "{count} item"
+msgid_plural "{count} items"
+msgstr[0] "{count} mục"
+
+#: src/viewers/markdown_viewer.py:1077
+#: src/viewers/markdown_viewer.py:1229
+#: src/viewers/text_viewer.py:703
 msgid "{count} line"
 msgid_plural "{count} lines"
-msgstr[0] ""
+msgstr[0] "{count} dòng"
 
-#: src/viewers/markdown_viewer.py:1093
+#: src/viewers/pdf_viewer.py:81
+msgid "{count} page"
+msgid_plural "{count} pages"
+msgstr[0] "{count} trang"
+
+#: src/viewers/docx_viewer.py:236
+msgid "{count} paragraph"
+msgid_plural "{count} paragraphs"
+msgstr[0] "{count} đoạn"
+
+#: src/viewers/csv_viewer.py:184
+msgid "{count} row"
+msgid_plural "{count} rows"
+msgstr[0] "{count} dòng"
+
+#: src/viewers/markdown_viewer.py:1235
 msgid "{count} section"
 msgid_plural "{count} sections"
-msgstr[0] ""
+msgstr[0] "{count} mục"
 
-#: src/viewers/markdown_viewer.py:1514
-#: src/viewers/text_viewer.py:563
+#: src/viewers/pptx_viewer.py:140
+msgid "{count} slide"
+msgid_plural "{count} slides"
+msgstr[0] "{count} slide"
+
+#: src/viewers/docx_viewer.py:239
+#: src/viewers/text_viewer.py:706
 msgid "{count} word"
 msgid_plural "{count} words"
-msgstr[0] ""
+msgstr[0] "{count} từ"
 
-#: src/viewers/text_viewer.py:762
+#: src/viewers/text_viewer.py:905
 msgid "{current} / {total}"
-msgstr ""
+msgstr "{current} / {total}"
 
-#: src/viewers/markdown_viewer.py:957
+#: src/viewers/markdown_viewer.py:1081
 msgid "{diagram}  •  {lines}  •  {size}"
-msgstr ""
+msgstr "{diagram}  •  {lines}  •  {size}"
 
-#: src/viewers/text_viewer.py:567
+#: src/viewers/archive_viewer.py:230
+msgid "{entries}, {compressed} compressed, {uncompressed} uncompressed"
+msgstr "{entries}, {compressed} nén, {uncompressed} giải nén"
+
+#: src/viewers/text_viewer.py:710
 msgid "{lines}  •  {words}  •  {size}"
-msgstr ""
+msgstr "{lines}  •  {words}  •  {size}"
+
+#: src/viewers/pdf_viewer.py:85
+msgid "{pages} • {size}"
+msgstr "{pages} • {size}"
+
+#: src/viewers/csv_viewer.py:192
+msgid "{rows}, {columns}, {size}"
+msgstr "{rows}, {columns}, {size}"
+
+#: src/viewers/font_viewer.py:160
+msgid "{size} pt"
+msgstr "{size} pt"
+
+#: src/viewers/folder_viewer.py:349
+msgid "{unreadable} entries could not be read."
+msgstr "Không đọc được {unreadable} mục."
+
+#: src/viewers/folder_viewer.py:344
+msgid "{unreadable} entries could not be read; totals are partial because the scan reached its limit."
+msgstr "Không đọc được {unreadable} mục; tổng số chỉ là một phần vì quá trình quét đã đạt giới hạn."
+
+#: src/viewers/image_viewer.py:399
+#: src/viewers/image_viewer.py:477
+msgid "{width} × {height} px"
+msgstr "{width} × {height} px"
+
+#: src/viewers/image_viewer.py:391
+msgid "{width} × {height} px ({percent}%)"
+msgstr "{width} × {height} px ({percent}%)"
+
+#: src/viewers/pptx_viewer.py:107
+msgid "•  %(text)s"
+msgstr "•  %(text)s"

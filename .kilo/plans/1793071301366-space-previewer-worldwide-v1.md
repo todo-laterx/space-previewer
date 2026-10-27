@@ -134,7 +134,7 @@ Decisions:
 
 - **Motion level: static, feedback only.** No window open/close animation, no revealers, no stagger, no hover lift, no infinite loops. Content crossfade on file change is the only content animation.
 - **Visual direction: Libadwaita native.** System surfaces, hairline separators instead of cards, system icon theme, light/dark follows the system with no in-app override.
-- **Accent: electric blue** `#4C8DFF` (light) / `#6EA8FF` (dark), saturation <80%. Used only for focus rings, links, selected rows, and the single primary action. Never decorative.
+- **Accent: electric blue.** Primary fill `#3867D6` with white text; links and focus rings `#2F5FC4` (light) / `#8AB4FF` (dark). The fill is darker than the initial `#4C8DFF` token so white label text keeps a 5:1 contrast ratio. Used only for focus rings, links, selected rows, and the single primary action. Never decorative.
 - **Layout: header + status bar.** One `Adw.HeaderBar` for filename and viewer controls, one bottom status bar for type and metadata. No sub-toolbar row.
 
 ### 5.1 Window skeleton
