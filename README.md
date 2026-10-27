@@ -14,14 +14,14 @@ A modern, fast, and resizable **Quick Look** spacebar file previewer for Linux (
 - **Auto-Update on Navigation**: Keep the preview window open and use the arrow keys `Up` `Down` `Left` `Right` in Nautilus to browse through files.
 - **Resizable & Movable**: Freely resize, drag, and position the preview window.
 - **Libadwaita Integration**: System light and dark theme, native controls and rounded corners.
-- **Copy a line range**: text and code are selectable; drag the line numbers to pick whole lines, or click a rendered Markdown block (Shift+click to extend). Copy the range as plain text or as a quote with the file path, line range and a fenced block ready to paste into a chat with an agent.
+- **Copy a line range**: text and code are selectable; drag the line numbers to pick whole lines, or click a rendered Markdown block (Shift+click to extend). Copy the range as plain text, or copy a `path:start-end` reference that is easy to quote when commenting.
 - **One chrome for every viewer**: A single header bar and one status bar. File type, size and metadata live in the status bar; viewers never add their own toolbar row.
 - **Images**: PNG, JPG, WebP, GIF (animated), SVG, BMP; `Ctrl+Scroll` zooms.
 - **Code & Text**: Syntax-highlighted preview for Python, JS, TS, HTML, CSS, JSON, YAML, Shell, SQL, Markdown, and plain text, with in-file search.
 - **Markdown**: Rendered preview with GFM tables, task lists, callouts, Mermaid diagrams (opt-in) and a raw source toggle.
 - **HTML**: Local pages rendered with WebKitGTK when installed; remote content is blocked by default and the page falls back to source view without WebKit.
 - **CSV / TSV**: Formatted table grid view with column headers.
-- **PDF Documents**: Multi-page rendering with Poppler.
+- **PDF Documents**: Continuous, fit-width rendering with Poppler. Pages render lazily as they scroll into view, with previous/next page buttons, `PageUp`/`PageDown`, and a smooth scroll animation for page jumps.
 - **Office**: DOCX, XLSX and PPTX read directly from their ZIP/XML parts; legacy `.doc`, `.xls` and `.ppt` fall back to a summary and the default app.
 - **Audio & Video**: Compact media player for MP4, MKV, WebM, MP3, WAV, FLAC.
 - **Archives**: Lists files inside ZIP and TAR archives without extracting.
@@ -101,7 +101,7 @@ Sushi; if you want the default GNOME previewer back, install `gnome-sushi` from 
 
 - **`Space`** or **`Escape`**: Close the preview window (or the search card first when it is open).
 - **`Ctrl + F`**: Open the non-grabbing search card for text, code and Markdown source.
-- **`Ctrl + Shift + C`**: Copy the selected lines, or the text selection, as a quoted block with the file path and line numbers.
+- **`Ctrl + Shift + C`**: Copy the selected lines, or the text selection, as a `path:start-end` reference.
 - **Drag line numbers** (text and code): select whole lines and show the copy card.
 - **Click / Shift + Click** (Markdown preview): select one rendered block, or a range of blocks, for copying.
 - **`Enter` / `Shift + Enter`**: Next or previous search match.
@@ -111,6 +111,8 @@ Sushi; if you want the default GNOME previewer back, install `gnome-sushi` from 
 - **`P`**: Play or pause audio and video.
 - **`F2`**: Close the preview and start renaming in Files.
 - **`Delete`**: Move the file to the trash from Files.
+- **`PageUp` / `PageDown`** (PDF): Previous or next page, animated.
+- **`Home` / `End`** (PDF): First or last page.
 - **`Up` / `Down`**: Move the selection in Files; the preview follows.
 - **`Ctrl + Scroll`** (images): Zoom in and out.
 

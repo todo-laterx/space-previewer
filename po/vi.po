@@ -141,11 +141,6 @@ msgstr "Đã sao chép!"
 msgid "Copy"
 msgstr "Sao chép"
 
-#: src/widgets/quote_bar.py:83
-#: src/widgets/quote_bar.py:123
-msgid "Copy as quote"
-msgstr "Sao chép dạng trích dẫn"
-
 #: src/viewers/text_viewer.py:476
 #: src/viewers/text_viewer.py:478
 msgid "Copy code"
@@ -159,14 +154,19 @@ msgstr "Sao chép khối mã"
 msgid "Copy diagram source"
 msgstr "Sao chép mã nguồn biểu đồ"
 
+#: src/widgets/quote_bar.py:83
+#: src/widgets/quote_bar.py:123
+msgid "Copy reference"
+msgstr "Sao chép tham chiếu"
+
 #: src/viewers/markdown_viewer.py:969
 #: src/viewers/markdown_viewer.py:971
 msgid "Copy source"
 msgstr "Sao chép mã nguồn"
 
 #: src/widgets/quote_bar.py:87
-msgid "Copy the file path, line range and text as a quoted block"
-msgstr "Sao chép đường dẫn, khoảng dòng và nội dung dưới dạng khối trích dẫn"
+msgid "Copy the file path and line range"
+msgstr "Sao chép đường dẫn và khoảng dòng"
 
 #: src/widgets/quote_bar.py:79
 msgid "Copy the selected lines"
@@ -193,7 +193,7 @@ msgstr "Không thể tải bảng tính Excel."
 msgid "Could not load Excel spreadsheet:\n%(error)s"
 msgstr "Không thể tải bảng tính Excel:\n%(error)s"
 
-#: src/viewers/pdf_viewer.py:110
+#: src/viewers/pdf_viewer.py:169
 msgid "Could not load PDF:\n{error}"
 msgstr "Không thể tải PDF:\n{error}"
 
@@ -463,6 +463,10 @@ msgstr "Kết quả tiếp theo"
 msgid "Next match (Enter)"
 msgstr "Kết quả tiếp theo (Enter)"
 
+#: src/viewers/pdf_viewer.py:113
+msgid "Next page"
+msgstr "Trang tiếp theo"
+
 #: src/viewers/text_viewer.py:1145
 msgid "No matches"
 msgstr "Không có kết quả"
@@ -495,9 +499,9 @@ msgstr "Mở bằng ứng dụng mặc định"
 msgid "PREVIEW"
 msgstr "XEM TRƯỚC"
 
-#: src/viewers/pdf_viewer.py:162
-msgid "Pages"
-msgstr "Số trang"
+#: src/viewers/pdf_viewer.py:569
+msgid "Page"
+msgstr "Trang"
 
 #: src/viewers/docx_viewer.py:259
 msgid "Paragraphs"
@@ -511,7 +515,7 @@ msgstr "Biểu đồ tròn"
 msgid "Play or pause media"
 msgstr "Phát hoặc tạm dừng media"
 
-#: src/viewers/pdf_viewer.py:69
+#: src/viewers/pdf_viewer.py:150
 msgid "Poppler library is not installed for PDF rendering."
 msgstr "Thư viện Poppler chưa được cài để hiển thị PDF."
 
@@ -551,6 +555,10 @@ msgstr "Kết quả trước"
 #: src/viewers/text_viewer.py:504
 msgid "Previous match (Shift+Enter)"
 msgstr "Kết quả trước (Shift+Enter)"
+
+#: src/viewers/pdf_viewer.py:109
+msgid "Previous page"
+msgstr "Trang trước"
 
 #: src/window.py:129
 msgid "Quick Look"
@@ -623,7 +631,7 @@ msgstr "Hiện bản xem trước"
 msgid "Show this window"
 msgstr "Hiện cửa sổ này"
 
-#: src/viewers/pdf_viewer.py:98
+#: src/viewers/pdf_viewer.py:202
 msgid "Showing the first {shown} of {total} pages."
 msgstr "Đang hiển thị {shown} trong tổng số {total} trang."
 
@@ -640,7 +648,7 @@ msgstr "Đang hiển thị {shown} trong tổng số {total} trang."
 #: src/viewers/image_viewer.py:484
 #: src/viewers/markdown_viewer.py:1863
 #: src/viewers/media_viewer.py:166
-#: src/viewers/pdf_viewer.py:163
+#: src/viewers/pdf_viewer.py:570
 #: src/viewers/pptx_viewer.py:149
 #: src/viewers/text_viewer.py:1259
 #: src/window.py:448
@@ -681,6 +689,10 @@ msgstr "MẸO"
 #: src/viewers/archive_viewer.py:180
 msgid "The archive exceeds the preview limits."
 msgstr "Tệp nén vượt quá giới hạn xem trước."
+
+#: src/viewers/pdf_viewer.py:188
+msgid "The document has no pages."
+msgstr "Tài liệu không có trang nào."
 
 #: src/viewers/folder_viewer.py:355
 msgid "The listing is capped at {count} entries."
@@ -759,8 +771,8 @@ msgstr "Không khả dụng"
 #: src/viewers/image_viewer.py:481
 #: src/viewers/media_viewer.py:17
 #: src/viewers/media_viewer.py:160
-#: src/viewers/pdf_viewer.py:153
-#: src/viewers/pdf_viewer.py:160
+#: src/viewers/pdf_viewer.py:559
+#: src/viewers/pdf_viewer.py:567
 msgid "Unknown"
 msgstr "Không rõ"
 
@@ -853,11 +865,6 @@ msgid "{count} line"
 msgid_plural "{count} lines"
 msgstr[0] "{count} dòng"
 
-#: src/viewers/pdf_viewer.py:81
-msgid "{count} page"
-msgid_plural "{count} pages"
-msgstr[0] "{count} trang"
-
 #: src/viewers/docx_viewer.py:236
 msgid "{count} paragraph"
 msgid_plural "{count} paragraphs"
@@ -899,10 +906,6 @@ msgstr "{entries}, {compressed} nén, {uncompressed} giải nén"
 #: src/viewers/text_viewer.py:760
 msgid "{lines}  •  {words}  •  {size}"
 msgstr "{lines}  •  {words}  •  {size}"
-
-#: src/viewers/pdf_viewer.py:85
-msgid "{pages} • {size}"
-msgstr "{pages} • {size}"
 
 #: src/viewers/csv_viewer.py:192
 msgid "{rows}, {columns}, {size}"

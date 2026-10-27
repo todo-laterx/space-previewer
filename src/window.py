@@ -496,7 +496,7 @@ class PreviewWindow(Adw.ApplicationWindow):
             copier = getattr(self.current_viewer, "copy_selected_lines", None)
             if callable(copier):
                 try:
-                    if copier(quote=True):
+                    if copier(reference=True):
                         return True
                 except Exception:
                     log.debug("Could not copy the line range", exc_info=True)
@@ -537,6 +537,19 @@ class PreviewWindow(Adw.ApplicationWindow):
                 return False
             self.on_fullscreen_toggle(None)
             return True
+
+        if no_modifiers and keyval in (Gdk.KEY_Page_Up, Gdk.KEY_Page_Down):
+            if self._focus_is_editable():
+                return False
+            method = "previous_page" if keyval == Gdk.KEY_Page_Up else "next_page"
+            action = getattr(self.current_viewer, method, None)
+            if callable(action):
+                try:
+                    action()
+                    return True
+                except Exception:
+                    log.debug("Viewer page navigation failed", exc_info=True)
+            return False
 
         if no_modifiers and keyval in (Gdk.KEY_Left, Gdk.KEY_Right, Gdk.KEY_Up, Gdk.KEY_Down):
             if self._focus_is_editable():

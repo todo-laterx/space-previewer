@@ -27,7 +27,7 @@ except ImportError:
 
 from utils.formatters import format_size
 from utils.i18n import _, ngettext
-from utils.quote import format_line_quote
+from utils.quote import format_line_reference
 from widgets.quote_bar import QuoteBar
 from .text_viewer import (
     TextViewer,
@@ -1240,14 +1240,14 @@ class MarkdownViewer(Gtk.Box):
             return None
         return first + 1, last, text
 
-    def _on_quote_copy(self, quote: bool) -> bool:
-        return self.copy_selected_lines(quote)
+    def _on_quote_copy(self, reference: bool) -> bool:
+        return self.copy_selected_lines(reference)
 
-    def copy_selected_lines(self, quote: bool = True) -> bool:
+    def copy_selected_lines(self, reference: bool = True) -> bool:
         """Copy the selected rendered blocks, or the raw selection in raw mode."""
         if self.stack.get_visible_child_name() == "raw":
             if self.raw_viewer is not None:
-                return bool(self.raw_viewer.copy_selected_lines(quote))
+                return bool(self.raw_viewer.copy_selected_lines(reference))
             return False
 
         range_info = self._md_quote_text()
@@ -1255,8 +1255,8 @@ class MarkdownViewer(Gtk.Box):
             return False
         first_line, last_line, text = range_info
         payload = (
-            format_line_quote(self.file_path, first_line, last_line, text)
-            if quote
+            format_line_reference(self.file_path, first_line, last_line)
+            if reference
             else text
         )
 
@@ -1265,7 +1265,7 @@ class MarkdownViewer(Gtk.Box):
             return False
         display.get_clipboard().set(payload)
         if self._quote_bar is not None:
-            self._quote_bar.flash(quote)
+            self._quote_bar.flash(reference)
         return True
 
     def has_line_selection(self) -> bool:

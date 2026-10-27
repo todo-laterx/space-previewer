@@ -20,7 +20,7 @@ except ImportError:
 
 from utils.formatters import format_size
 from utils.i18n import _, ngettext
-from utils.quote import format_line_quote
+from utils.quote import format_line_reference
 from widgets.quote_bar import QuoteBar
 
 _CSS_INSTALLED = False
@@ -1025,9 +1025,9 @@ class TextViewer(Gtk.Box):
             return
         bar.set_lines(bounds[0] + 1, bounds[1] + 1)
 
-    def copy_selected_lines(self, quote: bool = True) -> bool:
-        """Copy the current selection, or the gutter range, as plain or quoted text."""
-        bounds = self._quote_bounds(whole_lines=quote)
+    def copy_selected_lines(self, reference: bool = True) -> bool:
+        """Copy the selected lines, or a path:line reference for them."""
+        bounds = self._quote_bounds(whole_lines=reference)
         if bounds is None:
             return False
         _first, _last, text = bounds
@@ -1036,9 +1036,9 @@ class TextViewer(Gtk.Box):
         if not text:
             return False
 
-        if quote:
-            payload = format_line_quote(
-                self.file_path, bounds[0] + 1, bounds[1] + 1, text
+        if reference:
+            payload = format_line_reference(
+                self.file_path, bounds[0] + 1, bounds[1] + 1
             )
         else:
             payload = text
@@ -1049,7 +1049,7 @@ class TextViewer(Gtk.Box):
         display.get_clipboard().set(payload)
         bar = getattr(self, "quote_bar", None)
         if bar is not None:
-            bar.flash(quote)
+            bar.flash(reference)
         return True
 
     def _on_quote_key_pressed(self, controller, keyval, keycode, state) -> bool:
@@ -1058,7 +1058,7 @@ class TextViewer(Gtk.Box):
             and state & Gdk.ModifierType.SHIFT_MASK
             and keyval in (Gdk.KEY_C, Gdk.KEY_c)
         ):
-            return self.copy_selected_lines(quote=True)
+            return self.copy_selected_lines(reference=True)
         return False
 
     # -------------------------------------------------------------

@@ -1,80 +1,14 @@
-"""Formatting for copying a line range out of a preview into a chat.
+"""Formatting for referencing a line range in a preview.
 
-The payload is intentionally not translated: it is read by a chat agent or a
-person pasting it into a conversation, not by the preview UI itself.
+The payload is intentionally not translated: it is a path and a line range that
+a person pastes into a chat to point at the source, not UI text.
 """
 
 from __future__ import annotations
 
-import os
 
-# Markdown fence language for common extensions. Unknown extensions get a
-# plain fence so the block still pastes cleanly.
-QUOTE_LANGUAGE_BY_EXT = {
-    ".py": "python",
-    ".pyi": "python",
-    ".js": "javascript",
-    ".jsx": "jsx",
-    ".mjs": "javascript",
-    ".ts": "typescript",
-    ".tsx": "tsx",
-    ".json": "json",
-    ".jsonc": "json",
-    ".html": "html",
-    ".htm": "html",
-    ".xhtml": "html",
-    ".css": "css",
-    ".scss": "scss",
-    ".sh": "bash",
-    ".bash": "bash",
-    ".zsh": "bash",
-    ".fish": "fish",
-    ".sql": "sql",
-    ".md": "markdown",
-    ".markdown": "markdown",
-    ".mmd": "mermaid",
-    ".yaml": "yaml",
-    ".yml": "yaml",
-    ".toml": "toml",
-    ".ini": "ini",
-    ".xml": "xml",
-    ".rs": "rust",
-    ".go": "go",
-    ".c": "c",
-    ".h": "c",
-    ".cpp": "cpp",
-    ".hpp": "cpp",
-    ".cc": "cpp",
-    ".java": "java",
-    ".kt": "kotlin",
-    ".rb": "ruby",
-    ".php": "php",
-    ".lua": "lua",
-    ".swift": "swift",
-    ".cs": "csharp",
-    ".vue": "vue",
-    ".svelte": "svelte",
-    ".txt": "",
-}
-
-
-def quote_language_for_path(file_path: str) -> str:
-    """Return the Markdown fence language for a path, or ``""``."""
-    return QUOTE_LANGUAGE_BY_EXT.get(os.path.splitext(file_path)[1].lower(), "")
-
-
-def format_line_quote(
-    file_path: str, first_line: int, last_line: int, text: str
-) -> str:
-    """Build a paste-ready quote: path, line range and a fenced code block.
-
-    ``first_line`` and ``last_line`` are 1-based and inclusive.
-    """
+def format_line_reference(file_path: str, first_line: int, last_line: int) -> str:
+    """Return ``path:line`` or ``path:first-last`` for a 1-based range."""
     if first_line == last_line:
-        header = f"{file_path}:{first_line}"
-    else:
-        header = f"{file_path}:{first_line}-{last_line}"
-
-    body = text if text.endswith("\n") else text + "\n"
-    language = quote_language_for_path(file_path)
-    return f"{header}\n\n```{language}\n{body}```\n"
+        return f"{file_path}:{first_line}"
+    return f"{file_path}:{first_line}-{last_line}"

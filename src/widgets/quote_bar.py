@@ -52,7 +52,7 @@ def ensure_quote_bar_css() -> None:
 
 
 class QuoteBar(Gtk.Box):
-    """Compact range label with Copy and Copy as quote actions."""
+    """Compact range label with Copy and Copy reference actions."""
 
     def __init__(self, on_copy):
         super().__init__(orientation=Gtk.Orientation.HORIZONTAL, spacing=6)
@@ -77,17 +77,17 @@ class QuoteBar(Gtk.Box):
         self.btn_copy.add_css_class("flat")
         self.btn_copy.set_can_focus(False)
         self.btn_copy.set_tooltip_text(_("Copy the selected lines"))
-        self.btn_copy.connect("clicked", lambda *_: self._copy(quote=False))
+        self.btn_copy.connect("clicked", lambda *_: self._copy(reference=False))
         self.append(self.btn_copy)
 
-        self.btn_quote = Gtk.Button(label=_("Copy as quote"))
-        self.btn_quote.add_css_class("suggested-action")
-        self.btn_quote.set_can_focus(False)
-        self.btn_quote.set_tooltip_text(
-            _("Copy the file path, line range and text as a quoted block")
+        self.btn_reference = Gtk.Button(label=_("Copy reference"))
+        self.btn_reference.add_css_class("suggested-action")
+        self.btn_reference.set_can_focus(False)
+        self.btn_reference.set_tooltip_text(
+            _("Copy the file path and line range")
         )
-        self.btn_quote.connect("clicked", lambda *_: self._copy(quote=True))
-        self.append(self.btn_quote)
+        self.btn_reference.connect("clicked", lambda *_: self._copy(reference=True))
+        self.append(self.btn_reference)
 
     def set_lines(self, first_line: int, last_line: int) -> None:
         """Show the bar for a 1-based, inclusive line range."""
@@ -102,25 +102,25 @@ class QuoteBar(Gtk.Box):
     def hide_bar(self) -> None:
         self.set_visible(False)
 
-    def _copy(self, quote: bool) -> None:
+    def _copy(self, reference: bool) -> None:
         try:
-            self._on_copy(quote)
+            self._on_copy(reference)
         except Exception:
             logger.exception("Copy callback failed")
 
-    def flash(self, quote: bool) -> None:
+    def flash(self, reference: bool) -> None:
         """Briefly confirm a copy for the button the user pressed."""
         if self._timeout_id is not None:
             GLib.source_remove(self._timeout_id)
             self._timeout_id = None
         self._reset_labels()
-        button = self.btn_quote if quote else self.btn_copy
+        button = self.btn_reference if reference else self.btn_copy
         button.set_label(_("Copied!"))
         self._timeout_id = GLib.timeout_add(1400, self._reset_timeout)
 
     def _reset_labels(self) -> None:
         self.btn_copy.set_label(_("Copy"))
-        self.btn_quote.set_label(_("Copy as quote"))
+        self.btn_reference.set_label(_("Copy reference"))
 
     def _reset_timeout(self) -> bool:
         self._timeout_id = None

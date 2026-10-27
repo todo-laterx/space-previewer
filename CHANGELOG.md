@@ -11,9 +11,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - Line-range copy in code, text and rendered Markdown previews: drag the gutter
   line numbers to select whole lines, or click a rendered Markdown block
-  (Shift+click to extend), then copy the range as plain text or as a quote with
-  the file path, line range and a fenced code block for pasting into a chat with
-  an agent. `Ctrl+Shift+C` copies the current selection as a quote.
+  (Shift+click to extend), then copy the range as plain text or as a
+  `path:start-end` reference. `Ctrl+Shift+C` copies the current selection as a
+  reference.
+- PDF preview rebuilt around a continuous, fit-width layout: pages are
+  rasterised lazily around the viewport with a bounded texture cache, the window
+  opens at a screen-appropriate size, and previous/next page navigation scrolls
+  with a short ease-out animation. `PageUp`/`PageDown` and `Home`/`End` work
+  while the preview has focus.
 - An explicit selection colour on the code surface so dragged text is visible.
 
 ## [0.1.0] - 2026-10-27

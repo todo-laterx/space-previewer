@@ -144,11 +144,6 @@ msgstr ""
 msgid "Copy"
 msgstr ""
 
-#: src/widgets/quote_bar.py:83
-#: src/widgets/quote_bar.py:123
-msgid "Copy as quote"
-msgstr ""
-
 #: src/viewers/text_viewer.py:476
 #: src/viewers/text_viewer.py:478
 msgid "Copy code"
@@ -162,13 +157,18 @@ msgstr ""
 msgid "Copy diagram source"
 msgstr ""
 
+#: src/widgets/quote_bar.py:83
+#: src/widgets/quote_bar.py:123
+msgid "Copy reference"
+msgstr ""
+
 #: src/viewers/markdown_viewer.py:969
 #: src/viewers/markdown_viewer.py:971
 msgid "Copy source"
 msgstr ""
 
 #: src/widgets/quote_bar.py:87
-msgid "Copy the file path, line range and text as a quoted block"
+msgid "Copy the file path and line range"
 msgstr ""
 
 #: src/widgets/quote_bar.py:79
@@ -196,7 +196,7 @@ msgstr ""
 msgid "Could not load Excel spreadsheet:\n%(error)s"
 msgstr ""
 
-#: src/viewers/pdf_viewer.py:110
+#: src/viewers/pdf_viewer.py:169
 msgid "Could not load PDF:\n{error}"
 msgstr ""
 
@@ -466,6 +466,10 @@ msgstr ""
 msgid "Next match (Enter)"
 msgstr ""
 
+#: src/viewers/pdf_viewer.py:113
+msgid "Next page"
+msgstr ""
+
 #: src/viewers/text_viewer.py:1145
 msgid "No matches"
 msgstr ""
@@ -498,8 +502,8 @@ msgstr ""
 msgid "PREVIEW"
 msgstr ""
 
-#: src/viewers/pdf_viewer.py:162
-msgid "Pages"
+#: src/viewers/pdf_viewer.py:569
+msgid "Page"
 msgstr ""
 
 #: src/viewers/docx_viewer.py:259
@@ -514,7 +518,7 @@ msgstr ""
 msgid "Play or pause media"
 msgstr ""
 
-#: src/viewers/pdf_viewer.py:69
+#: src/viewers/pdf_viewer.py:150
 msgid "Poppler library is not installed for PDF rendering."
 msgstr ""
 
@@ -553,6 +557,10 @@ msgstr ""
 
 #: src/viewers/text_viewer.py:504
 msgid "Previous match (Shift+Enter)"
+msgstr ""
+
+#: src/viewers/pdf_viewer.py:109
+msgid "Previous page"
 msgstr ""
 
 #: src/window.py:129
@@ -626,7 +634,7 @@ msgstr ""
 msgid "Show this window"
 msgstr ""
 
-#: src/viewers/pdf_viewer.py:98
+#: src/viewers/pdf_viewer.py:202
 msgid "Showing the first {shown} of {total} pages."
 msgstr ""
 
@@ -643,7 +651,7 @@ msgstr ""
 #: src/viewers/image_viewer.py:484
 #: src/viewers/markdown_viewer.py:1863
 #: src/viewers/media_viewer.py:166
-#: src/viewers/pdf_viewer.py:163
+#: src/viewers/pdf_viewer.py:570
 #: src/viewers/pptx_viewer.py:149
 #: src/viewers/text_viewer.py:1259
 #: src/window.py:448
@@ -683,6 +691,10 @@ msgstr ""
 
 #: src/viewers/archive_viewer.py:180
 msgid "The archive exceeds the preview limits."
+msgstr ""
+
+#: src/viewers/pdf_viewer.py:188
+msgid "The document has no pages."
 msgstr ""
 
 #: src/viewers/folder_viewer.py:355
@@ -762,8 +774,8 @@ msgstr ""
 #: src/viewers/image_viewer.py:481
 #: src/viewers/media_viewer.py:17
 #: src/viewers/media_viewer.py:160
-#: src/viewers/pdf_viewer.py:153
-#: src/viewers/pdf_viewer.py:160
+#: src/viewers/pdf_viewer.py:559
+#: src/viewers/pdf_viewer.py:567
 msgid "Unknown"
 msgstr ""
 
@@ -862,12 +874,6 @@ msgid_plural "{count} lines"
 msgstr[0] ""
 msgstr[1] ""
 
-#: src/viewers/pdf_viewer.py:81
-msgid "{count} page"
-msgid_plural "{count} pages"
-msgstr[0] ""
-msgstr[1] ""
-
 #: src/viewers/docx_viewer.py:236
 msgid "{count} paragraph"
 msgid_plural "{count} paragraphs"
@@ -913,10 +919,6 @@ msgstr ""
 
 #: src/viewers/text_viewer.py:760
 msgid "{lines}  •  {words}  •  {size}"
-msgstr ""
-
-#: src/viewers/pdf_viewer.py:85
-msgid "{pages} • {size}"
 msgstr ""
 
 #: src/viewers/csv_viewer.py:192

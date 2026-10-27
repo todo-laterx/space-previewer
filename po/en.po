@@ -142,11 +142,6 @@ msgstr "Copied!"
 msgid "Copy"
 msgstr "Copy"
 
-#: src/widgets/quote_bar.py:83
-#: src/widgets/quote_bar.py:123
-msgid "Copy as quote"
-msgstr "Copy as quote"
-
 #: src/viewers/text_viewer.py:476
 #: src/viewers/text_viewer.py:478
 msgid "Copy code"
@@ -160,14 +155,19 @@ msgstr "Copy code block"
 msgid "Copy diagram source"
 msgstr "Copy diagram source"
 
+#: src/widgets/quote_bar.py:83
+#: src/widgets/quote_bar.py:123
+msgid "Copy reference"
+msgstr "Copy reference"
+
 #: src/viewers/markdown_viewer.py:969
 #: src/viewers/markdown_viewer.py:971
 msgid "Copy source"
 msgstr "Copy source"
 
 #: src/widgets/quote_bar.py:87
-msgid "Copy the file path, line range and text as a quoted block"
-msgstr "Copy the file path, line range and text as a quoted block"
+msgid "Copy the file path and line range"
+msgstr "Copy the file path and line range"
 
 #: src/widgets/quote_bar.py:79
 msgid "Copy the selected lines"
@@ -194,7 +194,7 @@ msgstr "Could not load Excel spreadsheet."
 msgid "Could not load Excel spreadsheet:\n%(error)s"
 msgstr "Could not load Excel spreadsheet:\n%(error)s"
 
-#: src/viewers/pdf_viewer.py:110
+#: src/viewers/pdf_viewer.py:169
 msgid "Could not load PDF:\n{error}"
 msgstr "Could not load PDF:\n{error}"
 
@@ -464,6 +464,10 @@ msgstr "Next match"
 msgid "Next match (Enter)"
 msgstr "Next match (Enter)"
 
+#: src/viewers/pdf_viewer.py:113
+msgid "Next page"
+msgstr "Next page"
+
 #: src/viewers/text_viewer.py:1145
 msgid "No matches"
 msgstr "No matches"
@@ -496,9 +500,9 @@ msgstr "Open with the default app"
 msgid "PREVIEW"
 msgstr "PREVIEW"
 
-#: src/viewers/pdf_viewer.py:162
-msgid "Pages"
-msgstr "Pages"
+#: src/viewers/pdf_viewer.py:569
+msgid "Page"
+msgstr "Page"
 
 #: src/viewers/docx_viewer.py:259
 msgid "Paragraphs"
@@ -512,7 +516,7 @@ msgstr "Pie Chart"
 msgid "Play or pause media"
 msgstr "Play or pause media"
 
-#: src/viewers/pdf_viewer.py:69
+#: src/viewers/pdf_viewer.py:150
 msgid "Poppler library is not installed for PDF rendering."
 msgstr "Poppler library is not installed for PDF rendering."
 
@@ -552,6 +556,10 @@ msgstr "Previous match"
 #: src/viewers/text_viewer.py:504
 msgid "Previous match (Shift+Enter)"
 msgstr "Previous match (Shift+Enter)"
+
+#: src/viewers/pdf_viewer.py:109
+msgid "Previous page"
+msgstr "Previous page"
 
 #: src/window.py:129
 msgid "Quick Look"
@@ -624,7 +632,7 @@ msgstr "Show rendered preview"
 msgid "Show this window"
 msgstr "Show this window"
 
-#: src/viewers/pdf_viewer.py:98
+#: src/viewers/pdf_viewer.py:202
 msgid "Showing the first {shown} of {total} pages."
 msgstr "Showing the first {shown} of {total} pages."
 
@@ -641,7 +649,7 @@ msgstr "Showing the first {shown} of {total} pages."
 #: src/viewers/image_viewer.py:484
 #: src/viewers/markdown_viewer.py:1863
 #: src/viewers/media_viewer.py:166
-#: src/viewers/pdf_viewer.py:163
+#: src/viewers/pdf_viewer.py:570
 #: src/viewers/pptx_viewer.py:149
 #: src/viewers/text_viewer.py:1259
 #: src/window.py:448
@@ -682,6 +690,10 @@ msgstr "TIP"
 #: src/viewers/archive_viewer.py:180
 msgid "The archive exceeds the preview limits."
 msgstr "The archive exceeds the preview limits."
+
+#: src/viewers/pdf_viewer.py:188
+msgid "The document has no pages."
+msgstr "The document has no pages."
 
 #: src/viewers/folder_viewer.py:355
 msgid "The listing is capped at {count} entries."
@@ -760,8 +772,8 @@ msgstr "Unavailable"
 #: src/viewers/image_viewer.py:481
 #: src/viewers/media_viewer.py:17
 #: src/viewers/media_viewer.py:160
-#: src/viewers/pdf_viewer.py:153
-#: src/viewers/pdf_viewer.py:160
+#: src/viewers/pdf_viewer.py:559
+#: src/viewers/pdf_viewer.py:567
 msgid "Unknown"
 msgstr "Unknown"
 
@@ -860,12 +872,6 @@ msgid_plural "{count} lines"
 msgstr[0] "{count} line"
 msgstr[1] "{count} line"
 
-#: src/viewers/pdf_viewer.py:81
-msgid "{count} page"
-msgid_plural "{count} pages"
-msgstr[0] "{count} page"
-msgstr[1] "{count} page"
-
 #: src/viewers/docx_viewer.py:236
 msgid "{count} paragraph"
 msgid_plural "{count} paragraphs"
@@ -912,10 +918,6 @@ msgstr "{entries}, {compressed} compressed, {uncompressed} uncompressed"
 #: src/viewers/text_viewer.py:760
 msgid "{lines}  •  {words}  •  {size}"
 msgstr "{lines}  •  {words}  •  {size}"
-
-#: src/viewers/pdf_viewer.py:85
-msgid "{pages} • {size}"
-msgstr "{pages} • {size}"
 
 #: src/viewers/csv_viewer.py:192
 msgid "{rows}, {columns}, {size}"
