@@ -14,4 +14,5 @@ src/viewers/office_common.py
 src/viewers/pdf_viewer.py
 src/viewers/pptx_viewer.py
 src/viewers/text_viewer.py
+src/widgets/quote_bar.py
 src/window.py

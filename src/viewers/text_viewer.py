@@ -21,6 +21,7 @@ except ImportError:
 from utils.formatters import format_size
 from utils.i18n import _, ngettext
 from utils.quote import format_line_quote
+from widgets.quote_bar import QuoteBar
 
 _CSS_INSTALLED = False
 _CSS_PROVIDER = None
@@ -81,16 +82,6 @@ CODE_VIEWER_CSS = """
 .code-view-surface selection {
     background-color: alpha(@sp_accent, 0.34);
     color: @sp_code_text;
-}
-.quote-card {
-    padding: 6px 8px 6px 12px;
-    border-radius: 12px;
-    background-color: @view_bg_color;
-    border: 1px solid @borders;
-    box-shadow: 0 2px 8px alpha(black, 0.18);
-}
-.quote-card label {
-    font-size: 12px;
 }
 .code-gutter {
     background-color: @sp_code_surface;
@@ -418,7 +409,6 @@ class TextViewer(Gtk.Box):
         self._size_bytes = 0
         self._word_count = 0
         self._copy_timeout_id = None
-        self._quote_copy_timeout_id = None
         self._search_open = False
         self.search_state_callback = None
         self._status_callback = None
@@ -873,41 +863,8 @@ class TextViewer(Gtk.Box):
 
     def _build_quote_card(self) -> None:
         """Create the floating card shown while text or whole lines are selected."""
-        card = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=6)
-        card.add_css_class("card")
-        card.add_css_class("quote-card")
-        card.set_halign(Gtk.Align.CENTER)
-        card.set_valign(Gtk.Align.END)
-        card.set_margin_bottom(18)
-        card.set_visible(False)
-        self.quote_card = card
-
-        self.lbl_quote_range = Gtk.Label()
-        self.lbl_quote_range.add_css_class("dim-label")
-        self.lbl_quote_range.set_margin_end(6)
-        card.append(self.lbl_quote_range)
-
-        self.btn_quote_copy = Gtk.Button(label=_("Copy"))
-        self.btn_quote_copy.add_css_class("flat")
-        self.btn_quote_copy.set_can_focus(False)
-        self.btn_quote_copy.set_tooltip_text(_("Copy the selected lines"))
-        self.btn_quote_copy.connect(
-            "clicked", lambda *_: self.copy_selected_lines(quote=False)
-        )
-        card.append(self.btn_quote_copy)
-
-        self.btn_quote_chat = Gtk.Button(label=_("Copy as quote"))
-        self.btn_quote_chat.add_css_class("suggested-action")
-        self.btn_quote_chat.set_can_focus(False)
-        self.btn_quote_chat.set_tooltip_text(
-            _("Copy the file path, line range and text as a quoted block")
-        )
-        self.btn_quote_chat.connect(
-            "clicked", lambda *_: self.copy_selected_lines(quote=True)
-        )
-        card.append(self.btn_quote_chat)
-
-        self.content_overlay.add_overlay(card)
+        self.quote_bar = QuoteBar(self.copy_selected_lines)
+        self.content_overlay.add_overlay(self.quote_bar)
 
     def _quote_tag(self):
         """Return the buffer tag used to paint a gutter range, creating it once."""
@@ -1059,23 +1016,14 @@ class TextViewer(Gtk.Box):
         self.gutter.queue_draw()
 
     def _update_quote_card(self) -> None:
-        card = getattr(self, "quote_card", None)
-        if card is None:
+        bar = getattr(self, "quote_bar", None)
+        if bar is None:
             return
         bounds = self._quote_bounds()
         if bounds is None:
-            card.set_visible(False)
+            bar.hide_bar()
             return
-        first, last, _text = bounds
-        first += 1
-        last += 1
-        if first == last:
-            self.lbl_quote_range.set_text(_("Line {number}").format(number=first))
-        else:
-            self.lbl_quote_range.set_text(
-                _("Lines {first}–{last}").format(first=first, last=last)
-            )
-        card.set_visible(True)
+        bar.set_lines(bounds[0] + 1, bounds[1] + 1)
 
     def copy_selected_lines(self, quote: bool = True) -> bool:
         """Copy the current selection, or the gutter range, as plain or quoted text."""
@@ -1099,30 +1047,10 @@ class TextViewer(Gtk.Box):
         if display is None:
             return False
         display.get_clipboard().set(payload)
-        self._flash_quote_copy(
-            self.btn_quote_chat if quote else self.btn_quote_copy
-        )
+        bar = getattr(self, "quote_bar", None)
+        if bar is not None:
+            bar.flash(quote)
         return True
-
-    def _flash_quote_copy(self, button) -> None:
-        if self._quote_copy_timeout_id is not None:
-            GLib.source_remove(self._quote_copy_timeout_id)
-            self._quote_copy_timeout_id = None
-        if getattr(self, "btn_quote_copy", None) is not None:
-            self.btn_quote_copy.set_label(_("Copy"))
-            self.btn_quote_chat.set_label(_("Copy as quote"))
-        if button is not None:
-            button.set_label(_("Copied!"))
-        self._quote_copy_timeout_id = GLib.timeout_add(
-            1400, self._reset_quote_labels
-        )
-
-    def _reset_quote_labels(self) -> bool:
-        self._quote_copy_timeout_id = None
-        if getattr(self, "btn_quote_copy", None) is not None:
-            self.btn_quote_copy.set_label(_("Copy"))
-            self.btn_quote_chat.set_label(_("Copy as quote"))
-        return False
 
     def _on_quote_key_pressed(self, controller, keyval, keycode, state) -> bool:
         if (
@@ -1346,9 +1274,9 @@ class TextViewer(Gtk.Box):
         if self._copy_timeout_id is not None:
             GLib.source_remove(self._copy_timeout_id)
             self._copy_timeout_id = None
-        if self._quote_copy_timeout_id is not None:
-            GLib.source_remove(self._quote_copy_timeout_id)
-            self._quote_copy_timeout_id = None
+        bar = getattr(self, "quote_bar", None)
+        if bar is not None:
+            bar.teardown()
         handler_id = getattr(self, "_selection_handler_id", None)
         if handler_id is not None:
             try:

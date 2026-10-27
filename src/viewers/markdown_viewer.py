@@ -27,6 +27,8 @@ except ImportError:
 
 from utils.formatters import format_size
 from utils.i18n import _, ngettext
+from utils.quote import format_line_quote
+from widgets.quote_bar import QuoteBar
 from .text_viewer import (
     TextViewer,
     ensure_code_viewer_css,
@@ -212,6 +214,12 @@ MARKDOWN_VIEWER_CSS = """
     min-height: 2px;
     margin-top: 8px;
     margin-bottom: 8px;
+}
+.md-quote-active {
+    background-color: alpha(@sp_accent, 0.10);
+    outline: 2px solid alpha(@sp_accent, 0.50);
+    outline-offset: 3px;
+    border-radius: 6px;
 }
 """
 
@@ -911,6 +919,16 @@ class MarkdownViewer(Gtk.Box):
         self._mermaid_cards = []
         self._copy_timeout_ids = set()
 
+        # Rendered blocks and their source line ranges. Clicking a block marks
+        # it; Shift+click extends; the quote bar copies the source lines.
+        self._md_blocks = []
+        self._md_quote_first = None
+        self._md_quote_last = None
+        self._md_quote_start = 0
+        self._md_quote_end = 0
+        self._md_quote_source = ""
+        self._quote_bar = None
+
         # Every initial load gets a generation; results from an older
         # generation are discarded. Reads above the threshold run on a worker.
         self._load_generation = 0
@@ -984,7 +1002,13 @@ class MarkdownViewer(Gtk.Box):
         self.outer_box.append(self.doc_clamp)
 
         self.preview_scroll.set_child(self.outer_box)
-        self.stack.add_named(self.preview_scroll, "preview")
+
+        self.preview_overlay = Gtk.Overlay()
+        self.preview_overlay.set_vexpand(True)
+        self.preview_overlay.set_child(self.preview_scroll)
+        self._quote_bar = QuoteBar(self._on_quote_copy)
+        self.preview_overlay.add_overlay(self._quote_bar)
+        self.stack.add_named(self.preview_overlay, "preview")
 
         # Raw Code Page container (lazily populated when user clicks Raw Code)
         self.raw_container = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=0)
@@ -1117,7 +1141,149 @@ class MarkdownViewer(Gtk.Box):
         except Exception:
             logging.getLogger(__name__).exception("Markdown status callback failed")
 
+    # ------------------------------------------------------- line-range quotes
+
+    @staticmethod
+    def _token_line_map(token) -> tuple[int, int]:
+        """Return a markdown-it token's 0-based, end-exclusive source range."""
+        line_map = getattr(token, "map", None)
+        if not line_map or len(line_map) != 2:
+            return 0, 0
+        try:
+            return int(line_map[0]), int(line_map[1])
+        except (TypeError, ValueError):
+            return 0, 0
+
+    def _reset_md_quote(self) -> None:
+        self._clear_md_quote()
+        self._md_blocks = []
+
+    def _clear_md_quote(self) -> None:
+        for widget, _start, _end in self._md_blocks:
+            widget.remove_css_class("md-quote-active")
+        self._md_quote_first = None
+        self._md_quote_last = None
+        self._md_quote_start = 0
+        self._md_quote_end = 0
+        if self._quote_bar is not None:
+            self._quote_bar.hide_bar()
+
+    def _append_md_block(self, widget, start_line: int, end_line: int) -> None:
+        """Append a rendered block and remember its source line range."""
+        if end_line > start_line:
+            index = len(self._md_blocks)
+            gesture = Gtk.GestureClick.new()
+            gesture.set_button(Gdk.BUTTON_PRIMARY)
+            gesture.connect("pressed", self._on_md_block_pressed, index)
+            widget.add_controller(gesture)
+            widget.set_tooltip_text(
+                _("Click to quote these lines. Shift+click to extend.")
+            )
+            self._md_blocks.append((widget, start_line, end_line))
+        self.doc_box.append(widget)
+
+    def _on_md_block_pressed(self, gesture, n_press: int, x: float, y: float, index: int) -> None:
+        try:
+            state = gesture.get_current_event_state()
+            if isinstance(state, tuple):
+                state = state[-1]
+            shift = bool(state & Gdk.ModifierType.SHIFT_MASK)
+        except Exception:
+            shift = False
+
+        if shift and self._md_quote_first is not None:
+            self._md_quote_last = index
+        else:
+            self._md_quote_first = index
+            self._md_quote_last = index
+        self._apply_md_quote()
+
+    def _apply_md_quote(self) -> None:
+        if not self._md_blocks or self._md_quote_first is None:
+            if self._quote_bar is not None:
+                self._quote_bar.hide_bar()
+            return
+
+        low = max(0, min(self._md_quote_first, self._md_quote_last))
+        high = min(
+            len(self._md_blocks) - 1,
+            max(self._md_quote_first, self._md_quote_last),
+        )
+        for index, (widget, _start, _end) in enumerate(self._md_blocks):
+            if low <= index <= high:
+                widget.add_css_class("md-quote-active")
+            else:
+                widget.remove_css_class("md-quote-active")
+
+        self._md_quote_start = min(
+            self._md_blocks[i][1] for i in range(low, high + 1)
+        )
+        self._md_quote_end = max(
+            self._md_blocks[i][2] for i in range(low, high + 1)
+        )
+        if self._md_quote_end <= self._md_quote_start:
+            self._quote_bar.hide_bar()
+            return
+        self._quote_bar.set_lines(self._md_quote_start + 1, self._md_quote_end)
+
+    def _md_quote_text(self):
+        """Return ``(first_line, last_line, text)`` 1-based, or ``None``."""
+        if self._md_quote_first is None or self._md_quote_end <= self._md_quote_start:
+            return None
+        lines = self._md_quote_source.splitlines()
+        first = max(0, min(self._md_quote_start, len(lines)))
+        last = max(first, min(self._md_quote_end, len(lines)))
+        if last <= first:
+            return None
+        text = "\n".join(lines[first:last])
+        if not text:
+            return None
+        return first + 1, last, text
+
+    def _on_quote_copy(self, quote: bool) -> bool:
+        return self.copy_selected_lines(quote)
+
+    def copy_selected_lines(self, quote: bool = True) -> bool:
+        """Copy the selected rendered blocks, or the raw selection in raw mode."""
+        if self.stack.get_visible_child_name() == "raw":
+            if self.raw_viewer is not None:
+                return bool(self.raw_viewer.copy_selected_lines(quote))
+            return False
+
+        range_info = self._md_quote_text()
+        if range_info is None:
+            return False
+        first_line, last_line, text = range_info
+        payload = (
+            format_line_quote(self.file_path, first_line, last_line, text)
+            if quote
+            else text
+        )
+
+        display = Gdk.Display.get_default()
+        if display is None:
+            return False
+        display.get_clipboard().set(payload)
+        if self._quote_bar is not None:
+            self._quote_bar.flash(quote)
+        return True
+
+    def has_line_selection(self) -> bool:
+        if self.stack.get_visible_child_name() == "raw" and self.raw_viewer is not None:
+            getter = getattr(self.raw_viewer, "has_line_selection", None)
+            return bool(getter()) if callable(getter) else False
+        return self._md_quote_first is not None
+
+    def clear_line_selection(self) -> None:
+        if self.stack.get_visible_child_name() == "raw" and self.raw_viewer is not None:
+            self.raw_viewer.clear_line_selection()
+            return
+        self._clear_md_quote()
+
     def _render_markdown(self, content: str, size: int):
+        self._md_quote_source = content
+        self._reset_md_quote()
+
         if not HAS_MARKDOWN_IT:
             lbl = Gtk.Label(label=content)
             lbl.set_wrap(True)
@@ -1147,13 +1313,15 @@ class MarkdownViewer(Gtk.Box):
                 markup = inline_tokens_to_pango_markup(inline_tok.children if inline_tok else [])
                 lbl = self._create_markup_label(markup, css_class=f"md-{level}")
                 lbl.set_margin_top(10 if level in ("h1", "h2") else 6)
-                self.doc_box.append(lbl)
 
+                block = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=0)
+                block.append(lbl)
                 if level in ("h1", "h2"):
                     rule = Gtk.Box()
                     rule.add_css_class("md-heading-rule")
                     rule.set_margin_bottom(4)
-                    self.doc_box.append(rule)
+                    block.append(rule)
+                self._append_md_block(block, *self._token_line_map(tok))
 
                 i += 3
                 continue
@@ -1171,7 +1339,7 @@ class MarkdownViewer(Gtk.Box):
                     markup = inline_tokens_to_pango_markup(inline_tok.children)
                     if markup.strip():
                         lbl = self._create_markup_label(markup, css_class="md-paragraph")
-                        self.doc_box.append(lbl)
+                        self._append_md_block(lbl, *self._token_line_map(tok))
                 i += 3
                 continue
 
@@ -1183,10 +1351,11 @@ class MarkdownViewer(Gtk.Box):
                     mermaid_count += 1
                     card = MermaidDiagramCard(code_text)
                     self._mermaid_cards.append(card)
-                    self.doc_box.append(card)
+                    self._append_md_block(card, *self._token_line_map(tok))
                 else:
                     code_count += 1
-                    self.doc_box.append(self._create_code_block_card(code_text, info))
+                    card = self._create_code_block_card(code_text, info)
+                    self._append_md_block(card, *self._token_line_map(tok))
                 i += 1
                 continue
 
@@ -1194,7 +1363,8 @@ class MarkdownViewer(Gtk.Box):
             if ttype == "blockquote_open":
                 end_i = self._find_matching_close(tokens, i, "blockquote_open", "blockquote_close")
                 inner_tokens = tokens[i + 1 : end_i]
-                self.doc_box.append(self._build_blockquote_widget(inner_tokens))
+                block = self._build_blockquote_widget(inner_tokens)
+                self._append_md_block(block, *self._token_line_map(tok))
                 i = end_i + 1
                 continue
 
@@ -1203,14 +1373,16 @@ class MarkdownViewer(Gtk.Box):
                 close_type = "bullet_list_close" if ttype == "bullet_list_open" else "ordered_list_close"
                 end_i = self._find_matching_close(tokens, i, ttype, close_type)
                 is_ordered = ttype == "ordered_list_open"
-                self.doc_box.append(self._build_list_widget(tokens[i + 1 : end_i], is_ordered))
+                block = self._build_list_widget(tokens[i + 1 : end_i], is_ordered)
+                self._append_md_block(block, *self._token_line_map(tok))
                 i = end_i + 1
                 continue
 
             # 6. Tables
             if ttype == "table_open":
                 end_i = self._find_matching_close(tokens, i, "table_open", "table_close")
-                self.doc_box.append(self._build_table_widget(tokens[i + 1 : end_i]))
+                block = self._build_table_widget(tokens[i + 1 : end_i])
+                self._append_md_block(block, *self._token_line_map(tok))
                 i = end_i + 1
                 continue
 
@@ -1218,7 +1390,7 @@ class MarkdownViewer(Gtk.Box):
             if ttype == "hr":
                 hr = Gtk.Box()
                 hr.add_css_class("md-hr")
-                self.doc_box.append(hr)
+                self._append_md_block(hr, *self._token_line_map(tok))
                 i += 1
                 continue
 
@@ -1624,6 +1796,7 @@ class MarkdownViewer(Gtk.Box):
         if self.btn_mode_preview.get_active():
             self.stack.set_visible_child_name("preview")
         else:
+            self._clear_md_quote()
             self._ensure_raw_viewer()
             self.stack.set_visible_child_name("raw")
 
@@ -1703,6 +1876,8 @@ class MarkdownViewer(Gtk.Box):
         self._cancel_pending_load()
         self._load_thread = None
         self._status_callback = None
+        if self._quote_bar is not None:
+            self._quote_bar.teardown()
         for card in self._mermaid_cards:
             card.teardown()
         self._mermaid_cards.clear()
