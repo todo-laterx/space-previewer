@@ -1,0 +1,3 @@
+# Syntax highlighting and Markdown/Mermaid preview rendering
+pygments>=2.15.0
+markdown-it-py>=3.0.0
