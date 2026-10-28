@@ -21,6 +21,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   while the preview has focus.
 - An explicit selection colour on the code surface so dragged text is visible.
 
+### Fixed
+
+- Markdown blocks inside a list item or a blockquote are rendered as real
+  blocks. Tables, code fences and nested lists used to collapse into a single
+  run of text, which made long planning documents look broken.
+- Table cells wrap, so one long identifier no longer stretches the document
+  past the reading column and forces horizontal clipping.
+- Language badges on code blocks use a higher-contrast foreground in both
+  themes; the dark theme no longer leaves the badge text dim.
+
 ## [0.1.0] - 2026-10-27
 
 ### Added

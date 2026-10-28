@@ -150,6 +150,20 @@ MARKDOWN_VIEWER_CSS = """
     border-radius: 10px 10px 0 0;
     padding: 6px 14px;
 }
+.md-code-card-header .code-lang-badge {
+    color: %(badge_fg)s;
+    background-color: %(badge_bg)s;
+    border-color: %(badge_border)s;
+}
+.md-mermaid-badge {
+    background-color: %(badge_bg)s;
+    color: %(badge_fg)s;
+    border: 1px solid %(badge_border)s;
+    border-radius: 6px;
+    padding: 2px 8px;
+    font-weight: 700;
+    font-size: 11px;
+}
 .md-code-block-view {
     background-color: @sp_code_surface;
     color: @sp_code_text;
@@ -171,15 +185,6 @@ MARKDOWN_VIEWER_CSS = """
     border-bottom: 1px solid @borders;
     border-radius: 10px 10px 0 0;
     padding: 6px 14px;
-}
-.md-mermaid-badge {
-    background-color: alpha(@sp_accent, 0.14);
-    color: @sp_accent;
-    border: 1px solid alpha(@sp_accent, 0.32);
-    border-radius: 6px;
-    padding: 2px 8px;
-    font-weight: 700;
-    font-size: 11px;
 }
 .md-mermaid-canvas {
     background-color: @view_bg_color;
@@ -236,8 +241,24 @@ def _alert_palette(dark: bool) -> dict:
     }
 
 
+def _badge_palette(dark: bool) -> dict:
+    """High-contrast badge colours that stay readable on a dark surface."""
+    if dark:
+        return {
+            "bg": "alpha(@sp_accent, 0.26)",
+            "fg": "#D6E4FF",
+            "border": "alpha(@sp_accent, 0.65)",
+        }
+    return {
+        "bg": "alpha(@sp_accent, 0.16)",
+        "fg": "#243F86",
+        "border": "alpha(@sp_accent, 0.45)",
+    }
+
+
 def _render_markdown_css(dark: bool) -> str:
     alerts = _alert_palette(dark)
+    badge = _badge_palette(dark)
     return MARKDOWN_VIEWER_CSS % {
         "accent": ACCENT_DARK if dark else ACCENT_LIGHT,
         "code_surface": CODE_SURFACE_DARK if dark else CODE_SURFACE_LIGHT,
@@ -247,6 +268,9 @@ def _render_markdown_css(dark: bool) -> str:
         "alert_important": alerts["important"],
         "alert_warning": alerts["warning"],
         "alert_caution": alerts["caution"],
+        "badge_bg": badge["bg"],
+        "badge_fg": badge["fg"],
+        "badge_border": badge["border"],
     }
 
 
@@ -996,8 +1020,10 @@ class MarkdownViewer(Gtk.Box):
         self.doc_box.add_css_class("md-content-column")
 
         self.doc_clamp = Adw.Clamp()
-        self.doc_clamp.set_maximum_size(760)
-        self.doc_clamp.set_tightening_threshold(420)
+        # Wide enough for five-column tables to stay readable; prose still
+        # reads well because paragraphs wrap on their own.
+        self.doc_clamp.set_maximum_size(980)
+        self.doc_clamp.set_tightening_threshold(560)
         self.doc_clamp.set_child(self.doc_box)
         self.outer_box.append(self.doc_clamp)
 
@@ -1176,9 +1202,6 @@ class MarkdownViewer(Gtk.Box):
             gesture.set_button(Gdk.BUTTON_PRIMARY)
             gesture.connect("pressed", self._on_md_block_pressed, index)
             widget.add_controller(gesture)
-            widget.set_tooltip_text(
-                _("Click to quote these lines. Shift+click to extend.")
-            )
             self._md_blocks.append((widget, start_line, end_line))
         self.doc_box.append(widget)
 
@@ -1530,10 +1553,61 @@ class MarkdownViewer(Gtk.Box):
 
     def _build_blockquote_widget(self, inner_tokens) -> Gtk.Widget:
         box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=6)
+
+        # A blockquote can hold tables, lists and code fences, not only text.
+        # Collect the text first so the alert prefix is detected before the
+        # nested blocks are appended in source order.
         inline_markups = []
-        for t in inner_tokens:
-            if t.type == "inline" and t.children:
-                inline_markups.append(inline_tokens_to_pango_markup(t.children))
+        blocks = []
+        index = 0
+        total = len(inner_tokens)
+        while index < total:
+            token = inner_tokens[index]
+            if token.type == "table_open":
+                end_index = self._find_matching_close(
+                    inner_tokens, index, "table_open", "table_close"
+                )
+                blocks.append(
+                    self._build_table_widget(inner_tokens[index + 1 : end_index])
+                )
+                index = end_index + 1
+                continue
+            if token.type in ("bullet_list_open", "ordered_list_open"):
+                close_type = (
+                    "bullet_list_close"
+                    if token.type == "bullet_list_open"
+                    else "ordered_list_close"
+                )
+                end_index = self._find_matching_close(
+                    inner_tokens, index, token.type, close_type
+                )
+                blocks.append(
+                    self._build_list_widget(
+                        inner_tokens[index + 1 : end_index],
+                        token.type == "ordered_list_open",
+                        1,
+                    )
+                )
+                index = end_index + 1
+                continue
+            if token.type in ("fence", "code_block"):
+                info = (
+                    (token.info or "").strip().split()[0].lower()
+                    if token.info
+                    else ""
+                )
+                code_text = (token.content or "").rstrip("\n")
+                if info in ("mermaid", "mmd") or is_mermaid_content(code_text):
+                    card = MermaidDiagramCard(code_text)
+                    self._mermaid_cards.append(card)
+                    blocks.append(card)
+                else:
+                    blocks.append(self._create_code_block_card(code_text, info))
+                index += 1
+                continue
+            if token.type == "inline" and token.children:
+                inline_markups.append(inline_tokens_to_pango_markup(token.children))
+            index += 1
 
         full_markup = "\n".join(inline_markups).strip()
         alert_colors = _alert_palette(is_dark_theme())
@@ -1576,6 +1650,8 @@ class MarkdownViewer(Gtk.Box):
 
         if full_markup:
             box.append(self._create_markup_label(full_markup, css_class="md-paragraph"))
+        for block in blocks:
+            box.append(block)
         return box
 
     def _build_list_widget(self, inner_tokens, is_ordered: bool, depth: int = 0) -> Gtk.Widget:
@@ -1603,7 +1679,8 @@ class MarkdownViewer(Gtk.Box):
                 row = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=10)
                 row.set_valign(Gtk.Align.START)
 
-                # Separate direct inline tokens from nested lists
+                # Only the item's own text belongs on the bullet line; tables,
+                # code fences and nested lists become blocks below it.
                 direct_markups = []
                 nested_widgets = []
                 j = 0
@@ -1626,7 +1703,46 @@ class MarkdownViewer(Gtk.Box):
                         )
                         j = sub_end + 1
                         continue
-                    elif itok.type == "inline" and itok.children:
+                    if itok.type == "table_open":
+                        sub_end = self._find_matching_close(
+                            item_tokens, j, "table_open", "table_close"
+                        )
+                        nested_widgets.append(
+                            self._build_table_widget(item_tokens[j + 1 : sub_end])
+                        )
+                        j = sub_end + 1
+                        continue
+                    if itok.type in ("fence", "code_block"):
+                        info = (
+                            (itok.info or "").strip().split()[0].lower()
+                            if itok.info
+                            else ""
+                        )
+                        code_text = (itok.content or "").rstrip("\n")
+                        if info in ("mermaid", "mmd") or is_mermaid_content(code_text):
+                            card = MermaidDiagramCard(code_text)
+                            self._mermaid_cards.append(card)
+                        else:
+                            card = self._create_code_block_card(code_text, info)
+                        nested_widgets.append(card)
+                        j += 1
+                        continue
+                    if itok.type == "blockquote_open":
+                        sub_end = self._find_matching_close(
+                            item_tokens, j, "blockquote_open", "blockquote_close"
+                        )
+                        nested_widgets.append(
+                            self._build_blockquote_widget(item_tokens[j + 1 : sub_end])
+                        )
+                        j = sub_end + 1
+                        continue
+                    if itok.type == "hr":
+                        rule = Gtk.Box()
+                        rule.add_css_class("md-hr")
+                        nested_widgets.append(rule)
+                        j += 1
+                        continue
+                    if itok.type == "inline" and itok.children:
                         direct_markups.append(inline_tokens_to_pango_markup(itok.children))
                     j += 1
 
@@ -1647,15 +1763,23 @@ class MarkdownViewer(Gtk.Box):
 
                 lbl_bullet = self._create_markup_label(bullet_markup, wrap=False)
                 lbl_bullet.set_selectable(False)
+                lbl_bullet.set_valign(Gtk.Align.START)
                 row.append(lbl_bullet)
 
-                lbl_body = self._create_markup_label(body_markup, css_class="md-paragraph")
-                lbl_body.set_hexpand(True)
-                row.append(lbl_body)
+                if body_markup:
+                    lbl_body = self._create_markup_label(body_markup, css_class="md-paragraph")
+                    lbl_body.set_hexpand(True)
+                    row.append(lbl_body)
 
                 item_vbox.append(row)
-                for nw in nested_widgets:
-                    item_vbox.append(nw)
+
+                if nested_widgets:
+                    indent = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=6)
+                    indent.set_margin_start(24)
+                    indent.set_margin_top(4)
+                    for nested_widget in nested_widgets:
+                        indent.append(nested_widget)
+                    item_vbox.append(indent)
 
                 list_box.append(item_vbox)
                 i = end_i + 1
@@ -1671,7 +1795,6 @@ class MarkdownViewer(Gtk.Box):
         grid.set_valign(Gtk.Align.START)
         grid.set_margin_top(6)
         grid.set_margin_bottom(6)
-
         rows = []
         cur_row = []
         in_header = False
@@ -1741,8 +1864,13 @@ class MarkdownViewer(Gtk.Box):
                 lbl = self._create_markup_label(
                     styled_markup,
                     css_class="md-paragraph",
-                    wrap=not is_short_col,
-                    wrap_mode=Pango.WrapMode.WORD,
+                    # Every cell wraps. A non-wrapping cell pins the table to
+                    # the width of its longest line, which pushes the whole
+                    # document past the reading column on long documents.
+                    # WORD_CHAR is the fallback for long identifiers: without
+                    # it a single unbreakable token sets the table minimum.
+                    wrap=True,
+                    wrap_mode=Pango.WrapMode.WORD_CHAR,
                 )
                 lbl.set_hexpand(should_expand)
                 lbl.set_valign(Gtk.Align.CENTER if is_short_col or is_hdr else Gtk.Align.START)
@@ -1757,10 +1885,15 @@ class MarkdownViewer(Gtk.Box):
                     lbl.set_xalign(0.0)
                     lbl.set_halign(Gtk.Align.FILL if should_expand else Gtk.Align.START)
 
-                # Reserve comfortable minimum width for medium columns (e.g. Title / Criteria column)
-                if not is_short_col and not should_expand:
-                    lbl.set_width_chars(min(max(col_len, 18), 28))
-                    lbl.set_max_width_chars(34)
+                # Give every column a readable floor. Long identifiers use
+                # WORD_CHAR wrap so a single token cannot set the table width.
+                if is_short_col:
+                    width_chars = min(max(col_len, 8), 22)
+                    lbl.set_width_chars(width_chars)
+                    lbl.set_max_width_chars(width_chars)
+                else:
+                    lbl.set_width_chars(20)
+                    lbl.set_max_width_chars(40)
 
                 cell_box.append(lbl)
                 grid.attach(cell_box, c_idx, r_idx, 1, 1)
