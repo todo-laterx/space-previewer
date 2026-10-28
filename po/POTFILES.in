@@ -8,6 +8,7 @@ src/viewers/folder_viewer.py
 src/viewers/font_viewer.py
 src/viewers/html_viewer.py
 src/viewers/image_viewer.py
+src/viewers/markdown_search.py
 src/viewers/markdown_viewer.py
 src/viewers/media_viewer.py
 src/viewers/office_common.py
@@ -15,4 +16,5 @@ src/viewers/pdf_viewer.py
 src/viewers/pptx_viewer.py
 src/viewers/text_viewer.py
 src/widgets/quote_bar.py
+src/widgets/search_bar.py
 src/window.py

@@ -174,6 +174,8 @@ class PreviewWindow(Adw.ApplicationWindow):
         self.search_card.set_visible(False)
         self.overlay.add_overlay(self.search_card)
 
+        self._search_widget = None
+
         self.main_box.append(self.overlay)
 
         self.status_bar = StatusBar()
@@ -388,6 +390,7 @@ class PreviewWindow(Adw.ApplicationWindow):
             next_child = child.get_next_sibling()
             self.search_card.remove(child)
             child = next_child
+        self._search_widget = None
         self.search_card.set_visible(False)
 
     def _sync_search_card(self):
@@ -403,19 +406,23 @@ class PreviewWindow(Adw.ApplicationWindow):
             self.search_card.set_visible(False)
             return
 
-        if self.search_card.get_first_child() is None:
-            getter = getattr(viewer, "get_search_widget", None)
-            widget = None
-            if callable(getter):
-                try:
-                    widget = getter()
-                except Exception:
-                    log.exception("Could not build the search widget")
-            if widget is not None:
-                parent = widget.get_parent()
-                if parent is not None:
-                    parent.remove(widget)
-                self.search_card.append(widget)
+        # Preview and Raw Code each own a search bar. Swap the hosted widget
+        # when the viewer changes mode while the card is open.
+        widget = None
+        getter = getattr(viewer, "get_search_widget", None)
+        if callable(getter):
+            try:
+                widget = getter()
+            except Exception:
+                log.exception("Could not build the search widget")
+
+        if widget is not None and widget is not self._search_widget:
+            self._clear_search_card()
+            parent = widget.get_parent()
+            if parent is not None:
+                parent.remove(widget)
+            self.search_card.append(widget)
+            self._search_widget = widget
 
         self.search_card.set_visible(True)
         GLib.idle_add(self._focus_search_entry)

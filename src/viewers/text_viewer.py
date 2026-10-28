@@ -1201,6 +1201,17 @@ class TextViewer(Gtk.Box):
             self.search_entry.select_region(0, -1)
         self._notify_search_state()
 
+    def set_search_query(self, query: str, open_bar: bool = False) -> None:
+        """Carry a query over from another mode without losing the selection."""
+        if open_bar and not self._search_open:
+            self._search_open = True
+            self._notify_search_state()
+        self.search_entry.set_text(query or "")
+        if query:
+            self._execute_search(query)
+        self.search_entry.grab_focus()
+        self.search_entry.select_region(0, -1)
+
     def close_search(self):
         if self._search_open:
             self._search_open = False

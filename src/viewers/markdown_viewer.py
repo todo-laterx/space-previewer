@@ -29,6 +29,7 @@ from utils.formatters import format_size
 from utils.i18n import _, ngettext
 from utils.quote import format_line_reference
 from widgets.quote_bar import QuoteBar
+from .markdown_search import MarkdownSearch
 from .text_viewer import (
     TextViewer,
     ensure_code_viewer_css,
@@ -952,6 +953,7 @@ class MarkdownViewer(Gtk.Box):
         self._md_quote_end = 0
         self._md_quote_source = ""
         self._quote_bar = None
+        self._md_search = None
 
         # Every initial load gets a generation; results from an older
         # generation are discarded. Reads above the threshold run on a worker.
@@ -1304,6 +1306,9 @@ class MarkdownViewer(Gtk.Box):
         self._clear_md_quote()
 
     def _render_markdown(self, content: str, size: int):
+        # A reload invalidates every stored match, including its widgets.
+        if self._md_search is not None:
+            self._md_search.reset()
         self._md_quote_source = content
         self._reset_md_quote()
 
@@ -1926,12 +1931,33 @@ class MarkdownViewer(Gtk.Box):
             self.raw_viewer_loaded = True
 
     def on_mode_toggled(self, btn):
+        was_open = self.is_search_open()
+        query = ""
+        if was_open:
+            if self.stack.get_visible_child_name() == "raw" and self.raw_viewer is not None:
+                query = self.raw_viewer.search_entry.get_text()
+            elif self._md_search is not None:
+                query = self._md_search.query()
+
         if self.btn_mode_preview.get_active():
             self.stack.set_visible_child_name("preview")
+            if self.raw_viewer is not None and self.raw_viewer.is_search_open():
+                self.raw_viewer.close_search()
+            if was_open and query:
+                self._ensure_markdown_search().open_with_query(query)
         else:
             self._clear_md_quote()
             self._ensure_raw_viewer()
             self.stack.set_visible_child_name("raw")
+            if self._md_search is not None and self._md_search.is_open():
+                self._md_search.close()
+            if was_open:
+                self.raw_viewer.set_search_query(query, open_bar=True)
+
+        if was_open:
+            # The window hosts one search bar at a time; re-sync so the new
+            # mode's bar is the one in the overlay card.
+            self._notify_search_state()
 
     def _flash_copied(self, btn):
         btn.set_label(_("Copied!"))
@@ -1952,24 +1978,49 @@ class MarkdownViewer(Gtk.Box):
             self._flash_copied(btn)
 
     def toggle_search(self):
-        if not self.raw_viewer_loaded or self.stack.get_visible_child_name() != "raw":
-            self.btn_mode_raw.set_active(True)
-        if self.raw_viewer:
+        """Search the rendered preview; Ctrl+F no longer jumps to Raw Code."""
+        if self.stack.get_visible_child_name() == "raw" and self.raw_viewer:
             self.raw_viewer.toggle_search()
+            return
+        self._ensure_markdown_search().toggle()
 
     def close_search(self):
-        if self.raw_viewer:
+        if self.stack.get_visible_child_name() == "raw" and self.raw_viewer:
             self.raw_viewer.close_search()
+            return
+        if self._md_search is not None:
+            self._md_search.close()
 
     def is_search_open(self) -> bool:
-        if self.raw_viewer:
+        if self.stack.get_visible_child_name() == "raw" and self.raw_viewer:
             return self.raw_viewer.is_search_open()
-        return False
+        return bool(self._md_search and self._md_search.is_open())
+
+    def _ensure_markdown_search(self):
+        if self._md_search is None:
+            self._md_search = MarkdownSearch(self, is_dark_theme())
+        return self._md_search
+
+    def focus_preview(self):
+        """Return focus to the preview column after closing search."""
+        try:
+            self.preview_scroll.grab_focus()
+        except Exception:
+            logger.debug("Could not focus the preview column", exc_info=True)
 
     def set_search_state_callback(self, callback) -> None:
         self.search_state_callback = callback
         if self.raw_viewer is not None:
             self.raw_viewer.set_search_state_callback(callback)
+
+    def _notify_search_state(self) -> None:
+        """Let the window show or hide the overlay that hosts the search bar."""
+        callback = self.search_state_callback
+        if callable(callback):
+            try:
+                callback(self.is_search_open())
+            except Exception:
+                logger.exception("Search state callback failed")
 
     def set_status_callback(self, callback) -> None:
         """Register a callback invoked when the status metadata changes."""
@@ -1999,9 +2050,11 @@ class MarkdownViewer(Gtk.Box):
         ]
 
     def get_search_widget(self):
-        """Return the raw viewer's search box for the window overlay."""
-        self._ensure_raw_viewer()
-        return self.raw_viewer.get_search_widget() if self.raw_viewer else None
+        """Return the search bar for whichever mode is visible."""
+        if self.stack.get_visible_child_name() == "raw":
+            self._ensure_raw_viewer()
+            return self.raw_viewer.get_search_widget() if self.raw_viewer else None
+        return self._ensure_markdown_search().widget()
 
     def teardown(self) -> None:
         """Cancel the initial load, mermaid renders and timers owned here."""

@@ -9,6 +9,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- Search inside the rendered Markdown preview. `Ctrl+F` no longer switches to
+  Raw Code: matches are highlighted in place, the counter shows
+  `current / total`, and `Enter` / `Shift+Enter` walk the results. Switching
+  between Preview and Raw Code keeps the query and continues searching.
 - Line-range copy in code, text and rendered Markdown previews: drag the gutter
   line numbers to select whole lines, or click a rendered Markdown block
   (Shift+click to extend), then copy the range as plain text or as a

@@ -100,7 +100,7 @@ Sushi; if you want the default GNOME previewer back, install `gnome-sushi` from 
 ## Shortcuts
 
 - **`Space`** or **`Escape`**: Close the preview window (or the search card first when it is open).
-- **`Ctrl + F`**: Open the non-grabbing search card for text, code and Markdown source.
+- **`Ctrl + F`**: Open the non-grabbing search card. In Markdown it searches the rendered preview; switching to Raw Code keeps the query.
 - **`Ctrl + Shift + C`**: Copy the selected lines, or the text selection, as a `path:start-end` reference.
 - **Drag line numbers** (text and code): select whole lines and show the copy card.
 - **Click / Shift + Click** (Markdown preview): select one rendered block, or a range of blocks, for copying.
