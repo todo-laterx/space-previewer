@@ -1,25 +1,38 @@
+import importlib
 import logging
 import os
 
-from .image_viewer import ImageViewer
-from .text_viewer import TextViewer
-from .markdown_viewer import MarkdownViewer, is_mermaid_content
-from .csv_viewer import CSVViewer
-from .pdf_viewer import PDFViewer
-from .media_viewer import MediaViewer
-from .archive_viewer import ArchiveViewer
-from .font_viewer import FontViewer
-from .folder_viewer import FolderViewer
-from .docx_viewer import DocxViewer
-from .excel_viewer import ExcelViewer
-from .pptx_viewer import PptxViewer
-from .html_viewer import HtmlViewer
 from .registry import find_plugin
 from utils.mime_detector import detect_mime_type
 from utils.formatters import format_size, format_date
 from utils.i18n import _
 
 logger = logging.getLogger(__name__)
+
+_LAZY_VIEWERS = {
+    "ImageViewer": (".image_viewer", "ImageViewer"),
+    "TextViewer": (".text_viewer", "TextViewer"),
+    "MarkdownViewer": (".markdown_viewer", "MarkdownViewer"),
+    "CSVViewer": (".csv_viewer", "CSVViewer"),
+    "PDFViewer": (".pdf_viewer", "PDFViewer"),
+    "MediaViewer": (".media_viewer", "MediaViewer"),
+    "ArchiveViewer": (".archive_viewer", "ArchiveViewer"),
+    "FontViewer": (".font_viewer", "FontViewer"),
+    "FolderViewer": (".folder_viewer", "FolderViewer"),
+    "DocxViewer": (".docx_viewer", "DocxViewer"),
+    "ExcelViewer": (".excel_viewer", "ExcelViewer"),
+    "PptxViewer": (".pptx_viewer", "PptxViewer"),
+    "HtmlViewer": (".html_viewer", "HtmlViewer"),
+}
+
+
+def __getattr__(name: str):
+    if name in _LAZY_VIEWERS:
+        module_name, attr_name = _LAZY_VIEWERS[name]
+        module = importlib.import_module(module_name, __name__)
+        return getattr(module, attr_name)
+    raise AttributeError(f"module {__name__!r} has no attribute {name!r}")
+
 
 def create_viewer_for_file(file_path: str):
     """Factory function to instantiate the proper viewer widget for a file path."""
@@ -30,6 +43,7 @@ def create_viewer_for_file(file_path: str):
         return box
 
     if os.path.isdir(file_path):
+        from .folder_viewer import FolderViewer
         return FolderViewer(file_path)
 
     mime = detect_mime_type(file_path)
@@ -41,14 +55,17 @@ def create_viewer_for_file(file_path: str):
 
     # HTML (before the generic text/ branch)
     if ext in (".html", ".htm", ".xhtml") or mime in ("text/html", "application/xhtml+xml"):
+        from .html_viewer import HtmlViewer
         return HtmlViewer(file_path)
 
     # Images
     if mime.startswith("image/"):
+        from .image_viewer import ImageViewer
         return ImageViewer(file_path)
 
     # PDF
     if mime == "application/pdf" or ext == ".pdf":
+        from .pdf_viewer import PDFViewer
         return PDFViewer(file_path)
 
     # Word Documents
@@ -56,6 +73,7 @@ def create_viewer_for_file(file_path: str):
         "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
         "application/msword"
     ]:
+        from .docx_viewer import DocxViewer
         return DocxViewer(file_path)
 
     # Excel Spreadsheets
@@ -63,6 +81,7 @@ def create_viewer_for_file(file_path: str):
         "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
         "application/vnd.ms-excel"
     ]:
+        from .excel_viewer import ExcelViewer
         return ExcelViewer(file_path)
 
     # PowerPoint Presentations
@@ -70,32 +89,39 @@ def create_viewer_for_file(file_path: str):
         "application/vnd.openxmlformats-officedocument.presentationml.presentation",
         "application/vnd.ms-powerpoint"
     ]:
+        from .pptx_viewer import PptxViewer
         return PptxViewer(file_path)
 
     # CSV / TSV
     if ext in [".csv", ".tsv"] or mime in ["text/csv", "text/tab-separated-values"]:
+        from .csv_viewer import CSVViewer
         return CSVViewer(file_path)
 
     # Video & Audio
     if mime.startswith("video/"):
+        from .media_viewer import MediaViewer
         return MediaViewer(file_path, is_audio=False)
     if mime.startswith("audio/"):
+        from .media_viewer import MediaViewer
         return MediaViewer(file_path, is_audio=True)
 
     # Archives
     if ext in [".zip", ".tar", ".gz", ".tgz", ".bz2", ".xz", ".tar.gz", ".tar.bz2", ".tar.xz"] or mime in [
         "application/zip", "application/x-tar", "application/gzip", "application/x-bzip2", "application/x-xz"
     ]:
+        from .archive_viewer import ArchiveViewer
         return ArchiveViewer(file_path)
 
     # Fonts
     if ext in [".ttf", ".otf", ".woff", ".woff2"] or mime.startswith("font/"):
+        from .font_viewer import FontViewer
         return FontViewer(file_path)
 
     # Markdown & Mermaid (open directly in rich Preview mode)
     if ext in [".md", ".markdown", ".mdown", ".mkd", ".mdx", ".mmd", ".mermaid"] or mime in [
         "text/markdown", "text/vnd.mermaid"
     ]:
+        from .markdown_viewer import MarkdownViewer
         return MarkdownViewer(file_path)
 
     # Text / Code
@@ -106,9 +132,11 @@ def create_viewer_for_file(file_path: str):
             with open(file_path, "r", encoding="utf-8", errors="ignore") as f:
                 sample = f.read(8192)
             if is_mermaid_content(sample) or "```mermaid" in sample:
+                from .markdown_viewer import MarkdownViewer
                 return MarkdownViewer(file_path)
         except Exception:
             logger.debug("Could not sniff text content in %s", file_path, exc_info=True)
+        from .text_viewer import TextViewer
         return TextViewer(file_path)
 
     # Fallback to MarkdownViewer / TextViewer if readable, else info
@@ -116,9 +144,13 @@ def create_viewer_for_file(file_path: str):
         with open(file_path, "rb") as f:
             chunk = f.read(4096)
             if b"\0" not in chunk:
+                from utils.parsers import is_mermaid_content
+
                 sample = chunk.decode("utf-8", errors="ignore")
                 if is_mermaid_content(sample) or "```mermaid" in sample:
+                    from .markdown_viewer import MarkdownViewer
                     return MarkdownViewer(file_path)
+                from .text_viewer import TextViewer
                 return TextViewer(file_path)
     except Exception:
         logger.debug("Could not sniff binary content in %s", file_path, exc_info=True)

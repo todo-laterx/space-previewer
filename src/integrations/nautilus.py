@@ -65,11 +65,37 @@ class NautilusIntegration(StandaloneIntegration):
         self.dbus_conn = None
         self._startup_hold = False
         self._idle_release_id = 0
+        self._filter_id = 0
         self.node_info = Gio.DBusNodeInfo.new_for_xml(DBUS_XML)
+
+    def normalize_incoming_message(self, connection, message, incoming):
+        if (
+            incoming
+            and message.get_message_type() == Gio.DBusMessageType.METHOD_CALL
+            and message.get_interface() == PREVIEWER_IFACE
+            and message.get_member() == "ShowFile"
+            and message.get_signature() == "ssb"
+        ):
+            body = message.get_body()
+            if body is not None:
+                uri, window_handle, close_if_already_shown = body.unpack()
+                upgraded = message.copy()
+                upgraded.set_body(
+                    GLib.Variant(
+                        "(ssbs)",
+                        (uri, window_handle, close_if_already_shown, ""),
+                    )
+                )
+                return upgraded
+        return message
 
     def register(self, connection, object_path):
         self.dbus_conn = connection
         if object_path == OBJECT_PATH:
+            if hasattr(connection, "add_filter") and not self._filter_id:
+                self._filter_id = connection.add_filter(
+                    self.normalize_incoming_message
+                )
             for iface in self.node_info.interfaces:
                 connection.register_object(
                     object_path,
@@ -149,7 +175,12 @@ class NautilusIntegration(StandaloneIntegration):
     ):
         if interface_name == PREVIEWER_IFACE:
             if method_name == "ShowFile":
-                uri, window_handle, close_if_already_shown, activation_token = parameters.unpack()
+                unpacked = parameters.unpack()
+                if len(unpacked) == 3:
+                    uri, window_handle, close_if_already_shown = unpacked
+                    activation_token = ""
+                else:
+                    uri, window_handle, close_if_already_shown, activation_token = unpacked
                 target_path = self.app.normalize_uri_or_path(uri)
                 if (
                     close_if_already_shown

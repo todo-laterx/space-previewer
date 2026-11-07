@@ -8,6 +8,7 @@ from gi.repository import Gtk, Pango
 
 from utils.formatters import format_size
 from utils.i18n import _, ngettext
+from utils.parsers import read_docx_preview
 from viewers.office_common import OfficeParseError, open_office_zip, read_xml
 
 log = logging.getLogger(__name__)
@@ -101,106 +102,35 @@ class DocxViewer(Gtk.Box):
 
     def load_docx(self):
         try:
-            with open_office_zip(self.file_path) as zf:
-                root = read_xml(zf, "word/document.xml")
-
-            namespaces = {
-                "w": "http://schemas.openxmlformats.org/wordprocessingml/2006/main"
-            }
-
-            p_count = 0
-            word_count = 0
-
-            # Traverse body
-            body = root.find("w:body", namespaces)
-            if body is None:
+            preview = read_docx_preview(self.file_path)
+            if preview.empty_body:
                 self.buffer.set_text(_("Document body is empty."))
                 self._update_info()
                 return
 
-            for child in body:
-                tag = child.tag.split("}")[-1] if "}" in child.tag else child.tag
-
-                if tag == "p":
-                    p_count += 1
-                    # Check paragraph style (heading etc)
-                    p_style = None
-                    pPr = child.find("w:pPr", namespaces)
-                    if pPr is not None:
-                        pStyle_elem = pPr.find("w:pStyle", namespaces)
-                        if pStyle_elem is not None:
-                            val = pStyle_elem.attrib.get(f"{{{namespaces['w']}}}val", "")
-                            if "Heading1" in val or "heading 1" in val.lower():
-                                p_style = "h1"
-                            elif "Heading2" in val or "heading 2" in val.lower():
-                                p_style = "h2"
-                            elif "Heading3" in val or "heading 3" in val.lower():
-                                p_style = "h3"
-
-                    # Collect runs
-                    runs = child.findall("w:r", namespaces)
-                    for r in runs:
-                        rPr = r.find("w:rPr", namespaces)
-                        is_bold = rPr is not None and rPr.find("w:b", namespaces) is not None
-                        is_italic = rPr is not None and rPr.find("w:i", namespaces) is not None
-
-                        t_elem = r.find("w:t", namespaces)
-                        if t_elem is not None and t_elem.text:
-                            text = t_elem.text
-                            word_count += len(text.split())
-                            iter_end = self.buffer.get_end_iter()
-
-                            tags = []
-                            if p_style:
-                                tags.append(p_style)
-                            elif is_bold:
-                                tags.append("bold")
-                            if is_italic:
-                                tags.append("italic")
-
-                            if tags:
-                                for tname in tags:
-                                    self.buffer.insert_with_tags_by_name(iter_end, text, tname)
-                            else:
-                                self.buffer.insert(iter_end, text)
-
+            for block in preview.blocks:
+                if block.kind == "paragraph":
+                    for run in block.runs:
+                        iter_end = self.buffer.get_end_iter()
+                        if run.tags:
+                            for tname in run.tags:
+                                self.buffer.insert_with_tags_by_name(
+                                    iter_end, run.text, tname
+                                )
+                        else:
+                            self.buffer.insert(iter_end, run.text)
                     iter_end = self.buffer.get_end_iter()
                     self.buffer.insert(iter_end, "\n\n")
-
-                elif tag == "tbl":
-                    # Table parsing
+                elif block.kind == "table" and block.table_text:
                     iter_end = self.buffer.get_end_iter()
                     self.buffer.insert(iter_end, "\n")
-                    rows = child.findall("w:tr", namespaces)
-                    table_data = []
-                    for row in rows:
-                        row_cells = []
-                        for cell in row.findall("w:tc", namespaces):
-                            cell_text = "".join(cell.itertext()).strip()
-                            row_cells.append(cell_text)
-                        table_data.append(row_cells)
+                    iter_end = self.buffer.get_end_iter()
+                    self.buffer.insert_with_tags_by_name(
+                        iter_end, block.table_text, "table"
+                    )
 
-                    if table_data:
-                        col_widths = [max(len(row[i]) if i < len(row) else 0 for row in table_data) for i in range(len(table_data[0]))]
-                        col_widths = [max(w, 8) for w in col_widths]
-                        sep_line = "+" + "+".join("-" * (w + 2) for w in col_widths) + "+\n"
-                        self.buffer.insert_with_tags_by_name(iter_end, sep_line, "table")
-                        for r_idx, row in enumerate(table_data):
-                            line = "|"
-                            for c_idx, w in enumerate(col_widths):
-                                val = row[c_idx] if c_idx < len(row) else ""
-                                line += f" {val.ljust(w)} |"
-                            line += "\n"
-                            iter_end = self.buffer.get_end_iter()
-                            self.buffer.insert_with_tags_by_name(iter_end, line, "table")
-                            if r_idx == 0:
-                                iter_end = self.buffer.get_end_iter()
-                                self.buffer.insert_with_tags_by_name(iter_end, sep_line, "table")
-                        iter_end = self.buffer.get_end_iter()
-                        self.buffer.insert_with_tags_by_name(iter_end, sep_line + "\n", "table")
-
-            self._paragraph_count = p_count
-            self._word_count = word_count
+            self._paragraph_count = preview.paragraph_count
+            self._word_count = preview.word_count
             self._update_info()
 
         except OfficeParseError as exc:

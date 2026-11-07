@@ -27,6 +27,7 @@ except ImportError:
 
 from utils.formatters import format_size
 from utils.i18n import _, ngettext
+from utils.parsers import MERMAID_KEYWORDS, is_mermaid_content
 from utils.quote import format_line_reference
 from widgets.quote_bar import QuoteBar
 from .markdown_search import MarkdownSearch
@@ -281,27 +282,6 @@ def _reload_markdown_css(*_args) -> None:
             _render_markdown_css(is_dark_theme()).encode("utf-8")
         )
 
-MERMAID_KEYWORDS = (
-    "flowchart ",
-    "flowchart\n",
-    "graph ",
-    "graph\n",
-    "sequenceDiagram",
-    "classDiagram",
-    "stateDiagram",
-    "stateDiagram-v2",
-    "erDiagram",
-    "gantt",
-    "pie",
-    "mindmap",
-    "journey",
-    "gitGraph",
-    "timeline",
-    "quadrantChart",
-    "xychart-beta",
-    "C4Context",
-)
-
 
 def ensure_markdown_css():
     global _MD_CSS_INSTALLED, _MD_CSS_PROVIDER, _MD_DARK_HANDLER_CONNECTED
@@ -325,18 +305,6 @@ def ensure_markdown_css():
             manager.connect("notify::dark", _reload_markdown_css)
             _MD_DARK_HANDLER_CONNECTED = True
     _MD_CSS_INSTALLED = True
-
-
-def is_mermaid_content(content: str) -> bool:
-    """Detect whether raw text is a standalone Mermaid diagram."""
-    stripped = content.lstrip()
-    # Skip frontmatter or %%{init:...}%% directives
-    while stripped.startswith("%%"):
-        newline_idx = stripped.find("\n")
-        if newline_idx == -1:
-            break
-        stripped = stripped[newline_idx + 1:].lstrip()
-    return any(stripped.startswith(kw) for kw in MERMAID_KEYWORDS)
 
 
 def detect_mermaid_diagram_type(code: str) -> str:

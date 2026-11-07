@@ -9,7 +9,7 @@ from unittest.mock import Mock, patch
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / 'src'))
 try:
-    from gi.repository import GLib
+    from gi.repository import Gio, GLib
     from app import SpacePreviewerApp
     from integrations import StandaloneIntegration
     from integrations.nautilus import NautilusIntegration, OBJECT_PATH, PREVIEWER_IFACE, LEGACY_IFACE
@@ -43,6 +43,25 @@ class NautilusTests(unittest.TestCase):
         self.call('ShowFile', GLib.Variant('(ssbs)', ('/tmp/a b', 'wayland:parent', False, 'token')))
         self.app.set_parent_handle.assert_called_once_with('wayland:parent')
         self.app.show_preview_for_path_or_uri.assert_called_once_with('/tmp/a b', 'token')
+
+    def test_show_supports_three_argument_nautilus_46_signature(self):
+        self.call('ShowFile', GLib.Variant('(ssb)', ('file:///tmp/ubuntu2404.txt', 'x11:0x2a', False)))
+        self.app.set_parent_handle.assert_called_once_with('x11:0x2a')
+        self.app.show_preview_for_path_or_uri.assert_called_once_with('file:///tmp/ubuntu2404.txt', '')
+
+        msg = Gio.DBusMessage.new_method_call(
+            'org.gnome.NautilusPreviewer',
+            OBJECT_PATH,
+            PREVIEWER_IFACE,
+            'ShowFile',
+        )
+        msg.set_body(GLib.Variant('(ssb)', ('file:///tmp/debian12.txt', 'wayland:old', True)))
+        upgraded = self.adapter.normalize_incoming_message(None, msg, True)
+        self.assertEqual(upgraded.get_signature(), 'ssbs')
+        self.assertEqual(
+            upgraded.get_body().unpack(),
+            ('file:///tmp/debian12.txt', 'wayland:old', True, ''),
+        )
 
     def test_toggle_same_file_closes_but_other_file_updates(self):
         self.app.window = Mock(current_file_path='/tmp/file')

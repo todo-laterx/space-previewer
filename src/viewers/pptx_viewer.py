@@ -7,6 +7,7 @@ from gi.repository import Gtk
 
 from utils.formatters import format_size
 from utils.i18n import _, ngettext
+from utils.parsers import read_pptx_preview
 from viewers.office_common import OfficeParseError, open_office_zip, read_xml
 
 log = logging.getLogger(__name__)
@@ -50,80 +51,63 @@ class PptxViewer(Gtk.Box):
 
     def load_pptx(self):
         try:
-            with open_office_zip(self.file_path) as zf:
-                slide_files = sorted(
-                    [f for f in zf.namelist() if f.startswith("ppt/slides/slide") and f.endswith(".xml")],
-                    key=lambda x: int("".join(filter(str.isdigit, x)) or 0)
-                )
-
-                if not slide_files:
-                    self._update_info()
-                    self.slides_box.append(Gtk.Label(label=_("No slides found in PowerPoint presentation.")))
-                    return
-
-                ns = {
-                    "a": "http://schemas.openxmlformats.org/drawingml/2006/main",
-                    "p": "http://schemas.openxmlformats.org/presentationml/2006/main"
-                }
-
-                for s_idx, s_file in enumerate(slide_files):
-                    card = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=8)
-                    card.add_css_class("card")
-                    card.set_margin_top(4)
-                    card.set_margin_bottom(4)
-
-                    header_badge = Gtk.Label(
-                        label=_("SLIDE %(number)s") % {"number": s_idx + 1}
-                    )
-                    header_badge.add_css_class("caption")
-                    header_badge.add_css_class("dim-label")
-                    header_badge.set_halign(Gtk.Align.START)
-                    header_badge.set_margin_start(16)
-                    header_badge.set_margin_top(12)
-                    card.append(header_badge)
-
-                    root_slide = read_xml(zf, s_file)
-
-                    text_paragraphs = []
-                    for p in root_slide.findall(".//a:p", ns):
-                        t_parts = [t.text for t in p.findall(".//a:t", ns) if t.text]
-                        if t_parts:
-                            line = "".join(t_parts).strip()
-                            if line:
-                                text_paragraphs.append(line)
-
-                    if text_paragraphs:
-                        # First paragraph can be title
-                        title_lbl = Gtk.Label(label=text_paragraphs[0])
-                        title_lbl.add_css_class("title-3")
-                        title_lbl.set_halign(Gtk.Align.START)
-                        title_lbl.set_wrap(True)
-                        title_lbl.set_margin_start(16)
-                        title_lbl.set_margin_end(16)
-                        card.append(title_lbl)
-
-                        for body_line in text_paragraphs[1:]:
-                            line_lbl = Gtk.Label(
-                                label=_("•  %(text)s") % {"text": body_line}
-                            )
-                            line_lbl.set_halign(Gtk.Align.START)
-                            line_lbl.set_wrap(True)
-                            line_lbl.set_margin_start(24)
-                            line_lbl.set_margin_end(16)
-                            line_lbl.set_margin_bottom(4)
-                            card.append(line_lbl)
-                    else:
-                        empty_lbl = Gtk.Label(label=_("(Visual or graphical slide content)"))
-                        empty_lbl.add_css_class("dim-label")
-                        empty_lbl.set_halign(Gtk.Align.START)
-                        empty_lbl.set_margin_start(16)
-                        empty_lbl.set_margin_bottom(12)
-                        card.append(empty_lbl)
-
-                    self.slides_box.append(card)
-
-                self._slide_count = len(slide_files)
+            preview = read_pptx_preview(self.file_path)
+            if not preview.slides:
                 self._update_info()
+                self.slides_box.append(
+                    Gtk.Label(label=_("No slides found in PowerPoint presentation."))
+                )
+                return
+
+            for s_idx, text_paragraphs in enumerate(preview.slides):
+                card = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=8)
+                card.add_css_class("card")
+                card.set_margin_top(4)
+                card.set_margin_bottom(4)
+
+                header_badge = Gtk.Label(
+                    label=_("SLIDE %(number)s") % {"number": s_idx + 1}
+                )
+                header_badge.add_css_class("caption")
+                header_badge.add_css_class("dim-label")
+                header_badge.set_halign(Gtk.Align.START)
+                header_badge.set_margin_start(16)
+                header_badge.set_margin_top(12)
+                card.append(header_badge)
+
+                if text_paragraphs:
+                    title_lbl = Gtk.Label(label=text_paragraphs[0])
+                    title_lbl.add_css_class("title-3")
+                    title_lbl.set_halign(Gtk.Align.START)
+                    title_lbl.set_wrap(True)
+                    title_lbl.set_margin_start(16)
+                    title_lbl.set_margin_end(16)
+                    card.append(title_lbl)
+
+                    for body_line in text_paragraphs[1:]:
+                        line_lbl = Gtk.Label(
+                            label=_("•  %(text)s") % {"text": body_line}
+                        )
+                        line_lbl.set_halign(Gtk.Align.START)
+                        line_lbl.set_wrap(True)
+                        line_lbl.set_margin_start(24)
+                        line_lbl.set_margin_end(16)
+                        line_lbl.set_margin_bottom(4)
+                        card.append(line_lbl)
+                else:
+                    empty_lbl = Gtk.Label(
+                        label=_("(Visual or graphical slide content)")
+                    )
+                    empty_lbl.add_css_class("dim-label")
+                    empty_lbl.set_halign(Gtk.Align.START)
+                    empty_lbl.set_margin_start(16)
+                    empty_lbl.set_margin_bottom(12)
+                    card.append(empty_lbl)
+
+                self.slides_box.append(card)
+
+            self._slide_count = len(preview.slides)
+            self._update_info()
 
         except OfficeParseError as exc:
             self.slides_box.append(Gtk.Label(

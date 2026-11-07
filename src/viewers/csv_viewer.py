@@ -15,13 +15,14 @@ from gi.repository import Gio, GObject, Gtk, Pango
 
 from utils.formatters import format_size
 from utils.i18n import _, ngettext
+from utils.parsers import (
+    MAX_CSV_COLUMNS,
+    MAX_CSV_ROWS,
+    SNIFF_BYTES,
+    read_csv_preview,
+)
 
 logger = logging.getLogger(__name__)
-
-# Untrusted-input limits for tabular previews.
-MAX_CSV_ROWS = 5000
-MAX_CSV_COLUMNS = 100
-SNIFF_BYTES = 4096
 
 StatusCallback = Callable[[], None]
 
@@ -78,58 +79,8 @@ class CSVViewer(Gtk.Box):
     # ---------------------------------------------------------------- loading
 
     def load_csv(self) -> None:
-        if self.file_path.lower().endswith((".tsv", ".tab")):
-            delimiter = "\t"
-        else:
-            delimiter = ","
-
-        headers: Optional[list[str]] = None
-        data_rows: list[list[str]] = []
-        truncated_rows = False
-        truncated_columns = False
-
         try:
-            with open(
-                self.file_path, "r", encoding="utf-8", errors="replace", newline=""
-            ) as handle:
-                # Sniff a bounded sample only; the rest is streamed.
-                sample = handle.read(SNIFF_BYTES)
-                handle.seek(0)
-                try:
-                    dialect = csv.Sniffer().sniff(sample, delimiters=",\t;|")
-                    delimiter = dialect.delimiter
-                except csv.Error:
-                    pass
-
-                reader = csv.reader(handle, delimiter=delimiter)
-                for row in reader:
-                    if headers is None:
-                        if not row:
-                            continue
-                        if len(row) > MAX_CSV_COLUMNS:
-                            truncated_columns = True
-                            headers = row[:MAX_CSV_COLUMNS]
-                        else:
-                            headers = row
-                        continue
-
-                    if not row:
-                        continue
-
-                    if len(data_rows) >= MAX_CSV_ROWS:
-                        truncated_rows = True
-                        break
-
-                    if len(row) > MAX_CSV_COLUMNS:
-                        truncated_columns = True
-
-                    if len(row) < len(headers):
-                        row = row + [""] * (len(headers) - len(row))
-                    elif len(row) > len(headers):
-                        row = row[: len(headers)]
-
-                    data_rows.append(row)
-
+            preview = read_csv_preview(self.file_path)
         except (OSError, UnicodeError, csv.Error) as exc:
             self._show_message(
                 _("Could not parse CSV: {error}").format(error=exc),
@@ -143,6 +94,11 @@ class CSVViewer(Gtk.Box):
                 failed=True,
             )
             return
+
+        headers = preview.headers
+        data_rows = preview.rows
+        truncated_rows = preview.truncated_rows
+        truncated_columns = preview.truncated_columns
 
         if headers is None:
             self._show_message(_("CSV file is empty."), failed=False)

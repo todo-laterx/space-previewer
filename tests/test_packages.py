@@ -57,7 +57,7 @@ class PackageTests(unittest.TestCase):
         self.assertEqual(launcher.stat().st_mode & 0o777, 0o755)
         self.assertIn('exec /usr/bin/python3 /usr/share/space-previewer/main.py "$@"', launcher_text)
         self.assertTrue((extracted / 'usr/share/space-previewer/main.py').is_file())
-        for module in ('app.py', 'integrations/__init__.py', 'integrations/nautilus.py'):
+        for module in ('app.py', 'integrations/__init__.py', 'integrations/nautilus.py', 'utils/parsers.py'):
             self.assertTrue((extracted / 'usr/share/space-previewer' / module).is_file(), module)
         catalog = extracted / 'usr/share/space-previewer/locale/vi/LC_MESSAGES/space-previewer.mo'
         with catalog.open('rb') as handle:

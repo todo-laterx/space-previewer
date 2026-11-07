@@ -43,6 +43,7 @@ jobs:
         run: |
           /usr/bin/python3 -m unittest discover -s tests -p 'test_integrations.py' -v
           /usr/bin/python3 -m unittest discover -s tests -p 'test_dolphin.py' -v
+          /usr/bin/python3 -m unittest discover -s tests -p 'test_parsers_security.py' -v
           /usr/bin/python3 -m unittest discover -s tests -p 'test_packages.py' -v
 
       - name: Check shell scripts

@@ -17,13 +17,15 @@ from gi.repository import Gio, GObject, Gtk, Pango
 
 from utils.formatters import format_date, format_size
 from utils.i18n import _, ngettext
+from utils.parsers import (
+    ArchiveEncryptedError,
+    ArchiveFormatError,
+    MAX_ARCHIVE_ENTRIES,
+    MAX_ARCHIVE_UNCOMPRESSED_BYTES,
+    read_archive_entries,
+)
 
 logger = logging.getLogger(__name__)
-
-# Untrusted-input limits (see SECURITY.md). Members are only listed, never
-# extracted, so member names are safe to display exactly as stored.
-MAX_ARCHIVE_ENTRIES = 5000
-MAX_ARCHIVE_UNCOMPRESSED_BYTES = 200 * 1024 * 1024
 
 StatusCallback = Callable[[], None]
 
@@ -96,72 +98,14 @@ class ArchiveViewer(Gtk.Box):
             return ""
 
     def load_archive(self) -> None:
-        items: list[ArchiveItem] = []
-        total_uncompressed = 0
-        truncated = False
-
         try:
-            if zipfile.is_zipfile(self.file_path):
-                with zipfile.ZipFile(self.file_path, "r") as zf:
-                    for info in zf.infolist():
-                        # Encrypted entries cannot be inspected safely.
-                        if info.flag_bits & 0x1:
-                            self._show_message(
-                                _(
-                                    "This archive contains encrypted entries "
-                                    "and cannot be previewed."
-                                )
-                            )
-                            return
-                        if len(items) >= MAX_ARCHIVE_ENTRIES:
-                            truncated = True
-                            break
-                        if (
-                            total_uncompressed + info.file_size
-                            > MAX_ARCHIVE_UNCOMPRESSED_BYTES
-                        ):
-                            truncated = True
-                            break
-
-                        items.append(
-                            ArchiveItem(
-                                info.filename,
-                                info.file_size,
-                                info.is_dir(),
-                                self._zip_date(info),
-                            )
-                        )
-                        total_uncompressed += info.file_size
-
-            elif tarfile.is_tarfile(self.file_path):
-                with tarfile.open(self.file_path, "r:*") as tf:
-                    for member in tf:
-                        if len(items) >= MAX_ARCHIVE_ENTRIES:
-                            truncated = True
-                            break
-                        if (
-                            total_uncompressed + member.size
-                            > MAX_ARCHIVE_UNCOMPRESSED_BYTES
-                        ):
-                            truncated = True
-                            break
-
-                        items.append(
-                            ArchiveItem(
-                                member.name,
-                                member.size,
-                                member.isdir(),
-                                self._tar_date(member),
-                            )
-                        )
-                        total_uncompressed += member.size
-
-            else:
-                self._show_message(
-                    _("Unsupported archive format or corrupted file.")
-                )
-                return
-
+            preview = read_archive_entries(self.file_path)
+        except ArchiveEncryptedError as exc:
+            self._show_message(str(exc))
+            return
+        except ArchiveFormatError as exc:
+            self._show_message(str(exc))
+            return
         except (zipfile.BadZipFile, tarfile.TarError, EOFError, OSError) as exc:
             self._show_message(
                 _("Could not read archive: {error}").format(error=exc)
@@ -173,6 +117,13 @@ class ArchiveViewer(Gtk.Box):
                 _("Could not read archive: {error}").format(error=exc)
             )
             return
+
+        items = [
+            ArchiveItem(e.name, e.size, e.is_dir, e.date_str)
+            for e in preview.entries
+        ]
+        total_uncompressed = preview.total_uncompressed
+        truncated = preview.truncated
 
         if not items:
             if truncated:
