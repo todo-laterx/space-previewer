@@ -7,6 +7,7 @@ import zlib
 import base64
 import hashlib
 import threading
+import urllib.parse
 import urllib.request
 import html
 import cairo
@@ -103,6 +104,7 @@ MARKDOWN_VIEWER_CSS = """
 }
 .md-paragraph {
     font-size: 14px;
+    line-height: 1.48;
     color: @window_fg_color;
 }
 .md-blockquote {
@@ -222,10 +224,16 @@ MARKDOWN_VIEWER_CSS = """
     margin-top: 8px;
     margin-bottom: 8px;
 }
+.md-quote-hover {
+    background-color: alpha(@sp_accent, 0.04);
+    outline: 1px dashed alpha(@sp_accent, 0.36);
+    outline-offset: 2px;
+    border-radius: 6px;
+}
 .md-quote-active {
     background-color: alpha(@sp_accent, 0.10);
-    outline: 2px solid alpha(@sp_accent, 0.50);
-    outline-offset: 3px;
+    outline: 2px solid alpha(@sp_accent, 0.55);
+    outline-offset: 2px;
     border-radius: 6px;
 }
 """
@@ -798,14 +806,26 @@ class MermaidDiagramCard(Gtk.Box):
             self._copy_timeout_id = None
 
 
+_FORBIDDEN_LINK_SCHEMES = re.compile(r"^(javascript|vbscript|data):", re.IGNORECASE)
+
+
+def _validate_markdown_link(url: str) -> bool:
+    """Allow local file:// and relative links while blocking unsafe script URIs."""
+    stripped = (url or "").strip()
+    return bool(stripped) and not _FORBIDDEN_LINK_SCHEMES.match(stripped)
+
+
 def inline_tokens_to_pango_markup(children) -> str:
     """Convert markdown-it inline tokens into safe Pango markup."""
     if not children:
         return ""
     dark = is_dark_theme()
-    code_surface = CODE_SURFACE_DARK if dark else CODE_SURFACE_LIGHT
-    code_text = CODE_TEXT_DARK if dark else CODE_TEXT_LIGHT
+    code_surface = "#2C313C" if dark else "#EFF2F6"
+    code_text = "#E6EDF3" if dark else "#24292F"
+    link_code_surface = "#1D325A" if dark else "#E4EEFF"
+    link_code_text = "#9AC2FF" if dark else "#1F4EB5"
     accent = ACCENT_DARK if dark else ACCENT_LIGHT
+    link_depth = 0
     parts = []
     for tok in children:
         ttype = tok.type
@@ -813,9 +833,14 @@ def inline_tokens_to_pango_markup(children) -> str:
             parts.append(html.escape(tok.content))
         elif ttype == "code_inline":
             escaped = html.escape(tok.content)
-            parts.append(
-                f'<span font_family="monospace" background="{code_surface}" foreground="{code_text}"> {escaped} </span>'
-            )
+            if link_depth > 0:
+                parts.append(
+                    f'<span font_family="monospace" weight="bold" background="{link_code_surface}" foreground="{link_code_text}">\u00a0{escaped}\u00a0</span>'
+                )
+            else:
+                parts.append(
+                    f'<span font_family="monospace" background="{code_surface}" foreground="{code_text}">\u00a0{escaped}\u00a0</span>'
+                )
         elif ttype == "strong_open":
             parts.append("<b>")
         elif ttype == "strong_close":
@@ -832,9 +857,11 @@ def inline_tokens_to_pango_markup(children) -> str:
             href = ""
             if tok.attrs and "href" in tok.attrs:
                 href = html.escape(str(tok.attrs["href"]), quote=True)
-            parts.append(f'<a href="{href}">')
+            link_depth += 1
+            parts.append(f'<a href="{href}"><span foreground="{accent}" weight="bold">')
         elif ttype == "link_close":
-            parts.append("</a>")
+            link_depth = max(0, link_depth - 1)
+            parts.append("</span></a>")
         elif ttype == "softbreak":
             parts.append("\n")
         elif ttype == "hardbreak":
@@ -913,13 +940,15 @@ class MarkdownViewer(Gtk.Box):
         self._copy_timeout_ids = set()
 
         # Rendered blocks and their source line ranges. Clicking a block marks
-        # it; Shift+click extends; the quote bar copies the source lines.
+        # it; Shift+click extends; Ctrl+click toggles non-contiguous blocks.
         self._md_blocks = []
+        self._md_selected_indices: set[int] = set()
         self._md_quote_first = None
         self._md_quote_last = None
         self._md_quote_start = 0
         self._md_quote_end = 0
         self._md_quote_source = ""
+        self._md_block_click_handled = False
         self._quote_bar = None
         self._md_search = None
 
@@ -996,6 +1025,12 @@ class MarkdownViewer(Gtk.Box):
         self.doc_clamp.set_tightening_threshold(560)
         self.doc_clamp.set_child(self.doc_box)
         self.outer_box.append(self.doc_clamp)
+
+        bg_click = Gtk.GestureClick.new()
+        bg_click.set_button(Gdk.BUTTON_PRIMARY)
+        bg_click.set_propagation_phase(Gtk.PropagationPhase.BUBBLE)
+        bg_click.connect("released", self._on_background_released)
+        self.outer_box.add_controller(bg_click)
 
         self.preview_scroll.set_child(self.outer_box)
 
@@ -1157,6 +1192,8 @@ class MarkdownViewer(Gtk.Box):
     def _clear_md_quote(self) -> None:
         for widget, _start, _end in self._md_blocks:
             widget.remove_css_class("md-quote-active")
+            widget.remove_css_class("md-quote-hover")
+        self._md_selected_indices.clear()
         self._md_quote_first = None
         self._md_quote_last = None
         self._md_quote_start = 0
@@ -1164,74 +1201,167 @@ class MarkdownViewer(Gtk.Box):
         if self._quote_bar is not None:
             self._quote_bar.hide_bar()
 
+    def _on_background_released(self, gesture, n_press: int, x: float, y: float) -> None:
+        """Dismiss the active quote selection when clicking outside any block."""
+        if self._md_block_click_handled:
+            self._md_block_click_handled = False
+            return
+        if self.has_line_selection():
+            self._clear_md_quote()
+
+    def _register_md_block(self, widget, start_line: int, end_line: int) -> None:
+        """Register a rendered widget or list row for hover and quote selection."""
+        if end_line <= start_line:
+            return
+        index = len(self._md_blocks)
+        gesture = Gtk.GestureClick.new()
+        gesture.set_button(Gdk.BUTTON_PRIMARY)
+        gesture.connect("pressed", self._on_md_block_pressed, index)
+        widget.add_controller(gesture)
+
+        motion = Gtk.EventControllerMotion.new()
+        motion.connect("enter", lambda *_args, w=widget: w.add_css_class("md-quote-hover"))
+        motion.connect("leave", lambda *_args, w=widget: w.remove_css_class("md-quote-hover"))
+        widget.add_controller(motion)
+
+        self._md_blocks.append((widget, start_line, end_line))
+
     def _append_md_block(self, widget, start_line: int, end_line: int) -> None:
         """Append a rendered block and remember its source line range."""
-        if end_line > start_line:
-            index = len(self._md_blocks)
-            gesture = Gtk.GestureClick.new()
-            gesture.set_button(Gdk.BUTTON_PRIMARY)
-            gesture.connect("pressed", self._on_md_block_pressed, index)
-            widget.add_controller(gesture)
-            self._md_blocks.append((widget, start_line, end_line))
+        self._register_md_block(widget, start_line, end_line)
         self.doc_box.append(widget)
 
     def _on_md_block_pressed(self, gesture, n_press: int, x: float, y: float, index: int) -> None:
+        self._md_block_click_handled = True
         try:
             state = gesture.get_current_event_state()
             if isinstance(state, tuple):
                 state = state[-1]
             shift = bool(state & Gdk.ModifierType.SHIFT_MASK)
+            ctrl = bool(state & Gdk.ModifierType.CONTROL_MASK)
         except Exception:
             shift = False
+            ctrl = False
 
-        if shift and self._md_quote_first is not None:
+        if ctrl:
+            if index in self._md_selected_indices:
+                self._md_selected_indices.remove(index)
+            else:
+                self._md_selected_indices.add(index)
+                self._md_quote_first = index
+                self._md_quote_last = index
+            if not self._md_selected_indices:
+                self._clear_md_quote()
+                return
+        elif shift and self._md_quote_first is not None:
             self._md_quote_last = index
+            low = max(0, min(self._md_quote_first, self._md_quote_last))
+            high = min(
+                len(self._md_blocks) - 1,
+                max(self._md_quote_first, self._md_quote_last),
+            )
+            self._md_selected_indices = set(range(low, high + 1))
         else:
+            if self._md_selected_indices == {index}:
+                self._clear_md_quote()
+                return
             self._md_quote_first = index
             self._md_quote_last = index
+            self._md_selected_indices = {index}
         self._apply_md_quote()
 
+    def _merged_selected_ranges(self) -> list[tuple[int, int]]:
+        """Return merged 0-based ``(start_line, end_line)`` ranges for selected blocks."""
+        if not self._md_blocks:
+            return []
+        if not self._md_selected_indices and self._md_quote_first is not None:
+            low = max(0, min(self._md_quote_first, self._md_quote_last or self._md_quote_first))
+            high = min(
+                len(self._md_blocks) - 1,
+                max(self._md_quote_first, self._md_quote_last or self._md_quote_first),
+            )
+            indices = sorted(range(low, high + 1))
+        else:
+            indices = sorted(
+                i for i in self._md_selected_indices if 0 <= i < len(self._md_blocks)
+            )
+        if not indices:
+            return []
+
+        raw_ranges = sorted(
+            (self._md_blocks[i][1], self._md_blocks[i][2])
+            for i in indices
+            if self._md_blocks[i][2] > self._md_blocks[i][1]
+        )
+        if not raw_ranges:
+            return []
+
+        merged: list[tuple[int, int]] = [raw_ranges[0]]
+        for start, end in raw_ranges[1:]:
+            prev_start, prev_end = merged[-1]
+            if start <= prev_end:
+                merged[-1] = (prev_start, max(prev_end, end))
+            else:
+                merged.append((start, end))
+        return merged
+
     def _apply_md_quote(self) -> None:
-        if not self._md_blocks or self._md_quote_first is None:
+        merged = self._merged_selected_ranges()
+        if not merged:
             if self._quote_bar is not None:
                 self._quote_bar.hide_bar()
             return
 
-        low = max(0, min(self._md_quote_first, self._md_quote_last))
-        high = min(
-            len(self._md_blocks) - 1,
-            max(self._md_quote_first, self._md_quote_last),
-        )
+        active_set = set(self._md_selected_indices)
+        if not active_set and self._md_quote_first is not None:
+            low = max(0, min(self._md_quote_first, self._md_quote_last or self._md_quote_first))
+            high = min(
+                len(self._md_blocks) - 1,
+                max(self._md_quote_first, self._md_quote_last or self._md_quote_first),
+            )
+            active_set = set(range(low, high + 1))
+
         for index, (widget, _start, _end) in enumerate(self._md_blocks):
-            if low <= index <= high:
+            if index in active_set:
                 widget.add_css_class("md-quote-active")
             else:
                 widget.remove_css_class("md-quote-active")
 
-        self._md_quote_start = min(
-            self._md_blocks[i][1] for i in range(low, high + 1)
-        )
-        self._md_quote_end = max(
-            self._md_blocks[i][2] for i in range(low, high + 1)
-        )
-        if self._md_quote_end <= self._md_quote_start:
-            self._quote_bar.hide_bar()
-            return
-        self._quote_bar.set_lines(self._md_quote_start + 1, self._md_quote_end)
+        self._md_quote_start = merged[0][0]
+        self._md_quote_end = merged[-1][1]
+        display_ranges = [(start + 1, end) for start, end in merged]
+        if hasattr(self._quote_bar, "set_ranges"):
+            self._quote_bar.set_ranges(display_ranges)
+        else:
+            self._quote_bar.set_lines(self._md_quote_start + 1, self._md_quote_end)
+
+    def _md_quote_segments(self) -> list[tuple[int, int, str]]:
+        """Return ``[(first_line, last_line, text), ...]`` 1-based for selected blocks."""
+        merged = self._merged_selected_ranges()
+        if not merged:
+            return []
+        lines = self._md_quote_source.splitlines()
+        segments: list[tuple[int, int, str]] = []
+        for start, end in merged:
+            first = max(0, min(start, len(lines)))
+            last = max(first, min(end, len(lines)))
+            if last <= first:
+                continue
+            text = "\n".join(lines[first:last])
+            if text:
+                segments.append((first + 1, last, text))
+        return segments
 
     def _md_quote_text(self):
         """Return ``(first_line, last_line, text)`` 1-based, or ``None``."""
-        if self._md_quote_first is None or self._md_quote_end <= self._md_quote_start:
+        segments = self._md_quote_segments()
+        if not segments:
             return None
-        lines = self._md_quote_source.splitlines()
-        first = max(0, min(self._md_quote_start, len(lines)))
-        last = max(first, min(self._md_quote_end, len(lines)))
-        if last <= first:
-            return None
-        text = "\n".join(lines[first:last])
-        if not text:
-            return None
-        return first + 1, last, text
+        return (
+            segments[0][0],
+            segments[-1][1],
+            "\n\n".join(seg[2] for seg in segments),
+        )
 
     def _on_quote_copy(self, reference: bool) -> bool:
         return self.copy_selected_lines(reference)
@@ -1243,15 +1373,16 @@ class MarkdownViewer(Gtk.Box):
                 return bool(self.raw_viewer.copy_selected_lines(reference))
             return False
 
-        range_info = self._md_quote_text()
-        if range_info is None:
+        segments = self._md_quote_segments()
+        if not segments:
             return False
-        first_line, last_line, text = range_info
-        payload = (
-            format_line_reference(self.file_path, first_line, last_line)
-            if reference
-            else text
-        )
+        if reference:
+            payload = "\n".join(
+                format_line_reference(self.file_path, first_line, last_line)
+                for first_line, last_line, _text in segments
+            )
+        else:
+            payload = "\n\n".join(text for _first, _last, text in segments)
 
         display = Gdk.Display.get_default()
         if display is None:
@@ -1265,7 +1396,7 @@ class MarkdownViewer(Gtk.Box):
         if self.stack.get_visible_child_name() == "raw" and self.raw_viewer is not None:
             getter = getattr(self.raw_viewer, "has_line_selection", None)
             return bool(getter()) if callable(getter) else False
-        return self._md_quote_first is not None
+        return bool(self._md_selected_indices) or self._md_quote_first is not None
 
     def clear_line_selection(self) -> None:
         if self.stack.get_visible_child_name() == "raw" and self.raw_viewer is not None:
@@ -1288,6 +1419,7 @@ class MarkdownViewer(Gtk.Box):
             return
 
         md = MarkdownIt("commonmark").enable("table").enable("strikethrough")
+        md.validateLink = _validate_markdown_link
         tokens = md.parse(content)
 
         mermaid_count = 0
@@ -1370,7 +1502,7 @@ class MarkdownViewer(Gtk.Box):
                 end_i = self._find_matching_close(tokens, i, ttype, close_type)
                 is_ordered = ttype == "ordered_list_open"
                 block = self._build_list_widget(tokens[i + 1 : end_i], is_ordered)
-                self._append_md_block(block, *self._token_line_map(tok))
+                self.doc_box.append(block)
                 i = end_i + 1
                 continue
 
@@ -1450,11 +1582,75 @@ class MarkdownViewer(Gtk.Box):
         lbl.set_wrap(wrap)
         lbl.set_wrap_mode(wrap_mode)
         lbl.set_selectable(True)
+        lbl.connect("activate-link", self._on_activate_link)
         try:
             lbl.set_markup(markup)
         except Exception:
             lbl.set_text(re.sub(r"<[^>]+>", "", markup))
         return lbl
+
+    @staticmethod
+    def _parse_line_fragment(fragment: str) -> tuple[int, int] | None:
+        """Extract 1-based ``(first_line, last_line)`` from ``L10-L20`` or ``10-20``."""
+        if not fragment:
+            return None
+        match = re.match(
+            r"^[Ll]?(\d+)(?:[-:][Ll]?(\d+))?$",
+            fragment.strip(),
+        )
+        if not match:
+            return None
+        first = int(match.group(1))
+        last = int(match.group(2)) if match.group(2) else first
+        return max(1, min(first, last)), max(1, max(first, last))
+
+    def _resolve_local_link_target(
+        self, uri: str
+    ) -> tuple[str, tuple[int, int] | None] | None:
+        """Resolve a ``file://`` or relative link to ``(abs_path, line_range)``."""
+        if not uri:
+            return None
+        parsed = urllib.parse.urlparse(uri)
+        scheme = (parsed.scheme or "").lower()
+        if scheme in ("http", "https", "mailto"):
+            return None
+        if scheme not in ("", "file"):
+            return None
+
+        raw_path = urllib.parse.unquote(parsed.path or "")
+        fragment = parsed.fragment or ""
+        line_range = self._parse_line_fragment(fragment)
+
+        if not raw_path:
+            return None
+        if line_range is None and ":" in raw_path and not os.path.exists(raw_path):
+            m = re.match(r"^(.*?):(\d+(?:-\d+)?)$", raw_path)
+            if m:
+                raw_path = m.group(1)
+                line_range = self._parse_line_fragment(m.group(2))
+
+        candidate = (
+            raw_path
+            if os.path.isabs(raw_path)
+            else os.path.normpath(os.path.join(self.base_dir, raw_path))
+        )
+        if os.path.exists(candidate):
+            return os.path.abspath(candidate), line_range
+        return None
+
+    def _on_activate_link(self, _label, uri: str) -> bool:
+        """Preview linked local files inside Space Previewer when clicked."""
+        self._md_block_click_handled = True
+        resolved = self._resolve_local_link_target(uri)
+        if resolved is None:
+            return False
+        target_path, line_range = resolved
+        self._clear_md_quote()
+        root = self.get_root()
+        if root is not None and hasattr(root, "navigate_to_file"):
+            root.navigate_to_file(target_path, line_range=line_range)
+            return True
+        return False
 
     def _create_code_block_card(self, code_text: str, lang_info: str) -> Gtk.Box:
         card = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=0)
@@ -1628,7 +1824,10 @@ class MarkdownViewer(Gtk.Box):
         return box
 
     def _build_list_widget(self, inner_tokens, is_ordered: bool, depth: int = 0) -> Gtk.Widget:
-        list_box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=6)
+        list_box = Gtk.Box(
+            orientation=Gtk.Orientation.VERTICAL,
+            spacing=8 if depth == 0 else 6,
+        )
         dark = is_dark_theme()
         accent = ACCENT_DARK if dark else ACCENT_LIGHT
         muted = "#8B949E" if dark else "#6B7280"
@@ -1642,6 +1841,8 @@ class MarkdownViewer(Gtk.Box):
         n = len(inner_tokens)
         while i < n:
             if inner_tokens[i].type == "list_item_open":
+                item_tok = inner_tokens[i]
+                item_start, item_end = self._token_line_map(item_tok)
                 end_i = self._find_matching_close(
                     inner_tokens, i, "list_item_open", "list_item_close"
                 )
@@ -1655,12 +1856,20 @@ class MarkdownViewer(Gtk.Box):
                 # Only the item's own text belongs on the bullet line; tables,
                 # code fences and nested lists become blocks below it.
                 direct_markups = []
+                direct_starts = []
+                direct_ends = []
+                first_nested_start = None
                 nested_widgets = []
                 j = 0
                 m = len(item_tokens)
                 while j < m:
                     itok = item_tokens[j]
                     if itok.type in ("bullet_list_open", "ordered_list_open"):
+                        ns, _ne = self._token_line_map(itok)
+                        if ns > item_start and (
+                            first_nested_start is None or ns < first_nested_start
+                        ):
+                            first_nested_start = ns
                         close_t = (
                             "bullet_list_close"
                             if itok.type == "bullet_list_open"
@@ -1677,15 +1886,25 @@ class MarkdownViewer(Gtk.Box):
                         j = sub_end + 1
                         continue
                     if itok.type == "table_open":
+                        ns, ne = self._token_line_map(itok)
+                        if ns > item_start and (
+                            first_nested_start is None or ns < first_nested_start
+                        ):
+                            first_nested_start = ns
                         sub_end = self._find_matching_close(
                             item_tokens, j, "table_open", "table_close"
                         )
-                        nested_widgets.append(
-                            self._build_table_widget(item_tokens[j + 1 : sub_end])
-                        )
+                        tbl_w = self._build_table_widget(item_tokens[j + 1 : sub_end])
+                        self._register_md_block(tbl_w, ns, ne)
+                        nested_widgets.append(tbl_w)
                         j = sub_end + 1
                         continue
                     if itok.type in ("fence", "code_block"):
+                        ns, ne = self._token_line_map(itok)
+                        if ns > item_start and (
+                            first_nested_start is None or ns < first_nested_start
+                        ):
+                            first_nested_start = ns
                         info = (
                             (itok.info or "").strip().split()[0].lower()
                             if itok.info
@@ -1697,16 +1916,22 @@ class MarkdownViewer(Gtk.Box):
                             self._mermaid_cards.append(card)
                         else:
                             card = self._create_code_block_card(code_text, info)
+                        self._register_md_block(card, ns, ne)
                         nested_widgets.append(card)
                         j += 1
                         continue
                     if itok.type == "blockquote_open":
+                        ns, ne = self._token_line_map(itok)
+                        if ns > item_start and (
+                            first_nested_start is None or ns < first_nested_start
+                        ):
+                            first_nested_start = ns
                         sub_end = self._find_matching_close(
                             item_tokens, j, "blockquote_open", "blockquote_close"
                         )
-                        nested_widgets.append(
-                            self._build_blockquote_widget(item_tokens[j + 1 : sub_end])
-                        )
+                        bq_w = self._build_blockquote_widget(item_tokens[j + 1 : sub_end])
+                        self._register_md_block(bq_w, ns, ne)
+                        nested_widgets.append(bq_w)
                         j = sub_end + 1
                         continue
                     if itok.type == "hr":
@@ -1715,6 +1940,11 @@ class MarkdownViewer(Gtk.Box):
                         nested_widgets.append(rule)
                         j += 1
                         continue
+                    if itok.type in ("paragraph_open", "inline"):
+                        ps, pe = self._token_line_map(itok)
+                        if pe > ps:
+                            direct_starts.append(ps)
+                            direct_ends.append(pe)
                     if itok.type == "inline" and itok.children:
                         direct_markups.append(inline_tokens_to_pango_markup(itok.children))
                     j += 1
@@ -1743,6 +1973,16 @@ class MarkdownViewer(Gtk.Box):
                     lbl_body = self._create_markup_label(body_markup, css_class="md-paragraph")
                     lbl_body.set_hexpand(True)
                     row.append(lbl_body)
+
+                row_start = min(direct_starts) if direct_starts else item_start
+                row_end = max(direct_ends) if direct_ends else (
+                    first_nested_start if first_nested_start is not None else item_end
+                )
+                if first_nested_start is not None and row_end > first_nested_start:
+                    row_end = first_nested_start
+                if row_end <= row_start and item_end > row_start:
+                    row_end = min(item_end, row_start + 1)
+                self._register_md_block(row, row_start, row_end)
 
                 item_vbox.append(row)
 

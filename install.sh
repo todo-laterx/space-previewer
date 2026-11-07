@@ -259,9 +259,10 @@ release_previewer_name() {
         --method "$DBUS_NAME.Close" \
         >/dev/null 2>&1 || true
 
-    # Sushi is the common owner. Terminating it is best-effort only: a failure
-    # here must never abort the install.
+    # Stop any leftover process after D-Bus Close so the next activation loads
+    # the newly installed files instead of re-activating the old copy.
     if command -v pkill >/dev/null 2>&1; then
+        pkill -f "$APP_INSTALL_DIR/main.py" >/dev/null 2>&1 || true
         pkill -x sushi >/dev/null 2>&1 || true
     fi
 }

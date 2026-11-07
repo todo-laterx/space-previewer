@@ -2,6 +2,7 @@
 
 import logging
 import os
+import shutil
 
 from gi.repository import Gio, GLib
 
@@ -55,18 +56,46 @@ DBUS_XML = """
 """
 
 
+DBUS_XML_GNOME_46 = DBUS_XML.replace(
+    '      <arg type="s" direction="in" name="activationToken" />\n',
+    "",
+)
+
+
+def _detect_nautilus_dbus_xml() -> str:
+    """Return the NautilusPreviewer2 XML matching the installed Nautilus binary.
+
+    GNOME 43-46 (Debian 12, Ubuntu 24.04 LTS) invokes ``ShowFile`` with
+    signature ``(ssb)``; GNOME 47+ invokes ``ShowFile`` with ``(ssbs)``.
+    Selecting the matching XML at startup avoids installing a Python GDBus
+    message filter on the worker thread (which can deadlock the GIL during
+    synchronous GTK accessibility bus initialization).
+    """
+    nautilus_bin = shutil.which("nautilus")
+    if nautilus_bin:
+        try:
+            with open(nautilus_bin, "rb") as handle:
+                blob = handle.read()
+            if b"(ssbs)" not in blob and b"(ssb)" in blob:
+                return DBUS_XML_GNOME_46
+        except OSError:
+            pass
+    return DBUS_XML
+
+
 class NautilusIntegration(StandaloneIntegration):
     application_id = "org.gnome.NautilusPreviewer"
     unique = True
     capabilities = frozenset({"select", "rename", "trash"})
 
-    def __init__(self):
+    def __init__(self, dbus_xml: str | None = None):
         super().__init__()
         self.dbus_conn = None
         self._startup_hold = False
         self._idle_release_id = 0
-        self._filter_id = 0
-        self.node_info = Gio.DBusNodeInfo.new_for_xml(DBUS_XML)
+        self.node_info = Gio.DBusNodeInfo.new_for_xml(
+            dbus_xml or _detect_nautilus_dbus_xml()
+        )
 
     def normalize_incoming_message(self, connection, message, incoming):
         if (
@@ -92,10 +121,6 @@ class NautilusIntegration(StandaloneIntegration):
     def register(self, connection, object_path):
         self.dbus_conn = connection
         if object_path == OBJECT_PATH:
-            if hasattr(connection, "add_filter") and not self._filter_id:
-                self._filter_id = connection.add_filter(
-                    self.normalize_incoming_message
-                )
             for iface in self.node_info.interfaces:
                 connection.register_object(
                     object_path,

@@ -91,11 +91,30 @@ class QuoteBar(Gtk.Box):
 
     def set_lines(self, first_line: int, last_line: int) -> None:
         """Show the bar for a 1-based, inclusive line range."""
-        if first_line == last_line:
-            self.lbl_range.set_text(_("Line {number}").format(number=first_line))
+        self.set_ranges([(first_line, last_line)])
+
+    def set_ranges(self, ranges: list[tuple[int, int]]) -> None:
+        """Show the bar for one or more 1-based, inclusive line ranges."""
+        if not ranges:
+            self.hide_bar()
+            return
+        if len(ranges) == 1:
+            first_line, last_line = ranges[0]
+            if first_line == last_line:
+                self.lbl_range.set_text(_("Line {number}").format(number=first_line))
+            else:
+                self.lbl_range.set_text(
+                    _("Lines {first}–{last}").format(first=first_line, last=last_line)
+                )
         else:
+            parts = [
+                str(lo) if lo == hi else f"{lo}–{hi}"
+                for lo, hi in ranges[:3]
+            ]
+            if len(ranges) > 3:
+                parts.append(f"+{len(ranges) - 3}")
             self.lbl_range.set_text(
-                _("Lines {first}–{last}").format(first=first_line, last=last_line)
+                _("Lines {ranges}").format(ranges=", ".join(parts))
             )
         self.set_visible(True)
 

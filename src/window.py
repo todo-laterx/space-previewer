@@ -137,12 +137,20 @@ class PreviewWindow(Adw.ApplicationWindow):
         self.parent_handle = parent_handle or ""
         self.activation_token = activation_token or ""
         self._shortcuts_window = None
+        self._nav_history: list[str] = []
 
         self.main_box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=0)
         self.set_content(self.main_box)
 
         self.header_bar = Adw.HeaderBar()
         self.main_box.append(self.header_bar)
+
+        self.btn_back = Gtk.Button.new_from_icon_name("go-previous-symbolic")
+        self.btn_back.add_css_class("code-btn-small")
+        self.btn_back.set_tooltip_text(_("Back (Alt+Left)"))
+        self.btn_back.set_visible(False)
+        self.btn_back.connect("clicked", self.navigate_back)
+        self.header_bar.pack_start(self.btn_back)
 
         self.header_controls = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=4)
         self.header_controls.set_valign(Gtk.Align.CENTER)
@@ -277,7 +285,7 @@ class PreviewWindow(Adw.ApplicationWindow):
             self.set_size_request(target_w, target_h)
             GLib.idle_add(lambda: self.set_size_request(-1, -1))
 
-    def load_file(self, file_path: str):
+    def load_file(self, file_path: str, line_range: tuple[int, int] | None = None):
         self.current_file_path = os.path.abspath(file_path)
         filename = os.path.basename(self.current_file_path)
         self.set_title(filename)
@@ -299,7 +307,34 @@ class PreviewWindow(Adw.ApplicationWindow):
         self.viewer_container.append(viewer)
         self._install_viewer_chrome(viewer)
 
+        if line_range is not None and hasattr(viewer, "focus_line_range"):
+            try:
+                viewer.focus_line_range(line_range[0], line_range[1])
+            except Exception:
+                log.debug("Could not focus line range on viewer", exc_info=True)
+
         self.apply_responsive_size()
+
+    def navigate_to_file(self, file_path: str, line_range: tuple[int, int] | None = None):
+        """Open a linked local file inside the preview window with Back history."""
+        target = os.path.abspath(file_path)
+        if not os.path.exists(target):
+            return
+        if self.current_file_path and os.path.abspath(self.current_file_path) != target:
+            self._nav_history.append(self.current_file_path)
+            self.btn_back.set_visible(True)
+        self.load_file(target, line_range=line_range)
+
+    def navigate_back(self, *_args) -> bool:
+        """Return to the previous previewed file in navigation history."""
+        while self._nav_history:
+            prev_path = self._nav_history.pop()
+            if os.path.exists(prev_path):
+                self.btn_back.set_visible(bool(self._nav_history))
+                self.load_file(prev_path)
+                return True
+        self.btn_back.set_visible(False)
+        return False
 
     def update_file(self, file_path: str, parent_handle: str = None, activation_token: str = None):
         if parent_handle is not None and parent_handle != self.parent_handle:
@@ -310,6 +345,8 @@ class PreviewWindow(Adw.ApplicationWindow):
             self.set_startup_id(activation_token)
 
         if os.path.abspath(file_path) != self.current_file_path:
+            self._nav_history.clear()
+            self.btn_back.set_visible(False)
             self.load_file(file_path)
 
         self.present()
@@ -492,6 +529,28 @@ class PreviewWindow(Adw.ApplicationWindow):
                 self._sync_search_card()
                 return True
             return False
+
+        if is_alt and not is_ctrl and not is_super and keyval == Gdk.KEY_Left:
+            if not self._focus_is_editable() and self.navigate_back():
+                return True
+
+        if (
+            is_ctrl
+            and not bool(state & Gdk.ModifierType.SHIFT_MASK)
+            and not is_alt
+            and not is_super
+            and keyval in (Gdk.KEY_c, Gdk.KEY_C)
+        ):
+            if self._focus_is_editable():
+                return False
+            has_lines = getattr(self.current_viewer, "has_line_selection", None)
+            copier = getattr(self.current_viewer, "copy_selected_lines", None)
+            if callable(has_lines) and callable(copier):
+                try:
+                    if has_lines() and copier(reference=False):
+                        return True
+                except Exception:
+                    log.debug("Could not copy selected lines", exc_info=True)
 
         if (
             is_ctrl

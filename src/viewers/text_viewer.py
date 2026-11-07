@@ -420,6 +420,7 @@ class TextViewer(Gtk.Box):
         self._quote_anchor = None
         self._quote_cursor = None
         self._quote_drag_start_y = 0.0
+        self._pending_line_range = None
 
         # Every load gets a generation; results from an older generation are
         # discarded. Reads above TEXT_ASYNC_READ_THRESHOLD run on a worker.
@@ -763,6 +764,25 @@ class TextViewer(Gtk.Box):
             )
 
         self.gutter.queue_draw()
+        if self._pending_line_range is not None:
+            first_line, last_line = self._pending_line_range
+            self._pending_line_range = None
+            self.focus_line_range(first_line, last_line)
+
+    def focus_line_range(self, first_line: int, last_line: int | None = None) -> None:
+        """Highlight and scroll to a 1-based line range after opening from a link."""
+        lo = max(1, int(first_line))
+        hi = max(lo, int(last_line or first_line))
+        if not self.displayed_content:
+            self._pending_line_range = (lo, hi)
+            return
+        self._set_quote_range(lo - 1, hi - 1)
+        def _scroll_to_line():
+            it = self._iter_at_line(lo - 1)
+            self.text_view.scroll_to_iter(it, 0.15, True, 0.0, 0.2)
+            self.gutter.queue_draw()
+            return False
+        GLib.idle_add(_scroll_to_line)
 
     def draw_line_numbers(self, area, cr, width, height):
         dark = is_dark_theme()
