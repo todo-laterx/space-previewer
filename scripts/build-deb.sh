@@ -68,6 +68,10 @@ exec /usr/bin/python3 /usr/share/space-previewer/main.py "$@"
 EOF
 chmod 0755 "$PKG_DIR/usr/bin/space-previewer"
 
+# Dolphin discovers system service menus directly; no per-user hooks are needed.
+install -Dm644 "$DIR/data/space-previewer.desktop" \
+    "$PKG_DIR/usr/share/kio/servicemenus/space-previewer.desktop"
+
 # 4. Install D-Bus activation service
 cat > "$PKG_DIR/usr/share/dbus-1/services/org.gnome.NautilusPreviewer.service" <<'EOF'
 [D-BUS Service]
@@ -81,6 +85,8 @@ cp "$DIR/assets/logo-512.png" "$PKG_DIR/usr/share/icons/hicolor/512x512/apps/spa
 chmod 0644 "$PKG_DIR/usr/share/icons/hicolor/512x512/apps/space-previewer.png"
 
 cp "$DIR/LICENSE" "$DIR/TRADEMARK.md" "$DIR/README.md" "$PKG_DIR/usr/share/doc/space-previewer/"
+cp "$DIR/docs/DOLPHIN.md" "$PKG_DIR/usr/share/doc/space-previewer/"
+cp "$DIR/docs/INTEGRATIONS.md" "$PKG_DIR/usr/share/doc/space-previewer/"
 chmod 0644 "$PKG_DIR/usr/share/doc/space-previewer/"*
 
 # 6. Create DEBIAN/control
@@ -93,12 +99,13 @@ Architecture: ${ARCH}
 Maintainer: Space Previewer Contributors <https://github.com/todo-laterx/space-previewer>
 Depends: python3, python3-gi, python3-gi-cairo, python3-cairo, gir1.2-gtk-4.0, gir1.2-adw-1, gir1.2-gdkpixbuf-2.0, gir1.2-pango-1.0, gir1.2-poppler-0.18, python3-pygments, python3-markdown-it
 Recommends: gir1.2-webkit-6.0, libwebkitgtk-6.0-4
-Description: Quick Look spacebar file previewer for GNOME / Nautilus
+Description: Quick Look file previewer for Nautilus and Dolphin
  Space Previewer is a fast, resizable GTK4 and Libadwaita file previewer
  driven over D-Bus by GNOME Files (Nautilus). It previews Markdown with
  in-preview search and Mermaid diagrams, syntax-highlighted code with
  line-range reference copying, continuous fit-width PDFs, Office documents,
  CSV/TSV tables, archives, images, fonts, audio, video, and folders.
+ A Dolphin context-menu action opens local files in standalone mode.
 EOF
 
 # 7. Divert gnome-sushi's D-Bus service cleanly in preinst / postrm

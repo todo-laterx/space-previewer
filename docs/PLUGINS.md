@@ -63,7 +63,7 @@ Rules the built-in viewers follow and plugins should copy:
 
 - Do not resize, move or close the window. Return your preferred size and let the window
   decide.
-- Do not emit D-Bus signals. `PreviewWindow` and `main.py` own the Nautilus contract.
+- Do not emit D-Bus signals. `integrations/nautilus.py` owns the Nautilus contract.
 - Never block the main thread above 1 MB. Read large files in a worker thread and return
   through `GLib.idle_add`, with a generation counter so a stale result is discarded.
 - Cancel every timer, thread and network request in `teardown()`. The previous viewer is

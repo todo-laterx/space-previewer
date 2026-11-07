@@ -54,7 +54,7 @@ keyboard path (`Space`, arrows, `Esc`, `Ctrl+F`, `F`/`F11`, `O`, `P`, `F2`, `Del
 ## What a good change looks like
 
 - One topic per pull request. Refactors and behavior changes do not share a commit.
-- The D-Bus contract in `src/main.py` is changed only with a matching change in the
+- The D-Bus contract in `src/integrations/nautilus.py` is changed only with a matching change in the
   `window.py` handlers and a note about the Nautilus version.
 - New viewers implement `get_desired_size(screen_w, screen_h)` and `teardown()`, expose at
   most 3 header controls via `get_header_controls()` and one-line metadata via
@@ -84,6 +84,10 @@ Reviewers should check correctness first: contract breaks, leaks, missing cancel
 unbounded parsing, stale state. Style comments come last.
 
 ## Plugins
+
+File-manager adapters are separate from viewer plugins; see
+[the integration contract](docs/INTEGRATIONS.md). Keep protocol code out of the
+preview core and advertise supported actions through adapter capabilities.
 
 Third-party viewers live in `~/.local/share/space-previewer/plugins/1` and run in-process
 with full user permissions. There is no sandbox. The module and viewer contract, matching

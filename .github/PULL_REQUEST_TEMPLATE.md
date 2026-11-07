@@ -15,7 +15,7 @@
 - [ ] No hardcoded UI string; `.pot` and `po/vi.po` updated if strings changed
 - [ ] New async path takes a `Gio.Cancellable` and is cancelled on file change
 - [ ] New viewer implements `get_desired_size`, `teardown` and declares input limits
-- [ ] D-Bus signatures in `src/main.py` still match Nautilus
+- [ ] D-Bus signatures in `src/integrations/nautilus.py` still match Nautilus
 - [ ] Manual matrix: Wayland and X11, light and dark, `en` and `vi`
 - [ ] Keyboard path: `Space`, arrows, `Esc`, `Ctrl+F`, `F`/`F11`, `O`, `P`, `F2`, `Del`
 - [ ] Screenshots attached for visual changes
