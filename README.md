@@ -4,10 +4,10 @@
 
 # Space Previewer
 
-**Quick Look spacebar file previewer for GNOME / Nautilus — fast, resizable, Libadwaita-native.**
+**Quick Look file previewer for Linux desktops — native GNOME / Nautilus spacebar integration, KDE Dolphin service menu, and standalone CLI, built with GTK4 + Libadwaita.**
 
 [![License: GPL-3.0](https://img.shields.io/badge/License-GPL--3.0-blue.svg)](LICENSE)
-[![Platform](https://img.shields.io/badge/Platform-GNOME%20Wayland%20%26%20X11-lightgrey.svg)](#tested-environments)
+[![Platform](https://img.shields.io/badge/Platform-GNOME%20%7C%20KDE%20%7C%20Wayland%20%26%20X11-lightgrey.svg)](#tested-environments)
 [![UI](https://img.shields.io/badge/UI-GTK4%20%2B%20Libadwaita-3867D6.svg)](#features)
 [![Version](https://img.shields.io/badge/Version-0.1.0-2ea44f.svg)](VERSION)
 
@@ -55,20 +55,21 @@
 
 ## Tested Environments
 
-| Distribution | Session | Packaging | Notes |
+| Distribution | Session / File Manager | Packaging | Notes |
 |---|---|---|---|
-| **Ubuntu 24.04 / 26.04+** | GNOME Wayland & X11 | `.deb` / `AppImage` / `./install.sh` | Full Nautilus D-Bus contract (`NautilusPreviewer2`) |
-| **Debian 12 / 13** | GNOME Wayland & X11 | `.deb` / `AppImage` / `./install.sh` | Clean `dpkg-divert` coexistence with `gnome-sushi` |
-| **Fedora 40+** | GNOME Wayland & X11 | `AppImage` / `./install.sh` | Native GTK4 + Libadwaita |
-| **Arch Linux / Manjaro** | GNOME Wayland & X11 | `AppImage` / `./install.sh` | Native GTK4 + Libadwaita |
+| **Ubuntu 22.04 / 24.04 / 26.04+** | GNOME (Nautilus) & KDE Plasma (Dolphin) | `.deb` / `AppImage` / `./install.sh` | Full Nautilus D-Bus contract (`NautilusPreviewer2`), `dpkg-divert` coexistence with `gnome-sushi`, and Dolphin service menu |
+| **Debian 12 / 13** | GNOME (Nautilus) & KDE Plasma (Dolphin) | `.deb` / `AppImage` / `./install.sh` | Clean `dpkg-divert` coexistence with `gnome-sushi` and Dolphin service menu |
+| **Fedora 40+** | GNOME (Nautilus) & KDE Spin (Dolphin) | `.rpm` / `AppImage` / `./install.sh` | Native `.noarch.rpm` with Nautilus D-Bus service and Dolphin service menu |
+| **Arch Linux / Manjaro** | GNOME (Nautilus) & KDE Plasma (Dolphin) | `AppImage` / `./install.sh` | Native GTK4 + Libadwaita runtime packages via `pacman` |
+| **openSUSE Tumbleweed / Leap** | GNOME (Nautilus) & KDE Plasma (Dolphin) | `AppImage` / `./install.sh` | Native GTK4 + Libadwaita runtime packages via `zypper` |
 
 ---
 
 ## Prerequisites
 
-Install the required GTK4, Libadwaita, and Poppler system packages for your distribution (handled automatically when installing the `.deb` package on Ubuntu/Debian).
+Install the required GTK4, Libadwaita, and Poppler system packages for your distribution (handled automatically when installing the `.deb` package on Ubuntu/Debian or the `.rpm` package on Fedora).
 
-### Ubuntu / Debian (22.04, 24.04+)
+### Ubuntu / Debian / Linux Mint (22.04, 24.04+)
 ```bash
 sudo apt update
 sudo apt install python3-gi python3-gi-cairo python3-cairo \
@@ -78,7 +79,7 @@ sudo apt install python3-gi python3-gi-cairo python3-cairo \
 
 Optional HTML preview: `sudo apt install gir1.2-webkit-6.0 libwebkitgtk-6.0-4`
 
-### Fedora
+### Fedora / RHEL 9+
 ```bash
 sudo dnf install python3-gobject python3-cairo gtk4 libadwaita poppler-glib \
   python3-pygments python3-markdown-it
@@ -86,7 +87,7 @@ sudo dnf install python3-gobject python3-cairo gtk4 libadwaita poppler-glib \
 
 Optional HTML preview: `sudo dnf install webkitgtk6.0`
 
-### Arch Linux / Manjaro
+### Arch Linux / Manjaro / EndeavourOS
 ```bash
 sudo pacman -S python-gobject python-cairo gtk4 libadwaita poppler-glib \
   python-pygments python-markdown-it
@@ -94,40 +95,41 @@ sudo pacman -S python-gobject python-cairo gtk4 libadwaita poppler-glib \
 
 Optional HTML preview: `sudo pacman -S webkitgtk-6.0`
 
+### openSUSE Tumbleweed / Leap
+```bash
+sudo zypper install python3-gobject python3-gobject-Gdk python3-gobject-cairo \
+  python3-cairo python3-Pygments python3-markdown-it-py \
+  typelib-1_0-Gtk-4_0 typelib-1_0-Adw-1 typelib-1_0-GdkPixbuf-2_0 \
+  typelib-1_0-Pango-1_0 typelib-1_0-Poppler-0_18
+```
+
+Optional HTML preview: `sudo zypper install typelib-1_0-WebKit-6_0`
+
 ---
 
 ## Installation
 
-### Dolphin / KDE
-
-The `.deb` and Fedora `.rpm` packages automatically install a Dolphin context-menu
-action for local files and folders. See [Dolphin installation](docs/DOLPHIN.md)
-for package commands and migration from a source install. Both formats include
-Nautilus integration. The Fedora RPM conflicts with `sushi` because they own
-the same D-Bus service; the `.deb` uses the existing Sushi service diversion.
-
-For a source checkout:
-
-An optional [Dolphin service menu](docs/DOLPHIN.md) opens a local file or folder
-in an independent preview window, without replacing the Nautilus/Sushi service:
-
-```bash
-python3 scripts/dolphin-service-menu.py
-```
-
-Install the runtime dependencies above first and keep the checkout in place.
-This provides a context-menu action; Space activation and selection tracking
-inside Dolphin are not implemented yet.
-
-### Option 1: Debian / Ubuntu package (`.deb`)
+### Option 1: Debian / Ubuntu / Kubuntu package (`.deb`)
 
 ```bash
 sudo apt install ./dist/space-previewer_0.1.0_amd64.deb
 ```
 
-The `.deb` package uses `dpkg-divert` on `org.gnome.NautilusPreviewer.service`, so it installs cleanly alongside `gnome-sushi` and restores `gnome-sushi` automatically on removal (`sudo apt remove space-previewer`).
+The `.deb` package installs both the Nautilus D-Bus preview service and the KDE Dolphin context-menu action (`/usr/share/kio/servicemenus/space-previewer.desktop`). It uses `dpkg-divert` on `org.gnome.NautilusPreviewer.service`, so it installs cleanly alongside `gnome-sushi` and restores `gnome-sushi` automatically on removal (`sudo apt remove space-previewer`).
 
-### Option 2: Portable `AppImage`
+### Option 2: Fedora / RHEL package (`.rpm`)
+
+```bash
+sudo dnf install ./dist/space-previewer-0.1.0-1.noarch.rpm
+```
+
+The `.rpm` package installs both the Nautilus D-Bus preview service and the KDE Dolphin context-menu action. Because RPM does not provide `dpkg-divert` and both packages own `/usr/share/dbus-1/services/org.gnome.NautilusPreviewer.service`, the RPM declares `Conflicts: sushi`. On Fedora Workstation where `sushi` is preinstalled, pass `--allowerasing`:
+
+```bash
+sudo dnf install --allowerasing ./dist/space-previewer-0.1.0-1.noarch.rpm
+```
+
+### Option 3: Portable `AppImage` (`x86_64`)
 
 ```bash
 chmod +x ./dist/Space-Previewer-0.1.0-x86_64.AppImage
@@ -140,7 +142,7 @@ To unregister the AppImage D-Bus service:
 ./dist/Space-Previewer-0.1.0-x86_64.AppImage --uninstall
 ```
 
-### Option 3: User-level source install (no root required)
+### Option 4: User-level source install (no root required)
 
 Check dependencies first:
 
@@ -148,7 +150,7 @@ Check dependencies first:
 ./install.sh --check-deps
 ```
 
-Then install for the current user:
+Then install for the current user (Nautilus D-Bus service + `~/.local/bin/space-previewer` CLI):
 
 ```bash
 chmod +x install.sh uninstall.sh
@@ -164,32 +166,41 @@ and reloads Nautilus. To uninstall:
 ./uninstall.sh
 ```
 
+### Dolphin / KDE Plasma Service Menu (from source checkout)
+
+If you use KDE Dolphin without installing the `.deb` or `.rpm` package, you can install a per-user Dolphin service menu that opens any local file or folder in standalone mode (`--standalone`), without touching the Nautilus/Sushi D-Bus service:
+
+```bash
+python3 scripts/dolphin-service-menu.py
+```
+
+To remove the per-user Dolphin menu:
+
+```bash
+python3 scripts/dolphin-service-menu.py --uninstall
+```
+
+See [docs/DOLPHIN.md](docs/DOLPHIN.md) for full details on Dolphin integration and migration between source and package installs.
+
 ---
 
 ## Building Packages from Source
 
-For the shared preview core and file-manager adapter design, see
-[File-manager integrations](docs/INTEGRATIONS.md).
+For the shared preview core and file-manager adapter architecture, see
+[docs/INTEGRATIONS.md](docs/INTEGRATIONS.md).
 
-Build a Fedora RPM with `rpm-build` and `gettext` installed:
+Build the `.deb`, Fedora `.rpm`, and `AppImage` artifacts into `dist/` (with unified checksums in `dist/SHA256SUMS`):
 
 ```bash
+bash scripts/build-deb.sh
 bash scripts/build-rpm.sh
+bash scripts/build-appimage.sh
 ```
 
-Package payload tests (requires `dpkg-deb`, `rpmbuild`, `rpm`, `rpm2cpio`,
-`cpio`, and `msgfmt`):
+Run the package payload and metadata test suite (requires `dpkg-deb`, `rpmbuild`, `rpm`, `rpm2cpio`, `cpio`, and `msgfmt`):
 
 ```bash
 python3 -m unittest discover -s tests -p 'test_packages.py' -v
-```
-
-Build the `.deb` and `AppImage` artifacts into `dist/`:
-
-```bash
-chmod +x scripts/build-deb.sh scripts/build-appimage.sh
-./scripts/build-deb.sh
-./scripts/build-appimage.sh
 ```
 
 ---
@@ -206,12 +217,12 @@ chmod +x scripts/build-deb.sh scripts/build-appimage.sh
 - **`F`** or **`F11`**: Toggle fullscreen.
 - **`O`**: Open the file with the default application.
 - **`P`**: Play or pause audio and video.
-- **`F2`**: Close the preview and start renaming in Files.
-- **`Delete`**: Move the file to the trash from Files.
 - **`PageUp` / `PageDown`** (PDF): Previous or next page, animated.
 - **`Home` / `End`** (PDF): First or last page.
-- **`Up` / `Down` / `Left` / `Right`**: Move the selection in Files; the preview follows.
 - **`Ctrl + Scroll`** (images): Zoom in and out.
+- **`Up` / `Down` / `Left` / `Right`** *(Nautilus integration)*: Move the selection in Files; the preview follows.
+- **`F2`** *(Nautilus integration)*: Close the preview and start renaming in Files.
+- **`Delete`** *(Nautilus integration)*: Move the file to the trash from Files.
 
 ---
 

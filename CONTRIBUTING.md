@@ -1,50 +1,67 @@
 # Contributing to Space Previewer
 
-Thanks for taking the time to contribute. This project is a GTK4/Libadwaita previewer that
-implements the Nautilus preview D-Bus contract, so correctness matters more than novelty.
+Thanks for taking the time to contribute. This project is a GTK4/Libadwaita file previewer with a shared viewer core and pluggable file-manager adapters (Nautilus D-Bus activation, KDE Dolphin service menu, and standalone CLI), so correctness and resource hygiene matter more than novelty.
 
 ## Before you start
 
-- Read `README.md` for supported types and install steps.
+- Read `README.md` for supported types, distributions, and install steps.
+- Read `docs/INTEGRATIONS.md` for the file-manager adapter architecture.
 - Read `SECURITY.md` for the parser input limits and network policy.
 - For anything larger than a bug fix, open an issue first and describe the user journey.
 
 ## Development setup
 
-Runtime dependencies are system packages, not pip packages, because the daemon runs under
-`/usr/bin/python3`:
+Runtime dependencies are system packages, not pip packages, because the application runs under `/usr/bin/python3`. Check missing dependencies on your distribution (`apt`, `dnf`, `pacman`) with:
 
+```bash
+./install.sh --check-deps
+```
+
+On Ubuntu / Debian:
 ```bash
 sudo apt install python3-gi python3-gi-cairo python3-cairo \
   gir1.2-gtk-4.0 gir1.2-adw-1 gir1.2-gdkpixbuf-2.0 gir1.2-pango-1.0 \
   gir1.2-poppler-0.18 python3-pygments python3-markdown-it
 ```
 
-Optional: `gir1.2-webkit-6.0` and `libwebkitgtk-6.0-4` for the HTML viewer.
-Per-distro names are in the README matrix.
-
-Run the app without installing the daemon:
-
+On Fedora:
 ```bash
-python3 src/main.py /path/to/a/file
+sudo dnf install python3-gobject python3-cairo gtk4 libadwaita poppler-glib \
+  python3-pygments python3-markdown-it
 ```
 
-Install and uninstall the daemon:
+On Arch Linux / Manjaro:
+```bash
+sudo pacman -S python-gobject python-cairo gtk4 libadwaita poppler-glib \
+  python-pygments python-markdown-it
+```
+
+Optional HTML viewer package: `gir1.2-webkit-6.0 libwebkitgtk-6.0-4` (`apt`), `webkitgtk6.0` (`dnf`), or `webkitgtk-6.0` (`pacman`).
+
+Run the app in standalone mode without installing the D-Bus service:
+
+```bash
+python3 src/main.py --standalone /path/to/a/file
+```
+
+Install and uninstall the per-user daemon and CLI:
 
 ```bash
 ./install.sh
 ./uninstall.sh
 ```
 
-`install.sh` shadows the Sushi D-Bus service from the user data directory and does not need
-root. It terminates a running Sushi so the bus name can be taken over.
+`install.sh` shadows the Sushi D-Bus service from the user data directory and does not need root. It terminates a running Sushi so the bus name can be taken over.
 
 ## Checks before opening a pull request
 
 ```bash
 python3 -m compileall src
 pytest -q
-bash -n install.sh uninstall.sh
+/usr/bin/python3 -m unittest discover -s tests -p 'test_integrations.py' -v
+/usr/bin/python3 -m unittest discover -s tests -p 'test_dolphin.py' -v
+/usr/bin/python3 -m unittest discover -s tests -p 'test_packages.py' -v
+bash -n install.sh uninstall.sh scripts/build-deb.sh scripts/build-appimage.sh scripts/build-rpm.sh scripts/write-checksums.sh
 msgfmt --check po/*.po
 ```
 
