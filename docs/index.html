@@ -1,0 +1,1529 @@
+<!DOCTYPE html>
+<html lang="en" class="dark">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Space Previewer — Instant Quick Look File Previewer for Linux Desktops</title>
+  <meta name="description" content="Press Space to peek into any file on Linux. Native GTK4 + Libadwaita Quick Look previewer for GNOME Nautilus, KDE Dolphin, and Cinnamon Nemo with GFM + Mermaid, IDE semantic code highlighting, click-to-preview links, PDF, and Office support." />
+
+  <!-- OpenGraph / Social Preview -->
+  <meta property="og:type" content="website" />
+  <meta property="og:title" content="Space Previewer — Press Space. Peek Everything." />
+  <meta property="og:description" content="Instant Quick Look file previewer for Linux desktops. Rendered GFM + Cairo Mermaid, IDE semantic code highlighting, click-to-preview file pills, continuous PDF, and zero-dependency Office & archive views." />
+  <meta property="og:image" content="https://todo-laterx.github.io/space-previewer/assets/og-preview.png" />
+  <meta property="og:url" content="https://todo-laterx.github.io/space-previewer/" />
+  <meta name="twitter:card" content="summary_large_image" />
+  <meta name="twitter:title" content="Space Previewer — Instant Quick Look for Linux" />
+  <meta name="twitter:description" content="Native GTK4 + Libadwaita spacebar previewer for GNOME, KDE Plasma, and Cinnamon." />
+  <meta name="twitter:image" content="https://todo-laterx.github.io/space-previewer/assets/og-preview.png" />
+
+  <link rel="icon" type="image/webp" href="assets/logo.webp" />
+  <link rel="apple-touch-icon" href="assets/logo-512.png" />
+
+  <!-- Google Fonts: Plus Jakarta Sans + JetBrains Mono -->
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:ital,wght@0,400;0,500;0,600;0,700;1,400&family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
+
+  <style>
+    :root {
+      --bg-obsidian: #07090E;
+      --bg-slate: #0C1018;
+      --bg-card: #121722;
+      --bg-card-elevated: #171D2B;
+      --bg-pill: #1E222A;
+      --border-hairline: rgba(255, 255, 255, 0.08);
+      --border-strong: rgba(255, 255, 255, 0.14);
+      --border-accent: rgba(121, 192, 255, 0.36);
+      --specular-top: inset 0 1px 0 rgba(255, 255, 255, 0.12);
+      --text-primary: #F8FAFC;
+      --text-secondary: #94A3B8;
+      --text-muted: #64748B;
+      --accent-cobalt: #3867D6;
+      --accent-cobalt-hover: #4576E8;
+      --accent-ice: #79C0FF;
+      --accent-emerald: #2EA44F;
+      --ease-spring: cubic-bezier(0.32, 0.72, 0, 1);
+      --font-sans: 'Plus Jakarta Sans', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+      --font-mono: 'JetBrains Mono', ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+    }
+
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+
+    html {
+      scroll-behavior: smooth;
+      background-color: var(--bg-obsidian);
+      color: var(--text-primary);
+      font-family: var(--font-sans);
+      -webkit-font-smoothing: antialiased;
+      -moz-osx-font-smoothing: grayscale;
+    }
+
+    body {
+      background-color: var(--bg-obsidian);
+      background-image:
+        radial-gradient(ellipse 80% 50% at 50% -10%, rgba(56, 103, 214, 0.18), transparent 70%),
+        linear-gradient(to bottom, rgba(255, 255, 255, 0.018) 1px, transparent 1px),
+        linear-gradient(to right, rgba(255, 255, 255, 0.018) 1px, transparent 1px);
+      background-size: 100% 100%, 40px 40px, 40px 40px;
+      overflow-x: hidden;
+      line-height: 1.6;
+    }
+
+    a {
+      color: inherit;
+      text-decoration: none;
+    }
+
+    code, pre, kbd {
+      font-family: var(--font-mono);
+      font-variant-numeric: tabular-nums;
+    }
+
+    .container {
+      width: 100%;
+      max-width: 1280px;
+      margin: 0 auto;
+      padding: 0 24px;
+    }
+
+    /* Double-Bezel Hardware Card Architecture */
+    .double-bezel {
+      background: rgba(255, 255, 255, 0.025);
+      border: 1px solid var(--border-hairline);
+      border-radius: 24px;
+      padding: 6px;
+      box-shadow: 0 24px 60px -16px rgba(0, 0, 0, 0.65);
+      transition: transform 0.45s var(--ease-spring), border-color 0.35s var(--ease-spring);
+    }
+
+    .double-bezel-inner {
+      background: var(--bg-card);
+      border: 1px solid rgba(255, 255, 255, 0.07);
+      border-radius: 18px;
+      box-shadow: var(--specular-top);
+      overflow: hidden;
+      height: 100%;
+    }
+
+    /* Floating Glass Pill Navbar */
+    .navbar-wrap {
+      position: fixed;
+      top: 18px;
+      left: 0;
+      right: 0;
+      z-index: 100;
+      display: flex;
+      justify-content: center;
+      padding: 0 16px;
+      pointer-events: none;
+    }
+
+    .navbar {
+      pointer-events: auto;
+      display: flex;
+      align-items: center;
+      gap: 28px;
+      padding: 8px 10px 8px 16px;
+      background: rgba(12, 16, 24, 0.78);
+      backdrop-filter: blur(18px);
+      -webkit-backdrop-filter: blur(18px);
+      border: 1px solid rgba(255, 255, 255, 0.11);
+      border-radius: 999px;
+      box-shadow: 0 16px 40px -10px rgba(0, 0, 0, 0.6), var(--specular-top);
+    }
+
+    .nav-brand {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      font-weight: 700;
+      font-size: 0.95rem;
+      letter-spacing: -0.02em;
+      color: var(--text-primary);
+    }
+
+    .nav-brand img {
+      width: 28px;
+      height: 28px;
+      border-radius: 7px;
+    }
+
+    .nav-links {
+      display: flex;
+      align-items: center;
+      gap: 22px;
+      font-size: 0.875rem;
+      font-weight: 500;
+      color: var(--text-secondary);
+    }
+
+    .nav-links a {
+      transition: color 0.25s var(--ease-spring);
+    }
+
+    .nav-links a:hover {
+      color: var(--text-primary);
+    }
+
+    .nav-actions {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .lang-switch {
+      display: inline-flex;
+      align-items: center;
+      background: rgba(255, 255, 255, 0.05);
+      border: 1px solid var(--border-hairline);
+      border-radius: 999px;
+      padding: 2px;
+      font-family: var(--font-mono);
+      font-size: 0.74rem;
+      font-weight: 600;
+    }
+
+    .lang-btn {
+      border: none;
+      background: transparent;
+      color: var(--text-secondary);
+      padding: 4px 10px;
+      border-radius: 999px;
+      cursor: pointer;
+      font-family: inherit;
+      font-size: inherit;
+      font-weight: inherit;
+      transition: all 0.25s var(--ease-spring);
+    }
+
+    .lang-btn.active {
+      background: var(--accent-cobalt);
+      color: #FFFFFF;
+      box-shadow: 0 2px 8px rgba(56, 103, 214, 0.45);
+    }
+
+    .btn-nav-cta {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      background: var(--accent-cobalt);
+      color: #FFFFFF;
+      font-size: 0.84rem;
+      font-weight: 600;
+      padding: 7px 14px;
+      border-radius: 999px;
+      box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.22);
+      transition: transform 0.25s var(--ease-spring), background 0.25s var(--ease-spring);
+    }
+
+    .btn-nav-cta:hover {
+      background: var(--accent-cobalt-hover);
+      transform: translateY(-1px);
+    }
+
+    /* 100dvh Split/Stage Hero */
+    .hero {
+      min-height: min(100dvh, 920px);
+      padding-top: 108px;
+      padding-bottom: 56px;
+      display: flex;
+      align-items: center;
+    }
+
+    .hero-grid {
+      display: grid;
+      grid-template-columns: 5.2fr 6.8fr;
+      gap: 40px;
+      align-items: center;
+    }
+
+    .version-pill {
+      display: inline-flex;
+      align-items: center;
+      gap: 10px;
+      padding: 6px 14px;
+      border-radius: 999px;
+      background: rgba(56, 103, 214, 0.14);
+      border: 1px solid var(--border-accent);
+      color: var(--accent-ice);
+      font-family: var(--font-mono);
+      font-size: 0.78rem;
+      font-weight: 600;
+      margin-bottom: 22px;
+    }
+
+    .version-dot {
+      width: 7px;
+      height: 7px;
+      border-radius: 50%;
+      background: #3FB950;
+      box-shadow: 0 0 10px #3FB950;
+    }
+
+    .hero-title {
+      font-size: clamp(2.25rem, 3.35vw, 3.25rem);
+      font-weight: 800;
+      line-height: 1.08;
+      letter-spacing: -0.036em;
+      margin-bottom: 20px;
+    }
+
+    .hero-title .accent-line {
+      display: block;
+      background: linear-gradient(92deg, #FFFFFF 0%, #99C8FF 52%, #528BFF 100%);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+    }
+
+    .hero-sub {
+      font-size: 1.08rem;
+      color: var(--text-secondary);
+      line-height: 1.62;
+      max-width: 50ch;
+      margin-bottom: 28px;
+    }
+
+    .hero-cta-row {
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      gap: 12px;
+      margin-bottom: 22px;
+    }
+
+    /* Button-in-Button Primary CTA */
+    .btn-primary {
+      display: inline-flex;
+      align-items: center;
+      gap: 12px;
+      background: var(--accent-cobalt);
+      color: #FFFFFF;
+      font-weight: 600;
+      font-size: 0.95rem;
+      padding: 8px 10px 8px 20px;
+      border-radius: 999px;
+      border: 1px solid rgba(255, 255, 255, 0.18);
+      box-shadow: 0 14px 32px -8px rgba(56, 103, 214, 0.55), inset 0 1px 0 rgba(255, 255, 255, 0.25);
+      transition: transform 0.3s var(--ease-spring), background 0.3s var(--ease-spring);
+    }
+
+    .btn-primary:hover {
+      background: var(--accent-cobalt-hover);
+      transform: translateY(-2px);
+    }
+
+    .btn-primary-icon {
+      width: 32px;
+      height: 32px;
+      border-radius: 50%;
+      background: rgba(255, 255, 255, 0.16);
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      transition: transform 0.3s var(--ease-spring);
+    }
+
+    .btn-primary:hover .btn-primary-icon {
+      transform: translateX(2px);
+    }
+
+    .btn-secondary {
+      display: inline-flex;
+      align-items: center;
+      gap: 10px;
+      background: rgba(255, 255, 255, 0.04);
+      color: var(--text-primary);
+      font-weight: 600;
+      font-size: 0.95rem;
+      padding: 13px 20px;
+      border-radius: 999px;
+      border: 1px solid var(--border-strong);
+      transition: background 0.25s var(--ease-spring), transform 0.25s var(--ease-spring);
+    }
+
+    .btn-secondary:hover {
+      background: rgba(255, 255, 255, 0.08);
+      transform: translateY(-1px);
+    }
+
+    /* Quick Terminal Copy Strip */
+    .quick-cmd {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+      background: #0D1119;
+      border: 1px solid var(--border-hairline);
+      border-radius: 14px;
+      padding: 10px 14px;
+      max-width: 480px;
+      box-shadow: var(--specular-top);
+    }
+
+    .quick-cmd code {
+      font-size: 0.81rem;
+      color: var(--accent-ice);
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
+    .quick-cmd .prompt {
+      color: var(--text-muted);
+      user-select: none;
+      margin-right: 8px;
+    }
+
+    .copy-chip {
+      background: rgba(255, 255, 255, 0.06);
+      border: 1px solid var(--border-hairline);
+      color: var(--text-primary);
+      font-family: var(--font-mono);
+      font-size: 0.75rem;
+      font-weight: 600;
+      padding: 5px 10px;
+      border-radius: 8px;
+      cursor: pointer;
+      flex-shrink: 0;
+      transition: all 0.2s var(--ease-spring);
+    }
+
+    .copy-chip:hover {
+      background: var(--accent-cobalt);
+      border-color: var(--accent-ice);
+    }
+
+    .hero-stage {
+      position: relative;
+    }
+
+    .hero-stage img {
+      display: block;
+      width: 100%;
+      height: auto;
+      border-radius: 16px;
+    }
+
+    .stage-caption {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 12px 16px 6px;
+      font-family: var(--font-mono);
+      font-size: 0.76rem;
+      color: var(--text-secondary);
+    }
+
+    .kbd-badge {
+      display: inline-flex;
+      align-items: center;
+      padding: 2px 8px;
+      border-radius: 6px;
+      background: var(--bg-pill);
+      border: 1px solid rgba(121, 192, 255, 0.28);
+      color: var(--accent-ice);
+      font-family: var(--font-mono);
+      font-size: 0.76rem;
+      font-weight: 600;
+    }
+
+    /* Section Spacing & Headers */
+    section {
+      padding: 108px 0;
+      border-top: 1px solid rgba(255, 255, 255, 0.05);
+    }
+
+    .section-header {
+      max-width: 680px;
+      margin-bottom: 52px;
+    }
+
+    .section-eyebrow {
+      display: inline-block;
+      font-family: var(--font-mono);
+      font-size: 0.76rem;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.11em;
+      color: var(--accent-ice);
+      margin-bottom: 12px;
+    }
+
+    .section-title {
+      font-size: clamp(2rem, 3.3vw, 2.85rem);
+      font-weight: 800;
+      letter-spacing: -0.032em;
+      line-height: 1.12;
+      margin-bottom: 14px;
+    }
+
+    .section-desc {
+      font-size: 1.05rem;
+      color: var(--text-secondary);
+    }
+
+    /* Interactive Format Switcher */
+    .showcase-tabs {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+      margin-bottom: 24px;
+    }
+
+    .showcase-tab {
+      display: inline-flex;
+      align-items: center;
+      gap: 9px;
+      padding: 11px 18px;
+      border-radius: 14px;
+      background: rgba(255, 255, 255, 0.03);
+      border: 1px solid var(--border-hairline);
+      color: var(--text-secondary);
+      font-family: var(--font-sans);
+      font-size: 0.9rem;
+      font-weight: 600;
+      cursor: pointer;
+      transition: all 0.3s var(--ease-spring);
+    }
+
+    .showcase-tab:hover {
+      color: var(--text-primary);
+      background: rgba(255, 255, 255, 0.06);
+    }
+
+    .showcase-tab.active {
+      background: rgba(56, 103, 214, 0.18);
+      border-color: var(--accent-ice);
+      color: #FFFFFF;
+      box-shadow: 0 8px 24px -6px rgba(56, 103, 214, 0.4);
+    }
+
+    .showcase-panel {
+      display: grid;
+      grid-template-columns: 8fr 4fr;
+      gap: 28px;
+      align-items: stretch;
+    }
+
+    .showcase-viewport img {
+      width: 100%;
+      height: auto;
+      display: block;
+      border-radius: 16px;
+    }
+
+    .showcase-info {
+      padding: 32px 28px;
+      display: flex;
+      flex-direction: column;
+      justify-content: space-between;
+    }
+
+    .showcase-info h3 {
+      font-size: 1.45rem;
+      font-weight: 700;
+      letter-spacing: -0.025em;
+      margin-bottom: 12px;
+    }
+
+    .showcase-info p {
+      color: var(--text-secondary);
+      font-size: 0.96rem;
+      margin-bottom: 22px;
+    }
+
+    .feature-StatusList {
+      list-style: none;
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+    }
+
+    .feature-StatusList li {
+      display: flex;
+      align-items: flex-start;
+      gap: 10px;
+      font-size: 0.89rem;
+      color: #CBD5E1;
+    }
+
+    .bullet-dot {
+      width: 18px;
+      height: 18px;
+      border-radius: 6px;
+      background: rgba(56, 103, 214, 0.22);
+      border: 1px solid var(--border-accent);
+      color: var(--accent-ice);
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      font-family: var(--font-mono);
+      font-size: 0.7rem;
+      flex-shrink: 0;
+      margin-top: 3px;
+    }
+
+    /* Asymmetric 12-Col Bento Grid */
+    .bento-grid {
+      display: grid;
+      grid-template-columns: repeat(12, 1fr);
+      gap: 20px;
+    }
+
+    .bento-span-7 {
+      grid-column: span 7;
+    }
+
+    .bento-span-5 {
+      grid-column: span 5;
+    }
+
+    .bento-card-body {
+      padding: 32px;
+      display: flex;
+      flex-direction: column;
+      justify-content: space-between;
+      gap: 24px;
+    }
+
+    .bento-card-body h3 {
+      font-size: 1.35rem;
+      font-weight: 700;
+      letter-spacing: -0.02em;
+      margin-bottom: 8px;
+    }
+
+    .bento-card-body p {
+      color: var(--text-secondary);
+      font-size: 0.95rem;
+    }
+
+    .bento-visual {
+      background: #0A0E16;
+      border: 1px solid var(--border-hairline);
+      border-radius: 14px;
+      padding: 20px;
+      font-family: var(--font-mono);
+      font-size: 0.82rem;
+    }
+
+    .pill-demo-row {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 10px;
+      align-items: center;
+    }
+
+    .ag-code-pill {
+      display: inline-flex;
+      align-items: center;
+      gap: 7px;
+      background: #1E222A;
+      border: 1px solid rgba(121, 192, 255, 0.22);
+      color: #79C0FF;
+      padding: 5px 11px;
+      border-radius: 7px;
+      font-family: var(--font-mono);
+      font-size: 0.8rem;
+      font-weight: 500;
+    }
+
+    .ag-dot-py { color: #3FB950; }
+    .ag-dot-rs { color: #FF7B72; }
+    .ag-dot-js { color: #F2CC60; }
+    .ag-dot-sh { color: #7EE787; }
+
+    .bounds-grid {
+      display: grid;
+      grid-template-columns: repeat(2, 1fr);
+      gap: 10px;
+    }
+
+    .bound-metric {
+      background: rgba(255, 255, 255, 0.025);
+      border: 1px solid var(--border-hairline);
+      border-radius: 10px;
+      padding: 12px 14px;
+    }
+
+    .bound-metric strong {
+      display: block;
+      font-size: 1.15rem;
+      color: var(--accent-ice);
+      font-family: var(--font-mono);
+    }
+
+    .bound-metric span {
+      font-size: 0.76rem;
+      color: var(--text-secondary);
+    }
+
+    /* Neutral Comparison Table */
+    .table-scroll {
+      overflow-x: auto;
+    }
+
+    .compare-table {
+      width: 100%;
+      border-collapse: collapse;
+      text-align: left;
+      font-size: 0.93rem;
+    }
+
+    .compare-table th,
+    .compare-table td {
+      padding: 18px 22px;
+      border-bottom: 1px solid var(--border-hairline);
+    }
+
+    .compare-table th {
+      font-size: 0.82rem;
+      font-family: var(--font-mono);
+      text-transform: uppercase;
+      letter-spacing: 0.06em;
+      color: var(--text-secondary);
+      background: rgba(255, 255, 255, 0.02);
+    }
+
+    .compare-table th.col-sp,
+    .compare-table td.col-sp {
+      background: rgba(56, 103, 214, 0.08);
+      border-left: 1px solid rgba(121, 192, 255, 0.2);
+    }
+
+    .compare-table th.col-sp {
+      color: var(--accent-ice);
+    }
+
+    .compare-table td.col-other {
+      color: var(--text-muted);
+    }
+
+    /* Distro Install Matrix */
+    .distro-tabs {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+      margin-bottom: 20px;
+    }
+
+    .distro-btn {
+      padding: 10px 16px;
+      border-radius: 12px;
+      background: rgba(255, 255, 255, 0.03);
+      border: 1px solid var(--border-hairline);
+      color: var(--text-secondary);
+      font-family: var(--font-sans);
+      font-size: 0.88rem;
+      font-weight: 600;
+      cursor: pointer;
+      transition: all 0.25s var(--ease-spring);
+    }
+
+    .distro-btn.active {
+      background: var(--accent-cobalt);
+      border-color: var(--accent-ice);
+      color: #FFFFFF;
+    }
+
+    .terminal-card {
+      padding: 24px 28px;
+      background: #0A0D14;
+      font-family: var(--font-mono);
+    }
+
+    .terminal-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 16px;
+      padding-bottom: 12px;
+      border-bottom: 1px solid var(--border-hairline);
+      font-size: 0.78rem;
+      color: var(--text-secondary);
+    }
+
+    .terminal-dots {
+      display: flex;
+      gap: 7px;
+    }
+
+    .terminal-dots span {
+      width: 10px;
+      height: 10px;
+      border-radius: 50%;
+      background: rgba(255, 255, 255, 0.16);
+    }
+
+    .terminal-pre {
+      font-size: 0.88rem;
+      line-height: 1.7;
+      color: #E2E8F0;
+      overflow-x: auto;
+      white-space: pre;
+    }
+
+    .terminal-note {
+      margin-top: 14px;
+      font-family: var(--font-sans);
+      font-size: 0.86rem;
+      color: var(--text-secondary);
+    }
+
+    footer {
+      padding: 56px 0;
+      border-top: 1px solid var(--border-hairline);
+      color: var(--text-secondary);
+      font-size: 0.88rem;
+    }
+
+    .footer-inner {
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      justify-content: space-between;
+      gap: 20px;
+    }
+
+    .footer-links {
+      display: flex;
+      gap: 24px;
+    }
+
+    .footer-links a:hover {
+      color: var(--text-primary);
+    }
+
+    @media (max-width: 1024px) {
+      .hero-grid,
+      .showcase-panel {
+        grid-template-columns: 1fr;
+      }
+      .bento-span-7,
+      .bento-span-5 {
+        grid-column: span 12;
+      }
+      .nav-links {
+        display: none;
+      }
+    }
+  </style>
+</head>
+<body>
+
+  <!-- Floating Glass Pill Navigation -->
+  <div class="navbar-wrap">
+    <nav class="navbar" aria-label="Primary Navigation">
+      <a href="#" class="nav-brand">
+        <img src="assets/logo.webp" alt="Space Previewer" width="28" height="28" />
+        <span>Space Previewer</span>
+      </a>
+      <div class="nav-links">
+        <a href="#showcase" data-i18n="nav_showcase">Interactive Demo</a>
+        <a href="#architecture" data-i18n="nav_arch">Architecture</a>
+        <a href="#comparison" data-i18n="nav_compare">Comparison</a>
+        <a href="#install" data-i18n="nav_install">Install</a>
+        <a href="https://github.com/todo-laterx/space-previewer" target="_blank" rel="noopener">GitHub</a>
+      </div>
+      <div class="nav-actions">
+        <div class="lang-switch" role="group" aria-label="Language switcher">
+          <button type="button" class="lang-btn active" id="btn-lang-en" onclick="setLang('en')">EN</button>
+          <button type="button" class="lang-btn" id="btn-lang-vi" onclick="setLang('vi')">VI</button>
+        </div>
+        <a href="https://github.com/todo-laterx/space-previewer/releases/tag/v0.2.0" class="btn-nav-cta" target="_blank" rel="noopener">
+          <span data-i18n="nav_download">Download v0.2.0</span>
+        </a>
+      </div>
+    </nav>
+  </div>
+
+  <!-- 100dvh Split/Stage Hero -->
+  <header class="hero">
+    <div class="container">
+      <div class="hero-grid">
+        <div>
+          <div class="version-pill">
+            <span class="version-dot"></span>
+            <span data-i18n="hero_badge">v0.2.0 · GTK4 + Libadwaita · Wayland & X11</span>
+          </div>
+          <h1 class="hero-title">
+            <span data-i18n="hero_title_1">Press Space.</span>
+            <span class="accent-line" data-i18n="hero_title_2">Peek Everything.</span>
+          </h1>
+          <p class="hero-sub" data-i18n="hero_sub">
+            Instant Quick Look file previewer for Linux desktops. Rendered GFM with offline Cairo Mermaid diagrams, IDE semantic code highlighting, click-to-preview file links, continuous PDF, and zero-dependency Office & archive inspection.
+          </p>
+          <div class="hero-cta-row">
+            <a href="#install" class="btn-primary">
+              <span data-i18n="hero_cta_primary">Install v0.2.0</span>
+              <span class="btn-primary-icon" aria-hidden="true">→</span>
+            </a>
+            <a href="https://github.com/todo-laterx/space-previewer" target="_blank" rel="noopener" class="btn-secondary">
+              <span data-i18n="hero_cta_secondary">View on GitHub</span>
+            </a>
+          </div>
+          <div class="quick-cmd">
+            <code><span class="prompt">$</span><span id="hero-cmd-text">sudo apt install ./space-previewer_0.2.0_amd64.deb</span></code>
+            <button type="button" class="copy-chip" onclick="copyText('sudo apt install ./space-previewer_0.2.0_amd64.deb', this)" data-i18n="copy_btn">Copy</button>
+          </div>
+        </div>
+
+        <div class="hero-stage double-bezel">
+          <div class="double-bezel-inner">
+            <picture>
+              <source srcset="assets/hero-workflow.webp" type="image/webp" />
+              <img src="assets/hero-workflow.gif" alt="Space Previewer live workflow: Markdown + Mermaid preview, click file pill to jump to highlighted code, and Alt+Left back navigation" width="1180" height="760" />
+            </picture>
+            <div class="stage-caption">
+              <span><kbd class="kbd-badge">Space</kbd> <span data-i18n="stage_cap_left">Toggle Quick Look in Files</span></span>
+              <span><kbd class="kbd-badge">Alt + ←</kbd> <span data-i18n="stage_cap_right">Scroll-Memory Back Navigation</span></span>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </header>
+
+  <!-- Interactive Multi-Format Showcase -->
+  <section id="showcase">
+    <div class="container">
+      <div class="section-header">
+        <span class="section-eyebrow" data-i18n="sc_eyebrow">Interactive Format Switcher</span>
+        <h2 class="section-title" data-i18n="sc_title">One Chrome. Every Developer & Office Format.</h2>
+        <p class="section-desc" data-i18n="sc_desc">
+          A single Libadwaita header bar and unified bottom status bar across every viewer—from rendered Markdown and semantic code to continuous Poppler PDFs and streaming spreadsheets.
+        </p>
+      </div>
+
+      <div class="showcase-tabs" role="tablist">
+        <button type="button" class="showcase-tab active" onclick="switchShowcase(0)" id="sc-tab-0">
+          <span>01</span> <span data-i18n="tab_0">Markdown & Mermaid</span>
+        </button>
+        <button type="button" class="showcase-tab" onclick="switchShowcase(1)" id="sc-tab-1">
+          <span>02</span> <span data-i18n="tab_1">Click-to-Preview Links</span>
+        </button>
+        <button type="button" class="showcase-tab" onclick="switchShowcase(2)" id="sc-tab-2">
+          <span>03</span> <span data-i18n="tab_2">Semantic Code IDE</span>
+        </button>
+        <button type="button" class="showcase-tab" onclick="switchShowcase(3)" id="sc-tab-3">
+          <span>04</span> <span data-i18n="tab_3">Line & Block Quote Copy</span>
+        </button>
+        <button type="button" class="showcase-tab" onclick="switchShowcase(4)" id="sc-tab-4">
+          <span>05</span> <span data-i18n="tab_4">CSV Grids & Archives</span>
+        </button>
+      </div>
+
+      <div class="showcase-panel">
+        <div class="double-bezel showcase-viewport">
+          <div class="double-bezel-inner">
+            <img id="sc-image" src="assets/showcase-markdown.webp" alt="Space Previewer format showcase" width="1180" height="760" />
+          </div>
+        </div>
+        <div class="double-bezel">
+          <div class="double-bezel-inner showcase-info">
+            <div>
+              <div class="version-pill" id="sc-pill">Pango + Cairo Native</div>
+              <h3 id="sc-heading">Rendered GFM, Badges & Offline Mermaid</h3>
+              <p id="sc-body">
+                Preview Markdown documents with full GitHub Flavored Markdown tables, callouts, two-part shields.io badges, and crisp offline Cairo Mermaid flowcharts—without opening a browser.
+              </p>
+              <ul class="feature-StatusList" id="sc-bullets">
+                <li><span class="bullet-dot">✓</span><span>Bundled Symbols Nerd Font vector icons for <code>.rs</code>, <code>.py</code>, <code>.js</code>, <code>.ts</code>, <code>.sh</code>, <code>.toml</code></span></li>
+                <li><span class="bullet-dot">✓</span><span>Instant <strong>Preview / Raw Code</strong> toggle preserving active <code>Ctrl+F</code> search queries</span></li>
+                <li><span class="bullet-dot">✓</span><span>Top-baseline aligned numbered & nested bullet lists</span></li>
+              </ul>
+            </div>
+            <div style="padding-top: 20px; border-top: 1px solid var(--border-hairline); font-family: var(--font-mono); font-size: 0.78rem; color: var(--text-secondary);" id="sc-footer">
+              Shortcut: Ctrl+F in-file search · Click pill to open target file
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- Asymmetric Bento Grid -->
+  <section id="architecture">
+    <div class="container">
+      <div class="section-header">
+        <h2 class="section-title" data-i18n="bento_title">Engineered for Speed, Precision & Safety.</h2>
+        <p class="section-desc" data-i18n="bento_desc">
+          Built natively on GTK4, Libadwaita, PangoCairo, and Poppler with strict resource bounds and zero background bloat when idle.
+        </p>
+      </div>
+
+      <div class="bento-grid">
+        <!-- Cell 1: 7 cols -->
+        <div class="double-bezel bento-span-7">
+          <div class="double-bezel-inner bento-card-body">
+            <div>
+              <h3 data-i18n="b1_title">Click-to-Preview File Pills & Scroll-Memory Back</h3>
+              <p data-i18n="b1_desc">
+                Local file paths in Markdown automatically render as high-contrast dark pills with language devicons. Click any pill—including line-range links like <code>controller.rs#L14-L30</code>—to jump straight into that file, then press <code>Alt+Left</code> to return to your exact scroll offset.
+              </p>
+            </div>
+            <div class="bento-visual">
+              <div class="pill-demo-row">
+                <span class="ag-code-pill"><span class="ag-dot-rs">🦀</span> controller.rs#L14-L30</span>
+                <span style="color: var(--text-muted)">→</span>
+                <span class="ag-code-pill"><span class="ag-dot-py">🐍</span> text_viewer.py</span>
+                <span style="color: var(--text-muted)">→</span>
+                <span class="ag-code-pill"><span class="ag-dot-js">JS</span> app-control.mjs</span>
+                <span style="color: var(--text-muted)">→</span>
+                <span class="ag-code-pill"><span class="ag-dot-sh">&gt;_</span> install.sh</span>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Cell 2: 5 cols -->
+        <div class="double-bezel bento-span-5">
+          <div class="double-bezel-inner bento-card-body">
+            <div>
+              <h3 data-i18n="b2_title">Multi-Desktop Linux Native</h3>
+              <p data-i18n="b2_desc">
+                First-class D-Bus activation (`NautilusPreviewer2`) for GNOME Files, KIO Service Menu for KDE Plasma Dolphin, Action plugin for Cinnamon Nemo, and standalone CLI.
+              </p>
+            </div>
+            <div class="bento-visual" style="display: flex; flex-direction: column; gap: 8px;">
+              <div><span style="color: var(--accent-ice);">GNOME Nautilus</span> · <span style="color: var(--text-secondary);">Spacebar + Arrow Tracking</span></div>
+              <div><span style="color: var(--accent-ice);">KDE Dolphin</span> · <span style="color: var(--text-secondary);">Context Menu & Shortcut</span></div>
+              <div><span style="color: var(--accent-ice);">Cinnamon Nemo</span> · <span style="color: var(--text-secondary);">Native Action Integration</span></div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Cell 3: 5 cols -->
+        <div class="double-bezel bento-span-5">
+          <div class="double-bezel-inner bento-card-body">
+            <div>
+              <h3 data-i18n="b3_title">Untrusted-Input Sandbox Caps</h3>
+              <p data-i18n="b3_desc">
+                Every parser enforces hard byte, row, pixel, and time budgets so inspecting a huge or malformed archive, CSV, or Office file never freezes your desktop session.
+              </p>
+            </div>
+            <div class="bounds-grid">
+              <div class="bound-metric"><strong>&lt; 50 ms</strong><span data-i18n="bm_1">Warm D-Bus Preview</span></div>
+              <div class="bound-metric"><strong>5.0 MB</strong><span data-i18n="bm_2">Max Code / Text Stream</span></div>
+              <div class="bound-metric"><strong>5,000</strong><span data-i18n="bm_3">Archive Tree Entries</span></div>
+              <div class="bound-metric"><strong>0 Net</strong><span data-i18n="bm_4">Offline by Default</span></div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Cell 4: 7 cols -->
+        <div class="double-bezel bento-span-7">
+          <div class="double-bezel-inner bento-card-body">
+            <div>
+              <h3 data-i18n="b4_title">AI-Ready Line & Block Quote References (`Ctrl+Shift+C`)</h3>
+              <p data-i18n="b4_desc">
+                Drag the line-number gutter in any code file or `Ctrl+Click` individual Markdown list items by indent level. Copy either the raw content or a formatted `path:start-end` reference directly into your terminal, PR review, or AI coding assistant.
+              </p>
+            </div>
+            <div class="bento-visual" style="display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 10px;">
+              <span style="color: #E2E8F0;">Selected 11 lines · <code style="color: var(--accent-ice);">src/viewers/text_viewer.py:16-26</code></span>
+              <span class="kbd-badge">Ctrl + Shift + C</span>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- Neutral Comparison Table -->
+  <section id="comparison">
+    <div class="container">
+      <div class="section-header">
+        <h2 class="section-title" data-i18n="cmp_title">Why Space Previewer</h2>
+        <p class="section-desc" data-i18n="cmp_desc">
+          How Space Previewer compares against standard desktop previewers on Linux.
+        </p>
+      </div>
+
+      <div class="double-bezel">
+        <div class="double-bezel-inner table-scroll">
+          <table class="compare-table">
+            <thead>
+              <tr>
+                <th data-i18n="th_cap">Capability</th>
+                <th data-i18n="th_other">Other / Default Previewers</th>
+                <th class="col-sp">Space Previewer (v0.2.0)</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td><strong>Markdown (<code>.md</code>, <code>.mdx</code>)</strong></td>
+                <td class="col-other" data-i18n="td_md_other">Raw plain-text source only</td>
+                <td class="col-sp" data-i18n="td_md_sp">Rendered GFM (tables, task lists, callouts, shields.io badges), offline Cairo Mermaid diagrams, Nerd Font file pills, Raw/Preview toggle</td>
+              </tr>
+              <tr>
+                <td><strong data-i18n="td_nav_label">Click-to-Preview File Links</strong></td>
+                <td class="col-other" data-i18n="td_none">Not supported</td>
+                <td class="col-sp" data-i18n="td_nav_sp">Click any local file pill or <code>#L10-L30</code> link to preview target code; <code>Alt+Left</code> restores exact scroll position</td>
+              </tr>
+              <tr>
+                <td><strong data-i18n="td_code_label">Semantic Code Highlighting</strong></td>
+                <td class="col-other" data-i18n="td_code_other">Basic keyword coloring</td>
+                <td class="col-sp" data-i18n="td_code_sp">IDE token stream refinement (function calls, declarations, PascalCase types, constants, JS <code>${...}</code> templates, Bash flags)</td>
+              </tr>
+              <tr>
+                <td><strong data-i18n="td_quote_label">Line & Block Quote Copy</strong></td>
+                <td class="col-other" data-i18n="td_none_2">Not supported</td>
+                <td class="col-sp" data-i18n="td_quote_sp">Drag code line numbers or <code>Shift/Ctrl+Click</code> Markdown blocks by indent level to copy text or <code>path:start-end</code></td>
+              </tr>
+              <tr>
+                <td><strong>In-File Search (<code>Ctrl+F</code>)</strong></td>
+                <td class="col-other" data-i18n="td_none_3">Not supported</td>
+                <td class="col-sp" data-i18n="td_search_sp">Non-grabbing overlay search across code, plain text, and rendered Markdown (<code>Enter</code> / <code>Shift+Enter</code>)</td>
+              </tr>
+              <tr>
+                <td><strong>Office (<code>.docx</code>, <code>.xlsx</code>, <code>.pptx</code>)</strong></td>
+                <td class="col-other" data-i18n="td_office_other">Requires heavy external office suite</td>
+                <td class="col-sp" data-i18n="td_office_sp">Zero-dependency direct ZIP/XML extraction with strict untrusted-input bounds</td>
+              </tr>
+              <tr>
+                <td><strong>CSV / TSV & Archives (<code>.zip</code>, <code>.tar.*</code>)</strong></td>
+                <td class="col-other" data-i18n="td_arch_other">Plain text / summary byte size only</td>
+                <td class="col-sp" data-i18n="td_arch_sp">Formatted scrollable table grid & full archive file tree without extracting to disk</td>
+              </tr>
+              <tr>
+                <td><strong>PDF Documents</strong></td>
+                <td class="col-other" data-i18n="td_pdf_other">Single-page static view</td>
+                <td class="col-sp" data-i18n="td_pdf_sp">Continuous fit-width Poppler viewport with lazy page rasterisation and animated page jumps</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- Universal Linux Installation Matrix -->
+  <section id="install">
+    <div class="container">
+      <div class="section-header">
+        <span class="section-eyebrow" data-i18n="inst_eyebrow">Multi-Distro Packaging</span>
+        <h2 class="section-title" data-i18n="inst_title">Install in Seconds on Any Linux Desktop.</h2>
+        <p class="section-desc" data-i18n="inst_desc">
+          Choose a native system package (`.deb`, `.rpm`, Arch `PKGBUILD`), portable `AppImage`, or rootless user-space install.
+        </p>
+      </div>
+
+      <div class="distro-tabs" role="tablist">
+        <button type="button" class="distro-btn active" onclick="switchDistro('deb', this)">Ubuntu / Debian / Mint (.deb)</button>
+        <button type="button" class="distro-btn" onclick="switchDistro('appimage', this)">Universal AppImage (x86_64)</button>
+        <button type="button" class="distro-btn" onclick="switchDistro('rpm', this)">Fedora / RHEL (.rpm)</button>
+        <button type="button" class="distro-btn" onclick="switchDistro('arch', this)">Arch / Manjaro (PKGBUILD)</button>
+        <button type="button" class="distro-btn" onclick="switchDistro('source', this)">User Install (No Root)</button>
+      </div>
+
+      <div class="double-bezel">
+        <div class="double-bezel-inner terminal-card">
+          <div class="terminal-header">
+            <div class="terminal-dots"><span></span><span></span><span></span></div>
+            <span id="distro-label">Debian / Ubuntu / Linux Mint — Native .deb Package</span>
+            <button type="button" class="copy-chip" id="distro-copy-btn" onclick="copyCurrentDistro(this)" data-i18n="copy_btn">Copy</button>
+          </div>
+          <pre class="terminal-pre" id="distro-code">curl -LO https://github.com/todo-laterx/space-previewer/releases/download/v0.2.0/space-previewer_0.2.0_amd64.deb
+sudo apt install ./space-previewer_0.2.0_amd64.deb</pre>
+          <p class="terminal-note" id="distro-note">
+            Installs the Nautilus D-Bus preview service and KDE Dolphin service menu. Uses <code>dpkg-divert</code> to coexist cleanly with the default system previewer service and restores it automatically on removal.
+          </p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <footer>
+    <div class="container footer-inner">
+      <div style="display: flex; align-items: center; gap: 12px;">
+        <img src="assets/logo.webp" alt="Space Previewer" width="24" height="24" style="border-radius: 6px;" />
+        <span><strong>Space Previewer</strong> · v0.2.0 · GNU GPL-3.0</span>
+      </div>
+      <div class="footer-links">
+        <a href="https://github.com/todo-laterx/space-previewer" target="_blank" rel="noopener">GitHub</a>
+        <a href="https://github.com/todo-laterx/space-previewer/releases/tag/v0.2.0" target="_blank" rel="noopener">Releases</a>
+        <a href="https://github.com/todo-laterx/space-previewer/blob/main/README.md" target="_blank" rel="noopener">English Docs</a>
+        <a href="https://github.com/todo-laterx/space-previewer/blob/main/README.vi.md" target="_blank" rel="noopener">Tài liệu Tiếng Việt</a>
+      </div>
+    </div>
+  </footer>
+
+  <script>
+    const SHOWCASE_DATA = {
+      en: [
+        {
+          img: 'assets/showcase-markdown.webp',
+          pill: 'Pango + Cairo Native',
+          heading: 'Rendered GFM, Badges & Offline Mermaid',
+          body: 'Preview Markdown documents with full GitHub Flavored Markdown tables, callouts, two-part shields.io badges, and crisp offline Cairo Mermaid flowcharts—without opening a browser.',
+          bullets: [
+            'Bundled Symbols Nerd Font vector icons for <code>.rs</code>, <code>.py</code>, <code>.js</code>, <code>.ts</code>, <code>.sh</code>, <code>.toml</code>',
+            'Instant <strong>Preview / Raw Code</strong> toggle preserving active <code>Ctrl+F</code> search queries',
+            'Top-baseline aligned numbered & nested bullet lists'
+          ],
+          footer: 'Shortcut: Ctrl+F in-file search · Click pill to open target file'
+        },
+        {
+          img: 'assets/showcase-navigation.webp',
+          pill: 'History Stack · Alt+Left',
+          heading: 'Click-to-Preview File Links & Scroll Memory',
+          body: 'Click any inline file pill or Markdown link (such as text_viewer.py#L14-L30) to open that file directly inside Space Previewer with the target lines highlighted.',
+          bullets: [
+            'Automatic relative & <code>file://</code> URI resolution from the current document',
+            'Highlights target <code>#Lstart-Lend</code> line ranges and scrolls them into view',
+            'Press <code>Alt+Left</code> or the header Back button to return to the exact scroll offset'
+          ],
+          footer: 'Shortcut: Alt+Left (Back) · Drag line numbers to adjust selection'
+        },
+        {
+          img: 'assets/showcase-code.webp',
+          pill: 'Semantic Token Stream',
+          heading: 'Antigravity-Grade IDE Syntax Highlighting',
+          body: 'Context-aware post-processing refines Pygments token streams to highlight function calls, declarations, PascalCase types, UPPER_CASE constants, JS template expressions, and Bash flags.',
+          bullets: [
+            'Supports Python, Rust, JS/MJS/TS/MTS, Go, C/C++, Shell, SQL, YAML, TOML, systemd & PKGBUILD',
+            'Shebang (<code>#!/usr/bin/env ...</code>) and extensionless file detection',
+            'Pretty-printed JSON & non-grabbing <code>Ctrl+F</code> match navigation'
+          ],
+          footer: 'Shortcut: Ctrl+Shift+C to copy path:start-end reference'
+        },
+        {
+          img: 'assets/code-quote-demo.webp',
+          pill: 'Interactive Selection',
+          heading: 'Granular Block & Line-Range Quote Copy',
+          body: 'Hover over Markdown blocks for a subtle selection guide, click to pick individual nested items by indent level, or hold Ctrl to toggle discontinuous blocks.',
+          bullets: [
+            '<code>Click</code> single block, <code>Shift+Click</code> contiguous range, <code>Ctrl+Click</code> discontinuous items',
+            'Click empty space or press <code>Escape</code> to clear selection cleanly',
+            'Drag line numbers in code view to copy raw lines or <code>path:start-end</code>'
+          ],
+          footer: 'Animated Demo: Ctrl+Click Markdown items + Gutter drag in code'
+        },
+        {
+          img: 'assets/showcase-data.webp',
+          pill: 'Streaming Readers',
+          heading: 'CSV/XLSX Grids, Office & Archive Trees',
+          body: 'Inspect tabular datasets, Word/Excel/PowerPoint documents, and compressed archives directly from memory streams without heavy external office suites or disk extraction.',
+          bullets: [
+            'Formatted scrollable CSV/TSV and XLSX table views with column headers',
+            'Zero-dependency DOCX/XLSX/PPTX XML parser with 20 MB entry guard',
+            'Instant ZIP and TAR archive hierarchy inspection up to 5,000 entries'
+          ],
+          footer: 'Also supports: Continuous Poppler PDF, WebP/SVG zoom, GStreamer Audio/Video, Fonts'
+        }
+      ],
+      vi: [
+        {
+          img: 'assets/showcase-markdown.webp',
+          pill: 'Pango + Cairo Native',
+          heading: 'Hiển thị GFM, Badges & Sơ đồ Mermaid Ngoại tuyến',
+          body: 'Xem trước tài liệu Markdown với bảng GFM, callouts, huy hiệu shields.io 2 phần và sơ đồ lưu đồ Mermaid vẽ trực tiếp bằng Cairo mà không cần mở trình duyệt.',
+          bullets: [
+            'Tích hợp sẵn font biểu tượng vector Nerd Font cho <code>.rs</code>, <code>.py</code>, <code>.js</code>, <code>.ts</code>, <code>.sh</code>, <code>.toml</code>',
+            'Chuyển đổi tức thì <strong>Preview / Raw Code</strong> giữ nguyên từ khoá tìm kiếm <code>Ctrl+F</code>',
+            'Căn chuẩn đường cơ sở (baseline) cho danh sách đánh số và danh sách lồng nhau'
+          ],
+          footer: 'Phím tắt: Ctrl+F tìm trong tệp · Bấm vào pill để mở tệp đích'
+        },
+        {
+          img: 'assets/showcase-navigation.webp',
+          pill: 'History Stack · Alt+Left',
+          heading: 'Bấm Mở Tệp Liên Kết & Nhớ Vị Trí Cuộn',
+          body: 'Bấm vào bất kỳ pill đường dẫn tệp hoặc liên kết Markdown nào (như text_viewer.py#L14-L30) để mở ngay tệp đó trong Space Previewer và tô sáng đúng dải dòng.',
+          bullets: [
+            'Tự động phân giải đường dẫn tương đối và URI <code>file://</code> từ tài liệu đang mở',
+            'Tự động cuộn và tô sáng dải dòng <code>#Lstart-Lend</code> được chỉ định',
+            'Nhấn <code>Alt+Left</code> hoặc nút Back trên thanh tiêu đề để quay về đúng vị trí cuộn cũ'
+          ],
+          footer: 'Phím tắt: Alt+Left (Quay lại) · Kéo cột số dòng để chọn lại dải dòng'
+        },
+        {
+          img: 'assets/showcase-code.webp',
+          pill: 'Semantic Token Stream',
+          heading: 'Tô Màu Cú Pháp Ngữ Nghĩa Chuẩn IDE Antigravity',
+          body: 'Bộ phân tích ngữ cảnh tinh chỉnh luồng token để làm nổi bật lời gọi hàm, từ khoá khai báo, kiểu PascalCase, hằng số UPPER_CASE, biểu thức chuỗi JS và cờ lệnh Bash.',
+          bullets: [
+            'Hỗ trợ Python, Rust, JS/MJS/TS/MTS, Go, C/C++, Shell, SQL, YAML, TOML, systemd & PKGBUILD',
+            'Nhận diện tự động qua dòng Shebang (<code>#!/usr/bin/env ...</code>) và tên tệp đặc biệt',
+            'Định dạng đẹp JSON & điều hướng kết quả tìm kiếm <code>Ctrl+F</code> mượt mà'
+          ],
+          footer: 'Phím tắt: Ctrl+Shift+C để chép trích dẫn path:start-end'
+        },
+        {
+          img: 'assets/code-quote-demo.webp',
+          pill: 'Interactive Selection',
+          heading: 'Sao Chép Khối Rời Rạc & Trích Dẫn Dòng Code',
+          body: 'Di chuột qua các khối Markdown để hiện khung gợi ý nhẹ, bấm chọn từng câu/mục nhỏ theo cấp độ thụt lề, hoặc giữ Ctrl để chọn nhiều mục rời rạc.',
+          bullets: [
+            '<code>Click</code> chọn khối đơn, <code>Shift+Click</code> chọn dải liên tiếp, <code>Ctrl+Click</code> chọn mục lẻ',
+            'Bấm ra vùng trống hoặc nhấn <code>Escape</code> để huỷ vùng chọn tức thì',
+            'Kéo cột số dòng trong trình xem code để chép nội dung hoặc <code>path:start-end</code>'
+          ],
+          footer: 'Demo động: Ctrl+Click chọn mục Markdown + Kéo chọn dòng code'
+        },
+        {
+          img: 'assets/showcase-data.webp',
+          pill: 'Streaming Readers',
+          heading: 'Bảng CSV/XLSX, Tài liệu Office & Cây Tệp Nén',
+          body: 'Xem nhanh bảng dữ liệu, tài liệu Word/Excel/PowerPoint và cấu trúc tệp nén trực tiếp từ luồng bộ nhớ mà không cần bộ ứng dụng văn phòng nặng hay giải nén ra đĩa.',
+          bullets: [
+            'Bảng dữ liệu CSV/TSV và XLSX cuộn mượt kèm tiêu đề cột rõ ràng',
+            'Đọc trực tiếp cấu trúc ZIP/XML của DOCX/XLSX/PPTX với giới hạn an toàn 20 MB',
+            'Duyệt cây thư mục tệp nén ZIP và TAR tức thì lên tới 5.000 mục'
+          ],
+          footer: 'Hỗ trợ thêm: PDF cuộn liên tục Poppler, phóng/thu ảnh WebP/SVG, trình phát nhạc/video, Font'
+        }
+      ]
+    };
+
+    const DISTRO_DATA = {
+      deb: {
+        label: 'Debian / Ubuntu / Linux Mint — Native .deb Package',
+        code: 'curl -LO https://github.com/todo-laterx/space-previewer/releases/download/v0.2.0/space-previewer_0.2.0_amd64.deb\nsudo apt install ./space-previewer_0.2.0_amd64.deb',
+        note_en: 'Installs the Nautilus D-Bus preview service and KDE Dolphin service menu. Uses dpkg-divert to coexist cleanly with the default system previewer service and restores it automatically on removal.',
+        note_vi: 'Cài đặt dịch vụ D-Bus cho Nautilus và menu chuột phải cho KDE Dolphin. Sử dụng dpkg-divert để chung sống sạch sẽ với dịch vụ xem trước mặc định và tự động khôi phục khi gỡ cài đặt.'
+      },
+      appimage: {
+        label: 'Universal Linux x86_64 — Portable AppImage',
+        code: 'curl -LO https://github.com/todo-laterx/space-previewer/releases/download/v0.2.0/Space-Previewer-0.2.0-x86_64.AppImage\nchmod +x ./Space-Previewer-0.2.0-x86_64.AppImage\n./Space-Previewer-0.2.0-x86_64.AppImage --install',
+        note_en: 'Registers the Nautilus D-Bus service, KDE Dolphin service menu, Cinnamon Nemo action, and ~/.local/bin/space-previewer symlink for the current user.',
+        note_vi: 'Đăng ký dịch vụ D-Bus Nautilus, menu ngữ cảnh KDE Dolphin, Cinnamon Nemo action và liên kết ~/.local/bin/space-previewer cho người dùng hiện tại.'
+      },
+      rpm: {
+        label: 'Fedora 40+ / RHEL 9+ — Native .noarch.rpm',
+        code: 'git clone https://github.com/todo-laterx/space-previewer.git\ncd space-previewer && bash scripts/build-rpm.sh\nsudo dnf install --allowerasing ./dist/space-previewer-0.2.0-1.noarch.rpm',
+        note_en: 'Pass --allowerasing on Fedora Workstation so DNF replaces ownership of the shared org.gnome.NautilusPreviewer.service D-Bus activation file.',
+        note_vi: 'Thêm cờ --allowerasing trên Fedora Workstation để DNF chuyển quyền sở hữu tệp dịch vụ D-Bus org.gnome.NautilusPreviewer.service.'
+      },
+      arch: {
+        label: 'Arch Linux / Manjaro / EndeavourOS — PKGBUILD',
+        code: 'git clone https://github.com/todo-laterx/space-previewer.git\ncd space-previewer/packaging\nmakepkg -si',
+        note_en: 'Builds and installs native Arch package with Nautilus D-Bus service, KDE Dolphin menu, Cinnamon Nemo action, and gettext catalogs.',
+        note_vi: 'Đóng gói và cài đặt gói Arch gốc gồm dịch vụ D-Bus Nautilus, menu KDE Dolphin, Cinnamon Nemo action và bộ ngôn ngữ.'
+      },
+      source: {
+        label: 'Any Linux Distro — Rootless User-Space Installer',
+        code: 'git clone https://github.com/todo-laterx/space-previewer.git\ncd space-previewer\n./install.sh --check-deps && ./install.sh',
+        note_en: 'Installs into ~/.local/share/space-previewer and activates org.gnome.NautilusPreviewer in ~/.local/share/dbus-1/services without root privileges.',
+        note_vi: 'Cài đặt vào ~/.local/share/space-previewer và kích hoạt dịch vụ D-Bus trong ~/.local/share/dbus-1/services không cần quyền root.'
+      }
+    };
+
+    const I18N = {
+      en: {
+        nav_showcase: 'Interactive Demo',
+        nav_arch: 'Architecture',
+        nav_compare: 'Comparison',
+        nav_install: 'Install',
+        nav_download: 'Download v0.2.0',
+        hero_badge: 'v0.2.0 · GTK4 + Libadwaita · Wayland & X11',
+        hero_title_1: 'Press Space.',
+        hero_title_2: 'Peek Everything.',
+        hero_sub: 'Instant Quick Look file previewer for Linux desktops. Rendered GFM with offline Cairo Mermaid diagrams, IDE semantic code highlighting, click-to-preview file links, continuous PDF, and zero-dependency Office & archive inspection.',
+        hero_cta_primary: 'Install v0.2.0',
+        hero_cta_secondary: 'View on GitHub',
+        copy_btn: 'Copy',
+        stage_cap_left: 'Toggle Quick Look in Files',
+        stage_cap_right: 'Scroll-Memory Back Navigation',
+        sc_eyebrow: 'Interactive Format Switcher',
+        sc_title: 'One Chrome. Every Developer & Office Format.',
+        sc_desc: 'A single Libadwaita header bar and unified bottom status bar across every viewer—from rendered Markdown and semantic code to continuous Poppler PDFs and streaming spreadsheets.',
+        tab_0: 'Markdown & Mermaid',
+        tab_1: 'Click-to-Preview Links',
+        tab_2: 'Semantic Code IDE',
+        tab_3: 'Line & Block Quote Copy',
+        tab_4: 'CSV Grids & Archives',
+        bento_title: 'Engineered for Speed, Precision & Safety.',
+        bento_desc: 'Built natively on GTK4, Libadwaita, PangoCairo, and Poppler with strict resource bounds and zero background bloat when idle.',
+        b1_title: 'Click-to-Preview File Pills & Scroll-Memory Back',
+        b1_desc: 'Local file paths in Markdown automatically render as high-contrast dark pills with language devicons. Click any pill—including line-range links like controller.rs#L14-L30—to jump straight into that file, then press Alt+Left to return to your exact scroll offset.',
+        b2_title: 'Multi-Desktop Linux Native',
+        b2_desc: 'First-class D-Bus activation (NautilusPreviewer2) for GNOME Files, KIO Service Menu for KDE Plasma Dolphin, Action plugin for Cinnamon Nemo, and standalone CLI.',
+        b3_title: 'Untrusted-Input Sandbox Caps',
+        b3_desc: 'Every parser enforces hard byte, row, pixel, and time budgets so inspecting a huge or malformed archive, CSV, or Office file never freezes your desktop session.',
+        bm_1: 'Warm D-Bus Preview',
+        bm_2: 'Max Code / Text Stream',
+        bm_3: 'Archive Tree Entries',
+        bm_4: 'Offline by Default',
+        b4_title: 'AI-Ready Line & Block Quote References (Ctrl+Shift+C)',
+        b4_desc: 'Drag the line-number gutter in any code file or Ctrl+Click individual Markdown list items by indent level. Copy either the raw content or a formatted path:start-end reference directly into your terminal, PR review, or AI coding assistant.',
+        cmp_title: 'Why Space Previewer',
+        cmp_desc: 'How Space Previewer compares against standard desktop previewers on Linux.',
+        th_cap: 'Capability',
+        th_other: 'Other / Default Previewers',
+        td_md_other: 'Raw plain-text source only',
+        td_md_sp: 'Rendered GFM (tables, task lists, callouts, shields.io badges), offline Cairo Mermaid diagrams, Nerd Font file pills, Raw/Preview toggle',
+        td_nav_label: 'Click-to-Preview File Links',
+        td_none: 'Not supported',
+        td_none_2: 'Not supported',
+        td_none_3: 'Not supported',
+        td_nav_sp: 'Click any local file pill or #L10-L30 link to preview target code; Alt+Left restores exact scroll position',
+        td_code_label: 'Semantic Code Highlighting',
+        td_code_other: 'Basic keyword coloring',
+        td_code_sp: 'IDE token stream refinement (function calls, declarations, PascalCase types, constants, JS ${...} templates, Bash flags)',
+        td_quote_label: 'Line & Block Quote Copy',
+        td_quote_sp: 'Drag code line numbers or Shift/Ctrl+Click Markdown blocks by indent level to copy text or path:start-end',
+        td_search_sp: 'Non-grabbing overlay search across code, plain text, and rendered Markdown (Enter / Shift+Enter)',
+        td_office_other: 'Requires heavy external office suite',
+        td_office_sp: 'Zero-dependency direct ZIP/XML extraction with strict untrusted-input bounds',
+        td_arch_other: 'Plain text / summary byte size only',
+        td_arch_sp: 'Formatted scrollable table grid & full archive file tree without extracting to disk',
+        td_pdf_other: 'Single-page static view',
+        td_pdf_sp: 'Continuous fit-width Poppler viewport with lazy page rasterisation and animated page jumps',
+        inst_eyebrow: 'Multi-Distro Packaging',
+        inst_title: 'Install in Seconds on Any Linux Desktop.',
+        inst_desc: 'Choose a native system package (.deb, .rpm, Arch PKGBUILD), portable AppImage, or rootless user-space install.'
+      },
+      vi: {
+        nav_showcase: 'Trải nghiệm',
+        nav_arch: 'Kiến trúc',
+        nav_compare: 'So sánh',
+        nav_install: 'Cài đặt',
+        nav_download: 'Tải v0.2.0',
+        hero_badge: 'v0.2.0 · GTK4 + Libadwaita · Wayland & X11',
+        hero_title_1: 'Nhấn Space.',
+        hero_title_2: 'Xem Mọi Định Dạng.',
+        hero_sub: 'Trình xem nhanh tệp (Quick Look) tức thì cho Linux Desktop. Kết xuất GFM kèm sơ đồ Cairo Mermaid ngoại tuyến, tô màu code ngữ nghĩa chuẩn IDE, bấm mở tệp liên kết, PDF cuộn mượt và đọc trực tiếp Office / tệp nén.',
+        hero_cta_primary: 'Cài đặt v0.2.0',
+        hero_cta_secondary: 'Mã nguồn GitHub',
+        copy_btn: 'Sao chép',
+        stage_cap_left: 'Bật/tắt xem nhanh trong Files',
+        stage_cap_right: 'Quay lại đúng vị trí cuộn cũ',
+        sc_eyebrow: 'Trình diễn đa định dạng',
+        sc_title: 'Một Giao Diện. Mọi Định Dạng Lập Trình & Văn Phòng.',
+        sc_desc: 'Duy nhất một thanh tiêu đề Libadwaita và một thanh trạng thái dưới cùng cho tất cả định dạng—từ Markdown, mã nguồn ngữ nghĩa tới PDF cuộn liên tục và bảng tính.',
+        tab_0: 'Markdown & Mermaid',
+        tab_1: 'Bấm Mở Tệp Liên Kết',
+        tab_2: 'Code Ngữ Nghĩa IDE',
+        tab_3: 'Chép Khối & Dải Dòng',
+        tab_4: 'Bảng CSV & Tệp Nén',
+        bento_title: 'Thiết Kế Cho Tốc Độ, Độ Chính Xác & An Toàn.',
+        bento_desc: 'Xây dựng gốc trên GTK4, Libadwaita, PangoCairo và Poppler với giới hạn tài nguyên nghiêm ngặt và không chiếm RAM nền khi nghỉ.',
+        b1_title: 'Pill Tệp Đính Kèm & Nhớ Vị Trí Cuộn (Alt+Left)',
+        b1_desc: 'Đường dẫn tệp nội bộ trong Markdown tự động hiển thị dạng pill tối màu kèm icon ngôn ngữ. Bấm vào bất kỳ pill nào—kể cả liên kết dòng như controller.rs#L14-L30—để nhảy thẳng tới tệp đó, và nhấn Alt+Left để quay về đúng vị trí đang đọc.',
+        b2_title: 'Tích Hợp Gốc Đa Môi Trường Linux',
+        b2_desc: 'Kích hoạt D-Bus (NautilusPreviewer2) cho GNOME Files, KIO Service Menu cho KDE Plasma Dolphin, Action cho Cinnamon Nemo và CLI độc lập.',
+        b3_title: 'Giới Hạn An Toàn Chống Treo Máy',
+        b3_desc: 'Mọi bộ đọc tệp đều áp đặt ngưỡng dung lượng, số dòng, điểm ảnh và thời gian xử lý để tệp nén, CSV hay Office khổng lồ không bao giờ làm đơ giao diện.',
+        bm_1: 'Mở nhanh qua D-Bus',
+        bm_2: 'Giới hạn luồng Code/Text',
+        bm_3: 'Số mục cây tệp nén',
+        bm_4: 'Mặc định ngoại tuyến',
+        b4_title: 'Trích Dẫn Dòng & Khối Chuẩn AI (Ctrl+Shift+C)',
+        b4_desc: 'Kéo cột số dòng trong tệp mã nguồn hoặc Ctrl+Click chọn từng mục danh sách Markdown theo cấp thụt lề. Sao chép nội dung hoặc địa chỉ path:start-end thẳng vào terminal, PR review hoặc công cụ AI.',
+        cmp_title: 'Vì Sao Chọn Space Previewer',
+        cmp_desc: 'Đối chiếu khả năng của Space Previewer với các trình xem mặc định khác trên Linux.',
+        th_cap: 'Khả năng',
+        th_other: 'Trình xem mặc định / Khác',
+        td_md_other: 'Chỉ hiển thị văn bản thuần (raw text)',
+        td_md_sp: 'Kết xuất GFM (bảng, task list, callouts, huy hiệu shields.io), sơ đồ Cairo Mermaid ngoại tuyến, pill tệp Nerd Font, nút chuyển Raw/Preview',
+        td_nav_label: 'Bấm mở tệp liên kết',
+        td_none: 'Không hỗ trợ',
+        td_none_2: 'Không hỗ trợ',
+        td_none_3: 'Không hỗ trợ',
+        td_nav_sp: 'Bấm trực tiếp vào pill tệp hoặc liên kết #L10-L30 để xem code đích; Alt+Left khôi phục đúng vị trí cuộn',
+        td_code_label: 'Tô màu cú pháp ngữ nghĩa',
+        td_code_other: 'Tô màu từ khoá cơ bản',
+        td_code_sp: 'Tinh chỉnh luồng token chuẩn IDE (lời gọi hàm, khai báo, kiểu PascalCase, hằng số, chuỗi nội suy JS ${...}, cờ Bash)',
+        td_quote_label: 'Sao chép dòng & trích dẫn khối',
+        td_quote_sp: 'Kéo cột số dòng code hoặc Shift/Ctrl+Click khối Markdown theo cấp thụt lề để chép văn bản hoặc path:start-end',
+        td_search_sp: 'Thanh tìm kiếm nổi trong code, văn bản thuần và bản dựng Markdown (Enter / Shift+Enter)',
+        td_office_other: 'Yêu cầu cài bộ ứng dụng văn phòng nặng',
+        td_office_sp: 'Trích xuất trực tiếp ZIP/XML không phụ thuộc ngoài, có giới hạn đầu vào an toàn',
+        td_arch_other: 'Văn bản thuần / chỉ hiện tổng dung lượng',
+        td_arch_sp: 'Bảng dữ liệu cuộn mượt & cây thư mục tệp nén đầy đủ không cần giải nén ra đĩa',
+        td_pdf_other: 'Xem tĩnh từng trang rời rạc',
+        td_pdf_sp: 'Khung nhìn Poppler vừa chiều ngang cuộn liên tục, kết xuất trang lười và chuyển trang mượt',
+        inst_eyebrow: 'Đóng gói đa bản phân phối',
+        inst_title: 'Cài Đặt Trong Vài Giây Trên Mọi Bản Linux.',
+        inst_desc: 'Chọn gói hệ thống gốc (.deb, .rpm, Arch PKGBUILD), bản AppImage di động hoặc cài đặt mức người dùng không cần quyền root.'
+      }
+    };
+
+    let currentLang = 'en';
+    let currentTab = 0;
+    let currentDistro = 'deb';
+
+    function switchShowcase(index) {
+      currentTab = index;
+      for (let i = 0; i < 5; i++) {
+        const tab = document.getElementById('sc-tab-' + i);
+        if (tab) tab.classList.toggle('active', i === index);
+      }
+      const item = SHOWCASE_DATA[currentLang][index];
+      document.getElementById('sc-image').src = item.img;
+      document.getElementById('sc-pill').textContent = item.pill;
+      document.getElementById('sc-heading').textContent = item.heading;
+      document.getElementById('sc-body').textContent = item.body;
+      const list = document.getElementById('sc-bullets');
+      list.innerHTML = item.bullets
+        .map(b => `<li><span class="bullet-dot">✓</span><span>${b}</span></li>`)
+        .join('');
+      document.getElementById('sc-footer').textContent = item.footer;
+    }
+
+    function switchDistro(key, btnEl) {
+      currentDistro = key;
+      document.querySelectorAll('.distro-btn').forEach(b => b.classList.remove('active'));
+      if (btnEl) btnEl.classList.add('active');
+      const d = DISTRO_DATA[key];
+      document.getElementById('distro-label').textContent = d.label;
+      document.getElementById('distro-code').textContent = d.code;
+      document.getElementById('distro-note').textContent = currentLang === 'vi' ? d.note_vi : d.note_en;
+    }
+
+    function copyText(text, btnEl) {
+      navigator.clipboard.writeText(text).then(() => {
+        const orig = btnEl.textContent;
+        btnEl.textContent = currentLang === 'vi' ? 'Đã chép ✓' : 'Copied ✓';
+        setTimeout(() => { btnEl.textContent = orig; }, 1600);
+      });
+    }
+
+    function copyCurrentDistro(btnEl) {
+      copyText(DISTRO_DATA[currentDistro].code, btnEl);
+    }
+
+    function setLang(lang) {
+      currentLang = lang === 'vi' ? 'vi' : 'en';
+      document.documentElement.lang = currentLang;
+      document.getElementById('btn-lang-en').classList.toggle('active', currentLang === 'en');
+      document.getElementById('btn-lang-vi').classList.toggle('active', currentLang === 'vi');
+
+      const dict = I18N[currentLang];
+      document.querySelectorAll('[data-i18n]').forEach(el => {
+        const k = el.getAttribute('data-i18n');
+        if (dict[k]) el.textContent = dict[k];
+      });
+
+      switchShowcase(currentTab);
+      const d = DISTRO_DATA[currentDistro];
+      document.getElementById('distro-note').textContent = currentLang === 'vi' ? d.note_vi : d.note_en;
+
+      try {
+        localStorage.setItem('space_previewer_lang', currentLang);
+      } catch (_) {}
+    }
+
+    (function initLang() {
+      const params = new URLSearchParams(window.location.search);
+      const urlLang = params.get('lang');
+      let saved = null;
+      try {
+        saved = localStorage.getItem('space_previewer_lang');
+      } catch (_) {}
+      if (urlLang === 'vi' || (!urlLang && saved === 'vi')) {
+        setLang('vi');
+      } else {
+        setLang('en');
+      }
+    })();
+  </script>
+</body>
+</html>

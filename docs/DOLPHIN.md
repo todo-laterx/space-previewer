@@ -21,21 +21,21 @@ python3 scripts/dolphin-service-menu.py --uninstall
 ### Debian / Ubuntu / Kubuntu
 
 ```bash
-sudo apt install ./dist/space-previewer_0.1.0_amd64.deb
+sudo apt install ./dist/space-previewer_0.2.0_amd64.deb
 ```
 
-Remove with `sudo apt remove space-previewer`. The `.deb` package includes both the Dolphin service menu and the Nautilus D-Bus service (using `dpkg-divert` to coexist cleanly with `gnome-sushi`).
+Remove with `sudo apt remove space-previewer`. The `.deb` package includes both the Dolphin service menu and the Nautilus D-Bus service (using `dpkg-divert` to coexist cleanly with the system default `org.gnome.NautilusPreviewer` service).
 
 ### Fedora / RHEL
 
 ```bash
-sudo dnf install ./dist/space-previewer-0.1.0-1.noarch.rpm
+sudo dnf install ./dist/space-previewer-0.2.0-1.noarch.rpm
 ```
 
-On Fedora Workstation where `sushi` is preinstalled, pass `--allowerasing` so DNF resolves the shared `org.gnome.NautilusPreviewer.service` D-Bus service conflict:
+On Fedora Workstation where the default D-Bus previewer package is preinstalled, pass `--allowerasing` so DNF resolves the shared `org.gnome.NautilusPreviewer.service` D-Bus service ownership:
 
 ```bash
-sudo dnf install --allowerasing ./dist/space-previewer-0.1.0-1.noarch.rpm
+sudo dnf install --allowerasing ./dist/space-previewer-0.2.0-1.noarch.rpm
 ```
 
 Remove with `sudo dnf remove space-previewer`. Both `nautilus` and `dolphin` are declared as weak `Recommends:` dependencies rather than mandatory requirements.

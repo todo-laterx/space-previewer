@@ -4,27 +4,35 @@
 
 # Space Previewer
 
-**Quick Look file previewer for Linux desktops — native GNOME / Nautilus spacebar integration, KDE Dolphin service menu, and standalone CLI, built with GTK4 + Libadwaita.**
+**Quick Look file previewer for Linux desktops — native GNOME / Nautilus spacebar integration, KDE Dolphin service menu, Cinnamon Nemo action, and standalone CLI, built with GTK4 + Libadwaita.**
 
 [![License: GPL-3.0](https://img.shields.io/badge/License-GPL--3.0-blue.svg)](LICENSE)
 [![Platform](https://img.shields.io/badge/Platform-GNOME%20%7C%20KDE%20%7C%20Wayland%20%26%20X11-lightgrey.svg)](#tested-environments)
 [![UI](https://img.shields.io/badge/UI-GTK4%20%2B%20Libadwaita-3867D6.svg)](#features)
 [![Version](https://img.shields.io/badge/Version-0.2.0-2ea44f.svg)](VERSION)
 
+[**English**](README.md) · [**Tiếng Việt**](README.vi.md) · [**Website & Interactive Showcase**](https://todo-laterx.github.io/space-previewer/) · [**Releases**](https://github.com/todo-laterx/space-previewer/releases)
+
+<br />
+
+<img src="docs/assets/hero-workflow.gif" alt="Space Previewer Interactive Workflow" width="880" />
+
 </div>
 
 ---
 
-## Why Space Previewer vs `gnome-sushi`
+## Why Space Previewer
 
-| Capability | Default `gnome-sushi` | Space Previewer |
+| Capability | Other / Default Previewers | Space Previewer |
 |---|---|---|
-| **Markdown (`.md`, `.mdx`)** | Raw plain-text source only | Rendered GFM preview (tables, task lists, callouts), offline Cairo Mermaid diagrams, Raw/Preview toggle |
+| **Markdown (`.md`, `.mdx`)** | Raw plain-text source only | Rendered GFM preview (tables, task lists, callouts, shields.io badges), offline Cairo Mermaid diagrams, inline file pills with Nerd Font devicons, Raw/Preview toggle |
+| **Click-to-Preview Navigation** | Not supported | Click any local file path or `[file.rs](...#L10-L30)` link inside Markdown to preview that file at the target line range, then press `Alt+Left` (Back) to return to the exact scroll position |
 | **In-file search (`Ctrl+F`)** | Not supported | Non-grabbing overlay search in code, plain text, and rendered Markdown (`Enter` / `Shift+Enter`) |
-| **Line & block quote copy** | Not supported | Drag line numbers in code/text or click rendered Markdown blocks (`Shift+Click` for range) to copy text or `path:start-end` reference |
+| **Line & block quote copy** | Not supported | Drag line numbers in code/text or click rendered Markdown blocks (`Shift+Click` for range, `Ctrl+Click` for discontinuous blocks) to copy text or `path:start-end` reference |
+| **Semantic Code Highlighting** | Basic keyword coloring | Context-aware IDE token refinement (function calls, declarations, PascalCase types, constants, attributes, JS template `${...}` expressions, Bash flags/assignments, docstrings) |
 | **CSV / TSV** | Plain text | Formatted scrollable table grid with column headers |
 | **Archives (`.zip`, `.tar.*`)** | Summary size only | Full file tree listing with entry sizes without extracting to disk |
-| **Office (`.docx`, `.xlsx`, `.pptx`)** | Requires full LibreOffice stack | Zero-dependency direct ZIP/XML text & sheet extraction with strict input bounds |
+| **Office (`.docx`, `.xlsx`, `.pptx`)** | Requires full office suite stack | Zero-dependency direct ZIP/XML text & sheet extraction with strict input bounds |
 | **Folders** | Item count only | Item counts, preview of the first entries, and non-blocking background total size scan |
 | **PDF Documents** | Single-page view | Continuous fit-width viewport with lazy page rasterisation and smooth `PageUp`/`PageDown` navigation |
 
@@ -32,14 +40,15 @@
 
 ## Features
 
-- **Instant Spacebar Preview**: Press `Space` on any file or folder in Nautilus to peek into its content.
+- **Instant Spacebar Preview**: Press `Space` on any file or folder in Nautilus to peek into its content in under 50 ms.
 - **Auto-Update on Navigation**: Keep the preview window open and use the arrow keys `Up` `Down` `Left` `Right` in Nautilus to browse through files.
 - **Stacked with Files**: Attaches as a transient child of the active Nautilus window on both Wayland and X11, stacking cleanly under the Files icon in the GNOME Dock.
-- **Copy a line range**: Text and code are selectable; drag the line numbers to pick whole lines, or click a rendered Markdown block (`Shift+Click` to extend). Copy the range as plain text, or copy a `path:start-end` reference (`Ctrl+Shift+C`).
+- **Click-to-Preview File Links & Scroll Memory**: Local file references and Markdown links render as dark code pills with vector language icons (`.rs`, `.py`, `.js`, `.ts`, `.sh`, `.c`, `.md`, `.json`, `.toml`, `.yaml`). Clicking a link opens the target file directly in Space Previewer (highlighting `#Lstart-Lend` ranges), and `Alt+Left` restores the previous file at the exact scroll offset.
+- **Copy a line range or block selection**: Drag the line numbers in code/text to pick whole lines, or click rendered Markdown blocks (`Shift+Click` to extend range, `Ctrl+Click` to toggle individual list items or paragraphs, `Escape` or background click to clear). Copy the range as plain text, or copy a `path:start-end` reference (`Ctrl+Shift+C`).
 - **One chrome for every viewer**: A single `Adw.HeaderBar` and one bottom status bar. File type, size and metadata live in the status bar; viewers never add their own toolbar row.
 - **Images**: PNG, JPG, WebP, GIF (animated), SVG, BMP; `Ctrl+Scroll` zooms.
-- **Code & Text**: Syntax-highlighted preview for Python, JS, TS, HTML, CSS, JSON, YAML, Shell, SQL, Markdown, and plain text, with in-file search and JSON pretty-printing.
-- **Markdown**: Rendered preview with GFM tables, task lists, callouts, Mermaid diagrams (local Cairo renderer; remote `mermaid.ink` opt-in) and a raw source toggle.
+- **Code & Text**: Rich IDE-grade syntax highlighting for Python, Rust, JS/MJS/TS, C/C++, Go, HTML, CSS, JSON, YAML, TOML, Shell, SQL, systemd units, `.desktop`, `PKGBUILD`, and Markdown, with in-file search and JSON pretty-printing.
+- **Markdown**: Rendered preview with GFM tables, task lists, callouts, two-part shields.io badges, Mermaid diagrams (local Cairo renderer; remote `mermaid.ink` opt-in) and a raw source toggle.
 - **HTML**: Local pages rendered with WebKitGTK 6.0 when installed; remote content is blocked by default via CSP and the page falls back to source view without WebKit.
 - **CSV / TSV**: Formatted table grid view with column headers.
 - **PDF Documents**: Continuous, fit-width rendering with Poppler. Pages render lazily as they scroll into view, with previous/next page buttons, `PageUp`/`PageDown`, and a smooth scroll animation for page jumps.
@@ -57,8 +66,8 @@
 
 | Distribution | Session / File Manager | Packaging | Notes |
 |---|---|---|---|
-| **Ubuntu 22.04 / 24.04 / 26.04+ / Linux Mint** | GNOME (Nautilus), KDE Plasma (Dolphin) & Cinnamon (Nemo) | `.deb` / `AppImage` / `./install.sh` | Full Nautilus D-Bus contract (`NautilusPreviewer2`), `dpkg-divert` coexistence with `gnome-sushi`, plus Dolphin & Nemo context menus |
-| **Debian 12 / 13** | GNOME (Nautilus), KDE Plasma (Dolphin) & Cinnamon (Nemo) | `.deb` / `AppImage` / `./install.sh` | Clean `dpkg-divert` coexistence with `gnome-sushi`, plus Dolphin & Nemo context menus |
+| **Ubuntu 22.04 / 24.04 / 26.04+ / Linux Mint** | GNOME (Nautilus), KDE Plasma (Dolphin) & Cinnamon (Nemo) | `.deb` / `AppImage` / `./install.sh` | Full Nautilus D-Bus contract (`NautilusPreviewer2`), clean `dpkg-divert` coexistence with the default D-Bus previewer service, plus Dolphin & Nemo context menus |
+| **Debian 12 / 13** | GNOME (Nautilus), KDE Plasma (Dolphin) & Cinnamon (Nemo) | `.deb` / `AppImage` / `./install.sh` | Clean `dpkg-divert` coexistence with the default D-Bus previewer service, plus Dolphin & Nemo context menus |
 | **Fedora 40+** | GNOME (Nautilus), KDE Spin (Dolphin) & Cinnamon (Nemo) | `.rpm` / `AppImage` / `./install.sh` | Native `.noarch.rpm` with Nautilus D-Bus service, Dolphin service menu, and Nemo action |
 | **Arch Linux / Manjaro / EndeavourOS** | GNOME (Nautilus), KDE Plasma (Dolphin) & Cinnamon (Nemo) | `PKGBUILD` / `AppImage` / `./install.sh` | Native Arch package via `packaging/PKGBUILD` (`makepkg -si`) or user install |
 | **openSUSE Tumbleweed / Leap** | GNOME (Nautilus), KDE Plasma (Dolphin) & Cinnamon (Nemo) | `AppImage` / `./install.sh` | Native GTK4 + Libadwaita runtime packages via `zypper` (`./install.sh --check-deps`) |
@@ -112,21 +121,21 @@ Optional HTML preview: `sudo zypper install typelib-1_0-WebKit-6_0`
 ### Option 1: Debian / Ubuntu / Kubuntu package (`.deb`)
 
 ```bash
-sudo apt install ./dist/space-previewer_0.1.0_amd64.deb
+sudo apt install ./dist/space-previewer_0.2.0_amd64.deb
 ```
 
-The `.deb` package installs both the Nautilus D-Bus preview service and the KDE Dolphin context-menu action (`/usr/share/kio/servicemenus/space-previewer.desktop`). It uses `dpkg-divert` on `org.gnome.NautilusPreviewer.service`, so it installs cleanly alongside `gnome-sushi` and restores `gnome-sushi` automatically on removal (`sudo apt remove space-previewer`).
+The `.deb` package installs both the Nautilus D-Bus preview service and the KDE Dolphin context-menu action (`/usr/share/kio/servicemenus/space-previewer.desktop`). It uses `dpkg-divert` on `org.gnome.NautilusPreviewer.service`, so it coexists cleanly with any preinstalled system previewer service and restores it automatically on removal (`sudo apt remove space-previewer`).
 
 ### Option 2: Fedora / RHEL package (`.rpm`)
 
 ```bash
-sudo dnf install ./dist/space-previewer-0.1.0-1.noarch.rpm
+sudo dnf install ./dist/space-previewer-0.2.0-1.noarch.rpm
 ```
 
-The `.rpm` package installs both the Nautilus D-Bus preview service and the KDE Dolphin context-menu action. Because RPM does not provide `dpkg-divert` and both packages own `/usr/share/dbus-1/services/org.gnome.NautilusPreviewer.service`, the RPM declares `Conflicts: sushi`. On Fedora Workstation where `sushi` is preinstalled, pass `--allowerasing`:
+The `.rpm` package installs both the Nautilus D-Bus preview service and the KDE Dolphin context-menu action. Because RPM does not provide `dpkg-divert` and only one package can own `/usr/share/dbus-1/services/org.gnome.NautilusPreviewer.service`, pass `--allowerasing` on Fedora Workstation when replacing the preinstalled default previewer service:
 
 ```bash
-sudo dnf install --allowerasing ./dist/space-previewer-0.1.0-1.noarch.rpm
+sudo dnf install --allowerasing ./dist/space-previewer-0.2.0-1.noarch.rpm
 ```
 
 ### Option 3: Arch Linux / Manjaro (`PKGBUILD`)
@@ -141,14 +150,14 @@ The `packaging/PKGBUILD` installs the Nautilus D-Bus service, KDE Dolphin servic
 ### Option 4: Portable `AppImage` (`x86_64`)
 
 ```bash
-chmod +x ./dist/Space-Previewer-0.1.0-x86_64.AppImage
-./dist/Space-Previewer-0.1.0-x86_64.AppImage --install
+chmod +x ./dist/Space-Previewer-0.2.0-x86_64.AppImage
+./dist/Space-Previewer-0.2.0-x86_64.AppImage --install
 ```
 
 `--install` registers the Nautilus D-Bus service, the KDE Dolphin service menu, the Cinnamon Nemo action, and the `~/.local/bin/space-previewer` symlink for the current user. To unregister:
 
 ```bash
-./dist/Space-Previewer-0.1.0-x86_64.AppImage --uninstall
+./dist/Space-Previewer-0.2.0-x86_64.AppImage --uninstall
 ```
 
 ### Option 5: User-level source install (no root required)
@@ -177,7 +186,7 @@ and reloads Nautilus. To uninstall:
 
 ### Dolphin / KDE Plasma Service Menu (from source checkout)
 
-If you use KDE Dolphin without installing the `.deb` or `.rpm` package, you can install a per-user Dolphin service menu that opens any local file or folder in standalone mode (`--standalone`), without touching the Nautilus/Sushi D-Bus service:
+If you use KDE Dolphin without installing the `.deb` or `.rpm` package, you can install a per-user Dolphin service menu that opens any local file or folder in standalone mode (`--standalone`), without touching the Nautilus D-Bus service:
 
 ```bash
 python3 scripts/dolphin-service-menu.py
