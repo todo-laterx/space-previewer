@@ -21,10 +21,12 @@ jobs:
         with:
           python-version: "3.12"
 
-      - name: Install gettext
+      - name: Install runtime and package build tools
         run: |
           sudo apt-get update
-          sudo apt-get install -y gettext
+          sudo apt-get install -y gettext rpm cpio python3-gi python3-gi-cairo \
+            python3-cairo gir1.2-gtk-4.0 gir1.2-adw-1 gir1.2-poppler-0.18 \
+            python3-pygments python3-markdown-it
 
       - name: Install pytest
         run: python3 -m pip install --upgrade pytest
@@ -37,8 +39,14 @@ jobs:
           PYTHONDONTWRITEBYTECODE: "1"
         run: pytest -q
 
+      - name: Test adapters with system GTK bindings
+        run: |
+          /usr/bin/python3 -m unittest discover -s tests -p 'test_integrations.py' -v
+          /usr/bin/python3 -m unittest discover -s tests -p 'test_dolphin.py' -v
+          /usr/bin/python3 -m unittest discover -s tests -p 'test_packages.py' -v
+
       - name: Check shell scripts
-        run: bash -n install.sh uninstall.sh scripts/build-deb.sh scripts/build-appimage.sh
+        run: bash -n install.sh uninstall.sh scripts/build-deb.sh scripts/build-appimage.sh scripts/build-rpm.sh scripts/write-checksums.sh
 
       - name: Validate gettext catalogs
         run: |
@@ -64,3 +72,15 @@ jobs:
 
           print(f"Checked {len(paths)} tracked paths.")
           PY
+
+  fedora-packages:
+    name: Fedora RPM hooks and payload
+    runs-on: ubuntu-latest
+    container: fedora:latest
+    steps:
+      - name: Install Fedora build tools
+        run: dnf install -y git tar gzip rpm-build redhat-rpm-config gettext cpio python3
+      - name: Check out repository
+        uses: actions/checkout@v4
+      - name: Test packages with Fedora post-install hooks
+        run: python3 -m unittest discover -s tests -p 'test_packages.py' -v

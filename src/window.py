@@ -125,6 +125,7 @@ class PreviewWindow(Adw.ApplicationWindow):
     def __init__(self, app, file_path: str, parent_handle: str = "", activation_token: str = ""):
         super().__init__(application=app)
         self.app = app
+        self.integration = app.integration
         _install_accent_css()
         self.set_icon_name("space-previewer")
         self.set_title(_("Quick Look"))
@@ -474,10 +475,10 @@ class PreviewWindow(Adw.ApplicationWindow):
         return Gio.File.new_for_path(self.current_file_path).get_uri()
 
     def _emit_selection(self, direction) -> bool:
-        if self.app and hasattr(self.app, "emit_selection_event"):
-            self.app.emit_selection_event(int(direction))
-            return True
-        return False
+        if "select" not in self.integration.capabilities:
+            return False
+        self.integration.select(int(direction))
+        return True
 
     def on_key_pressed(self, controller, keyval, keycode, state):
         is_ctrl = bool(state & Gdk.ModifierType.CONTROL_MASK)
@@ -585,25 +586,27 @@ class PreviewWindow(Adw.ApplicationWindow):
             return False
 
         if keyval == Gdk.KEY_F2:
+            if "rename" not in self.integration.capabilities:
+                return False
             if self._focus_is_editable():
                 return False
             self._request_rename()
             return True
 
         if keyval == Gdk.KEY_Delete:
+            if "trash" not in self.integration.capabilities:
+                return False
             if self._focus_is_editable():
                 return False
-            if self.app and hasattr(self.app, "emit_trash"):
-                self.app.emit_trash(self._current_uri())
+            self.integration.trash(self._current_uri())
             return True
 
         return False
 
     def _request_rename(self):
-        uri = self._current_uri()
-        if not (self.app and hasattr(self.app, "emit_rename")):
-            self.close()
+        if "rename" not in self.integration.capabilities:
             return
+        uri = self._current_uri()
 
         # Closing the last window lets GApplication quit; hold it until the
         # signal is emitted so the 200 ms delay cannot be cut short. Hold
@@ -613,7 +616,7 @@ class PreviewWindow(Adw.ApplicationWindow):
 
         def emit_later():
             try:
-                self.app.emit_rename(uri)
+                self.integration.rename(uri)
             finally:
                 self.app.release()
             return False
@@ -662,7 +665,11 @@ class PreviewWindow(Adw.ApplicationWindow):
             (_("Show this window"), "<Control>question"),
         ]
 
+        required_actions = {"Left": "select", "F2": "rename", "Delete": "trash"}
         for title, accelerator in shortcuts:
+            action = required_actions.get(accelerator)
+            if action and action not in self.integration.capabilities:
+                continue
             row = Adw.ActionRow(title=title)
             key = Gtk.ShortcutLabel(accelerator=accelerator)
             key.set_valign(Gtk.Align.CENTER)

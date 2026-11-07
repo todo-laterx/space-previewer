@@ -98,6 +98,27 @@ Optional HTML preview: `sudo pacman -S webkitgtk-6.0`
 
 ## Installation
 
+### Dolphin / KDE
+
+The `.deb` and Fedora `.rpm` packages automatically install a Dolphin context-menu
+action for local files and folders. See [Dolphin installation](docs/DOLPHIN.md)
+for package commands and migration from a source install. Both formats include
+Nautilus integration. The Fedora RPM conflicts with `sushi` because they own
+the same D-Bus service; the `.deb` uses the existing Sushi service diversion.
+
+For a source checkout:
+
+An optional [Dolphin service menu](docs/DOLPHIN.md) opens a local file or folder
+in an independent preview window, without replacing the Nautilus/Sushi service:
+
+```bash
+python3 scripts/dolphin-service-menu.py
+```
+
+Install the runtime dependencies above first and keep the checkout in place.
+This provides a context-menu action; Space activation and selection tracking
+inside Dolphin are not implemented yet.
+
 ### Option 1: Debian / Ubuntu package (`.deb`)
 
 ```bash
@@ -146,6 +167,22 @@ and reloads Nautilus. To uninstall:
 ---
 
 ## Building Packages from Source
+
+For the shared preview core and file-manager adapter design, see
+[File-manager integrations](docs/INTEGRATIONS.md).
+
+Build a Fedora RPM with `rpm-build` and `gettext` installed:
+
+```bash
+bash scripts/build-rpm.sh
+```
+
+Package payload tests (requires `dpkg-deb`, `rpmbuild`, `rpm`, `rpm2cpio`,
+`cpio`, and `msgfmt`):
+
+```bash
+python3 -m unittest discover -s tests -p 'test_packages.py' -v
+```
 
 Build the `.deb` and `AppImage` artifacts into `dist/`:
 
