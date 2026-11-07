@@ -14,6 +14,8 @@ try:
     from integrations import StandaloneIntegration
     from integrations.nautilus import NautilusIntegration, OBJECT_PATH, PREVIEWER_IFACE, LEGACY_IFACE
     from window import PreviewWindow
+    from gi.repository import Gdk
+    from main import parse_arguments
 except (ImportError, ValueError):
     HAS_RUNTIME = False
 else:
@@ -76,6 +78,24 @@ class NautilusTests(unittest.TestCase):
         self.adapter.release_startup()
         self.app.release.assert_called_once()
 
+    def test_early_release_cancels_timeout_once(self):
+        self.adapter._idle_release_id = 123
+        self.adapter._startup_hold = True
+        with patch('integrations.nautilus.GLib.source_remove') as remove:
+            self.adapter.release_startup()
+            self.adapter.release_startup()
+        remove.assert_called_once_with(123)
+        self.assertEqual(self.adapter._idle_release_id, 0)
+        self.app.release.assert_called_once()
+
+    def test_timeout_does_not_remove_its_own_source(self):
+        self.adapter._idle_release_id = 123
+        self.adapter._startup_hold = True
+        with patch('integrations.nautilus.GLib.source_remove') as remove:
+            self.adapter._release_if_idle()
+        remove.assert_not_called()
+        self.app.release.assert_called_once()
+
     def test_signals_keep_wire_types(self):
         for action, name, signature, value in (
             ('select', 'SelectionEvent', '(u)', 3),
@@ -111,6 +131,43 @@ class CoreTests(unittest.TestCase):
         self.integration.parent_handle_changed = Mock()
         self.integration.release_startup = Mock()
         self.app = SpacePreviewerApp(self.integration)
+
+    def test_cli_flag_and_separator(self):
+        cases = (
+            (['preview', '--standalone', '/tmp/file'], True, ['preview', '/tmp/file']),
+            (['preview', '/tmp/file', '--standalone'], True, ['preview', '/tmp/file']),
+            (['preview', '--standalone', '--', '-file.txt'], True, ['preview', '--', '-file.txt']),
+            (['preview', '--', '--standalone'], False, ['preview', '--', '--standalone']),
+            (['preview', '--standalone', '--', '--standalone'], True, ['preview', '--', '--standalone']),
+            (['preview', '/tmp/file'], False, ['preview', '/tmp/file']),
+        )
+        for argv, enabled, forwarded in cases:
+            with self.subTest(argv=argv):
+                self.assertEqual(parse_arguments(argv), (enabled, forwarded))
+
+    def test_command_line_skips_separator(self):
+        with patch.object(self.app, 'show_preview_for_path_or_uri') as show:
+            for argv, target in ((['preview', '--', '-file.txt'], '-file.txt'),
+                                 (['preview', '/tmp/file'], '/tmp/file'),
+                                 (['preview', '--', '--standalone'], '--standalone')):
+                command = Mock()
+                command.get_arguments.return_value = argv
+                self.assertEqual(self.app.do_command_line(command), 0)
+                show.assert_called_with(target)
+            show.reset_mock()
+            for argv in (['preview'], ['preview', '--']):
+                command.get_arguments.return_value = argv
+                self.app.do_command_line(command)
+            show.assert_not_called()
+
+    def test_f2_propagates_without_rename_capability(self):
+        window = Mock(integration=StandaloneIntegration())
+        window._focus_is_editable.return_value = False
+        self.assertFalse(PreviewWindow.on_key_pressed(window, None, Gdk.KEY_F2, 0, 0))
+        window._request_rename.assert_not_called()
+        window.integration.capabilities = frozenset({'rename'})
+        self.assertTrue(PreviewWindow.on_key_pressed(window, None, Gdk.KEY_F2, 0, 0))
+        window._request_rename.assert_called_once()
 
     def test_core_opens_updates_and_closes_through_hooks(self):
         path = str(Path(__file__).resolve())

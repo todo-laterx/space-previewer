@@ -150,5 +150,5 @@ chmod 0755 "$PKG_DIR/DEBIAN/postrm"
 mkdir -p "$DIR/dist"
 dpkg-deb --build --root-owner-group "$PKG_DIR" "$DIR/dist/$DEB_NAME"
 
-(cd "$DIR/dist" && sha256sum *.deb *.AppImage 2>/dev/null > SHA256SUMS || true)
+bash "$DIR/scripts/write-checksums.sh" "$DIR/dist"
 echo "==> Built: dist/$DEB_NAME"

@@ -32,9 +32,11 @@ class SpacePreviewerApp(Adw.Application):
         pass
 
     def do_command_line(self, command_line):
-        args = command_line.get_arguments()
-        if len(args) > 1:
-            self.show_preview_for_path_or_uri(args[1])
+        args = command_line.get_arguments()[1:]
+        if args and args[0] == "--":
+            args = args[1:]
+        if args:
+            self.show_preview_for_path_or_uri(args[0])
         return 0
 
     def set_parent_handle(self, handle: str):

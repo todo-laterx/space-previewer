@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Build a Fedora RPM with the standalone CLI and Dolphin service menu.
+# Build a Fedora RPM with Nautilus and Dolphin integration.
 set -euo pipefail
 
 DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
@@ -41,5 +41,5 @@ rpmbuild -bb "${OPTIONS[@]}" \
 
 RPM_NAME="space-previewer-$VERSION-1.noarch.rpm"
 cp "$TOPDIR/RPMS/noarch/$RPM_NAME" "$DIR/dist/$RPM_NAME"
-(cd "$DIR/dist" && sha256sum "$RPM_NAME" > "$RPM_NAME.sha256")
+bash "$DIR/scripts/write-checksums.sh" "$DIR/dist"
 echo "==> Built: dist/$RPM_NAME"

@@ -44,8 +44,10 @@ sudo dnf install ./dist/space-previewer-0.1.0-1.noarch.rpm
 Use the filename matching the version you built. Remove with
 `sudo apt remove space-previewer` or `sudo dnf remove space-previewer`.
 The `.deb` retains the existing Nautilus integration and Sushi service diversion.
-The new Fedora RPM provides the CLI and Dolphin menu only; it does not register
-the Nautilus service or conflict with Sushi's service file.
+The Fedora RPM also installs the Nautilus service. It declares a conflict with
+`sushi` because both packages own the same D-Bus service file. Choose one
+previewer; DNF must resolve that conflict before installation. Nautilus and
+Dolphin are recommended packages, not mandatory dependencies.
 
 ## Build and test packages
 
@@ -145,14 +147,3 @@ python3 scripts/dolphin-service-menu.py --uninstall
 
 The contribution guide asks for an issue describing larger features before a
 pull request. Link that discussion when submitting this integration.
-
-### Checks performed during implementation
-
-The menu install/remove and escaping tests, Python compilation, shell syntax,
-gettext catalog checks, and application-mode checks passed. An isolated GTK
-smoke test could not start because the development sandbox forbids D-Bus socket
-creation. The full pytest suite also remains unrun: pytest was unavailable and
-network restrictions prevented installing it. The manual desktop matrix above
-remains required; this is not yet a claim of tested Wayland/X11 integration.
-The user has confirmed that opening a preview through Dolphin works on their
-current desktop; the session protocol and full format matrix were not recorded.

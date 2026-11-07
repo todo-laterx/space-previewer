@@ -1,7 +1,10 @@
+%global _python_bytecompile_extra 0
+%undefine __brp_python_bytecompile
+
 Name:           space-previewer
 Version:        %{app_version}
 Release:        1
-Summary:        Quick Look file previewer with Dolphin integration
+Summary:        Quick Look file previewer for Nautilus and Dolphin
 License:        GPL-3.0-only
 URL:            https://github.com/todo-laterx/space-previewer
 Source0:        %{name}-%{version}.tar.gz
@@ -18,11 +21,16 @@ Requires:       gdk-pixbuf2
 Requires:       pango
 Requires:       poppler-glib
 Recommends:     webkitgtk6.0
+Recommends:     nautilus
+Recommends:     dolphin
+# Both packages own org.gnome.NautilusPreviewer.service; RPM has no dpkg-divert.
+Conflicts:      sushi
 
 %description
 GTK4 and Libadwaita file previews for images, text, Markdown, PDFs, Office
 documents, archives and media. Includes a Dolphin service menu for local
-files and folders. This package does not replace Nautilus/Sushi's D-Bus service.
+files and folders, and the Nautilus D-Bus preview service. This package is an
+alternative to Sushi and cannot be installed alongside it.
 
 %prep
 %setup -q
@@ -48,6 +56,14 @@ cat > %{buildroot}%{_bindir}/space-previewer <<'EOF'
 exec /usr/bin/python3 /usr/share/space-previewer/main.py "$@"
 EOF
 chmod 0755 %{buildroot}%{_bindir}/space-previewer
+mkdir -p %{buildroot}%{_datadir}/dbus-1/services
+cat > %{buildroot}%{_datadir}/dbus-1/services/org.gnome.NautilusPreviewer.service <<'EOF'
+[D-BUS Service]
+Name=org.gnome.NautilusPreviewer
+Exec=/usr/bin/python3 /usr/share/space-previewer/main.py
+EOF
+find "%{buildroot}%{_datadir}/space-previewer" -type d -name __pycache__ -prune -exec rm -rf {} +
+find "%{buildroot}%{_datadir}/space-previewer" -type f -name '*.pyc' -delete
 
 %files
 %license LICENSE
@@ -55,4 +71,5 @@ chmod 0755 %{buildroot}%{_bindir}/space-previewer
 %{_bindir}/space-previewer
 %{_datadir}/space-previewer/
 %{_datadir}/kio/servicemenus/space-previewer.desktop
+%{_datadir}/dbus-1/services/org.gnome.NautilusPreviewer.service
 %{_datadir}/icons/hicolor/512x512/apps/space-previewer.png

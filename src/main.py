@@ -18,11 +18,22 @@ def create_app(standalone=False):
     return SpacePreviewerApp(integration=NautilusIntegration())
 
 
+def parse_arguments(argv):
+    args = list(argv[:1])
+    standalone = False
+    options = True
+    for argument in argv[1:]:
+        if argument == "--":
+            options = False
+        if options and argument == "--standalone":
+            standalone = True
+        else:
+            args.append(argument)
+    return standalone, args
+
+
 def main():
-    args = list(sys.argv)
-    standalone = len(args) > 1 and args[1] == "--standalone"
-    if standalone:
-        del args[1]
+    standalone, args = parse_arguments(sys.argv)
     return create_app(standalone=standalone).run(args)
 
 

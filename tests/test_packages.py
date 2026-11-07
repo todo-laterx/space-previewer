@@ -1,6 +1,7 @@
 """Build and inspect real packages in a disposable checkout, without root."""
 
 import gettext
+import hashlib
 from pathlib import Path
 import shutil
 import subprocess
@@ -41,6 +42,11 @@ class PackageTests(unittest.TestCase):
         self.assertEqual(desktop.read_bytes(), (ROOT / 'data/space-previewer.desktop').read_bytes())
         self.assertEqual(desktop.stat().st_mode & 0o777, 0o644)
         self.assertIn('Exec=/usr/bin/space-previewer --standalone %f\n', desktop.read_text())
+        self.assertIn('Icon=space-previewer\n', desktop.read_text())
+        self.assertTrue((extracted / 'usr/share/icons/hicolor/512x512/apps/space-previewer.png').is_file())
+        service = extracted / 'usr/share/dbus-1/services/org.gnome.NautilusPreviewer.service'
+        self.assertIn('Name=org.gnome.NautilusPreviewer\n', service.read_text())
+        self.assertIn('Exec=/usr/bin/python3 /usr/share/space-previewer/main.py\n', service.read_text())
         launcher = extracted / 'usr/bin/space-previewer'
         self.assertEqual(launcher.stat().st_mode & 0o777, 0o755)
         self.assertIn('exec /usr/bin/python3 /usr/share/space-previewer/main.py "$@"', launcher.read_text())
@@ -56,6 +62,7 @@ class PackageTests(unittest.TestCase):
     def test_deb_payload_and_metadata(self):
         self.require_tools('dpkg-deb', 'msgfmt')
         self.run_command('bash', 'scripts/build-deb.sh')
+        self.run_command('sha256sum', '-c', 'SHA256SUMS', cwd=self.checkout / 'dist')
         package, = (self.checkout / 'dist').glob('*.deb')
         extracted = self.root / 'deb'
         self.run_command('dpkg-deb', '-x', str(package), str(extracted))
@@ -75,6 +82,18 @@ class PackageTests(unittest.TestCase):
         # Debian hosts have no RPM build-dependency database. The actual build
         # still runs msgfmt and rpmbuild; runtime Requires must remain in the RPM.
         self.run_command('bash', 'scripts/build-rpm.sh', '--nodeps')
+        self.run_command('sha256sum', '-c', 'SHA256SUMS', cwd=self.checkout / 'dist')
+        # Simulate a host-provided bytecompile hook that would fail if invoked.
+        # The spec must undefine it, independently of the host's RPM defaults.
+        version = (self.checkout / 'VERSION').read_text().strip()
+        topdir = self.checkout / 'build/rpm'
+        self.run_command('rpmbuild', '-bb', '--nodeps',
+                         '--define', f'_topdir {topdir}',
+                         '--define', f'_tmppath {topdir}/tmp',
+                         '--define', f'app_version {version}',
+                         '--define', '__brp_python_bytecompile /bin/false',
+                         '--define', '__os_install_post %{?__brp_python_bytecompile}',
+                         'packaging/space-previewer.spec')
         package, = (self.checkout / 'dist').glob('*.rpm')
         extracted = self.root / 'rpm'
         extracted.mkdir()
@@ -83,10 +102,15 @@ class PackageTests(unittest.TestCase):
                                 input=payload.stdout, cwd=extracted, capture_output=True)
         self.assertEqual(result.returncode, 0, result.stderr)
         self.check_payload(extracted)
-        self.assertFalse((extracted / 'usr/share/dbus-1/services/org.gnome.NautilusPreviewer.service').exists())
         requires = self.run_command('rpm', '-qp', '--requires', str(package))
         for dependency in ('python3-gobject', 'poppler-glib', 'libadwaita', 'python3-markdown-it'):
             self.assertIn(dependency, requires.splitlines())
+        self.assertNotIn('dolphin', requires.splitlines())
+        self.assertNotIn('nautilus', requires.splitlines())
+        recommends = self.run_command('rpm', '-qp', '--recommends', str(package)).splitlines()
+        self.assertIn('nautilus', recommends)
+        self.assertIn('dolphin', recommends)
+        self.assertIn('sushi', self.run_command('rpm', '-qp', '--conflicts', str(package)).splitlines())
         self.assertEqual(self.run_command('rpm', '-qp', '--qf', '%{ARCH}', str(package)), 'noarch')
         self.assertEqual(self.run_command('rpm', '-qp', '--scripts', str(package)), '')
 
@@ -102,6 +126,21 @@ class PackageTests(unittest.TestCase):
         self.run_command(*base, '-e', '--justdb', '--nodeps', '--noscripts',
                          '--notriggers', 'space-previewer')
         self.assertEqual(self.run_command(*base, '-qa'), '')
+
+    def test_checksums_cover_all_package_formats(self):
+        dist = self.root / 'dist'
+        dist.mkdir()
+        self.run_command('bash', 'scripts/write-checksums.sh', str(dist))
+        self.assertEqual((dist / 'SHA256SUMS').read_text(), '')
+        for filename in ('preview.deb', 'preview.rpm', 'Preview File.AppImage'):
+            (dist / filename).write_bytes(filename.encode())
+            self.run_command('bash', 'scripts/write-checksums.sh', str(dist))
+            lines = (dist / 'SHA256SUMS').read_text().splitlines()
+            for artifact in dist.iterdir():
+                if artifact.name == 'SHA256SUMS':
+                    continue
+                digest = hashlib.sha256(artifact.read_bytes()).hexdigest()
+                self.assertIn(f'{digest}  {artifact.name}', lines)
 
 
 if __name__ == '__main__':

@@ -51,6 +51,15 @@ restart_nautilus() {
     fi
 }
 
+remove_dolphin_menu() {
+    echo "==> Removing Dolphin service menu..."
+    local data_dir="${XDG_DATA_HOME:-$HOME/.local/share}"
+    if [[ "$data_dir" != /* ]]; then
+        data_dir="$HOME/.local/share"
+    fi
+    rm -f "$data_dir/kio/servicemenus/space-previewer.desktop"
+}
+
 main() {
     echo "==> Uninstalling Space Previewer..."
 
@@ -61,6 +70,8 @@ main() {
 
     echo "==> Removing CLI symlink..."
     rm -f "$BIN_DIR/space-previewer"
+
+    remove_dolphin_menu
 
     remove_legacy_unit
 
@@ -74,4 +85,6 @@ main() {
     echo "Sushi was not reinstalled; install gnome-sushi from your distro to restore the default GNOME previewer."
 }
 
-main "$@"
+if [[ "${BASH_SOURCE[0]}" == "$0" ]]; then
+    main "$@"
+fi

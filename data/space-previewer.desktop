@@ -9,5 +9,5 @@ X-KDE-RequiredNumberOfUrls=1
 [Desktop Action Preview]
 Name=Preview with Space Previewer
 Name[vi]=Xem nhanh bằng Space Previewer
-Icon=document-preview
+Icon=space-previewer
 Exec=/usr/bin/space-previewer --standalone %f

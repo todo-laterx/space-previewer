@@ -102,8 +102,9 @@ Optional HTML preview: `sudo pacman -S webkitgtk-6.0`
 
 The `.deb` and Fedora `.rpm` packages automatically install a Dolphin context-menu
 action for local files and folders. See [Dolphin installation](docs/DOLPHIN.md)
-for package commands and migration from a source install. The RPM provides the
-CLI and Dolphin menu; the `.deb` also retains Nautilus integration.
+for package commands and migration from a source install. Both formats include
+Nautilus integration. The Fedora RPM conflicts with `sushi` because they own
+the same D-Bus service; the `.deb` uses the existing Sushi service diversion.
 
 For a source checkout:
 

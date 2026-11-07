@@ -43,9 +43,10 @@ jobs:
         run: |
           /usr/bin/python3 -m unittest discover -s tests -p 'test_integrations.py' -v
           /usr/bin/python3 -m unittest discover -s tests -p 'test_dolphin.py' -v
+          /usr/bin/python3 -m unittest discover -s tests -p 'test_packages.py' -v
 
       - name: Check shell scripts
-        run: bash -n install.sh uninstall.sh scripts/build-deb.sh scripts/build-appimage.sh scripts/build-rpm.sh
+        run: bash -n install.sh uninstall.sh scripts/build-deb.sh scripts/build-appimage.sh scripts/build-rpm.sh scripts/write-checksums.sh
 
       - name: Validate gettext catalogs
         run: |
@@ -71,3 +72,15 @@ jobs:
 
           print(f"Checked {len(paths)} tracked paths.")
           PY
+
+  fedora-packages:
+    name: Fedora RPM hooks and payload
+    runs-on: ubuntu-latest
+    container: fedora:latest
+    steps:
+      - name: Install Fedora build tools
+        run: dnf install -y git tar gzip rpm-build redhat-rpm-config gettext cpio python3
+      - name: Check out repository
+        uses: actions/checkout@v4
+      - name: Test packages with Fedora post-install hooks
+        run: python3 -m unittest discover -s tests -p 'test_packages.py' -v

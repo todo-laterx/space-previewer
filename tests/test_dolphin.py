@@ -18,6 +18,22 @@ spec.loader.exec_module(menu)
 
 
 class DolphinMenuTests(unittest.TestCase):
+    def test_source_uninstaller_removes_xdg_menu_only(self):
+        with tempfile.TemporaryDirectory() as directory:
+            menu_dir = Path(directory) / 'kio/servicemenus'
+            menu_dir.mkdir(parents=True)
+            target = menu_dir / 'space-previewer.desktop'
+            target.write_text('preview')
+            other = menu_dir / 'other.desktop'
+            other.write_text('keep')
+            env = dict(os.environ, XDG_DATA_HOME=directory)
+            for _ in range(2):
+                subprocess.run(['bash', '-c', 'source "$1"; remove_dolphin_menu',
+                                'test', str(ROOT / 'uninstall.sh')],
+                               env=env, check=True, capture_output=True)
+                self.assertFalse(target.exists())
+                self.assertEqual(other.read_text(), 'keep')
+
     def test_application_modes_without_display(self):
         result = subprocess.run([sys.executable, '-c', '''
 import sys
@@ -65,6 +81,7 @@ assert not normal.get_flags() & Gio.ApplicationFlags.NON_UNIQUE
 
     def test_local_single_selection_only(self):
         rendered = menu.render_menu('/tmp/check out/main.py')
+        self.assertIn('Icon=space-previewer\n', rendered)
         self.assertIn('X-KDE-Protocols=file\n', rendered)
         self.assertIn('X-KDE-RequiredNumberOfUrls=1\n', rendered)
         self.assertIn('Exec=/usr/bin/python3 "/tmp/check out/main.py" --standalone %f\n', rendered)
@@ -73,6 +90,18 @@ assert not normal.get_flags() & Gio.ApplicationFlags.NON_UNIQUE
     def test_relative_xdg_data_home_is_ignored(self):
         with patch.dict(os.environ, {"XDG_DATA_HOME": "relative"}):
             self.assertEqual(menu.menu_path(), Path.home() / '.local/share/kio/servicemenus/space-previewer.desktop')
+
+    def test_uninstaller_default_and_relative_xdg_paths(self):
+        for data_home in ('', 'relative'):
+            with self.subTest(data_home=data_home):
+                # Observe the target without deleting anything from the user's home.
+                result = subprocess.run(
+                    ['bash', '-c', 'source "$1"; rm() { printf "%s\\n" "$@"; }; remove_dolphin_menu',
+                     'test', str(ROOT / 'uninstall.sh')],
+                    env=dict(os.environ, XDG_DATA_HOME=data_home),
+                    capture_output=True, text=True, check=True)
+                expected = Path.home() / '.local/share/kio/servicemenus/space-previewer.desktop'
+                self.assertIn(str(expected), result.stdout.splitlines())
 
     def test_install_and_idempotent_uninstall(self):
         with tempfile.TemporaryDirectory(prefix='dolphin menu ') as directory:

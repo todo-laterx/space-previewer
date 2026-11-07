@@ -586,6 +586,8 @@ class PreviewWindow(Adw.ApplicationWindow):
             return False
 
         if keyval == Gdk.KEY_F2:
+            if "rename" not in self.integration.capabilities:
+                return False
             if self._focus_is_editable():
                 return False
             self._request_rename()

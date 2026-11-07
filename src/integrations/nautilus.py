@@ -96,9 +96,13 @@ class NautilusIntegration(StandaloneIntegration):
         return False
 
     def release_startup(self):
+        if self._idle_release_id:
+            GLib.source_remove(self._idle_release_id)
+            self._idle_release_id = 0
         if self._startup_hold:
             self._startup_hold = False
-            self.app.release()
+            if self.app is not None:
+                self.app.release()
 
     def _emit_signal(self, name: str, parameters: GLib.Variant):
         if not self.dbus_conn:

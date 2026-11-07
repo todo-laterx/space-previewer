@@ -144,5 +144,5 @@ fi
 ARCH=x86_64 APPIMAGE_EXTRACT_AND_RUN=1 "$APPIMAGETOOL" --no-appstream "$APPDIR" "$APPIMAGE_OUT" >/dev/null
 chmod 0755 "$APPIMAGE_OUT"
 
-(cd "$DIST" && sha256sum *.deb *.AppImage 2>/dev/null > SHA256SUMS || true)
+bash "$DIR/scripts/write-checksums.sh" "$DIST"
 echo "==> Built: dist/$APPIMAGE_NAME"
