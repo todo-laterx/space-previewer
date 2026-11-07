@@ -128,14 +128,17 @@ def create_viewer_for_file(file_path: str):
     if mime.startswith("text/") or mime in [
         "application/json", "application/javascript", "application/x-sh", "application/xml", "application/x-python"
     ]:
-        try:
-            with open(file_path, "r", encoding="utf-8", errors="ignore") as f:
-                sample = f.read(8192)
-            if is_mermaid_content(sample) or "```mermaid" in sample:
-                from .markdown_viewer import MarkdownViewer
-                return MarkdownViewer(file_path)
-        except Exception:
-            logger.debug("Could not sniff text content in %s", file_path, exc_info=True)
+        if ext in ("", ".txt"):
+            try:
+                from utils.parsers import is_mermaid_content
+
+                with open(file_path, "r", encoding="utf-8", errors="ignore") as f:
+                    sample = f.read(8192)
+                if is_mermaid_content(sample):
+                    from .markdown_viewer import MarkdownViewer
+                    return MarkdownViewer(file_path)
+            except Exception:
+                logger.debug("Could not sniff text content in %s", file_path, exc_info=True)
         from .text_viewer import TextViewer
         return TextViewer(file_path)
 
@@ -147,7 +150,7 @@ def create_viewer_for_file(file_path: str):
                 from utils.parsers import is_mermaid_content
 
                 sample = chunk.decode("utf-8", errors="ignore")
-                if is_mermaid_content(sample) or "```mermaid" in sample:
+                if ext in ("", ".txt") and is_mermaid_content(sample):
                     from .markdown_viewer import MarkdownViewer
                     return MarkdownViewer(file_path)
                 from .text_viewer import TextViewer

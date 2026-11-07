@@ -1219,6 +1219,9 @@ class MarkdownViewer(Gtk.Box):
         self._md_block_click_handled = False
         self._quote_bar = None
         self._md_search = None
+        self._pending_nav_state = None
+        self._pending_line_range = None
+        self._scroll_restore_id = None
 
         # Every initial load gets a generation; results from an older
         # generation are discarded. Reads above the threshold run on a worker.
@@ -1422,6 +1425,15 @@ class MarkdownViewer(Gtk.Box):
                 self.raw_viewer.raw_content = content
                 self.raw_viewer.load_text()
 
+            if self._pending_nav_state is not None:
+                state = self._pending_nav_state
+                self._pending_nav_state = None
+                self.restore_navigation_state(state)
+            elif self._pending_line_range is not None:
+                first_line, last_line = self._pending_line_range
+                self._pending_line_range = None
+                self.focus_line_range(first_line, last_line)
+
         except Exception as e:
             err = Gtk.Label(
                 label=_("Could not render preview:\n{error}").format(error=e)
@@ -1430,6 +1442,121 @@ class MarkdownViewer(Gtk.Box):
 
         self._notify_status_changed()
         self._notify_ready()
+
+    def _cancel_scroll_restore(self) -> None:
+        if self._scroll_restore_id is not None:
+            GLib.source_remove(self._scroll_restore_id)
+            self._scroll_restore_id = None
+
+    def get_navigation_state(self) -> dict:
+        """Capture the current mode, scroll offset, and selection for Back history."""
+        mode = self.stack.get_visible_child_name() or "preview"
+        vadj = self.preview_scroll.get_vadjustment()
+        scroll_y = float(vadj.get_value()) if vadj is not None else 0.0
+        raw_state = (
+            self.raw_viewer.get_navigation_state()
+            if (self.raw_viewer is not None and hasattr(self.raw_viewer, "get_navigation_state"))
+            else None
+        )
+        return {
+            "mode": mode,
+            "scroll_y": scroll_y,
+            "selected_indices": sorted(self._md_selected_indices),
+            "raw_state": raw_state,
+        }
+
+    def restore_navigation_state(self, state: dict | None) -> None:
+        """Restore mode and scroll position when returning via Back."""
+        if not state:
+            return
+        if not self.raw_content:
+            self._pending_nav_state = dict(state)
+            return
+
+        mode = state.get("mode", "preview")
+        if mode == "raw":
+            self.btn_mode_raw.set_active(True)
+            self._ensure_raw_viewer()
+            self.stack.set_visible_child_name("raw")
+            raw_state = state.get("raw_state")
+            if raw_state and self.raw_viewer is not None:
+                self.raw_viewer.restore_navigation_state(raw_state)
+            return
+
+        self.btn_mode_preview.set_active(True)
+        self.stack.set_visible_child_name("preview")
+
+        selected = state.get("selected_indices") or []
+        if selected:
+            self._md_selected_indices = {
+                int(i) for i in selected if 0 <= int(i) < len(self._md_blocks)
+            }
+            if self._md_selected_indices:
+                self._md_quote_first = min(self._md_selected_indices)
+                self._md_quote_last = max(self._md_selected_indices)
+                self._apply_md_quote()
+
+        target_y = float(state.get("scroll_y") or 0.0)
+        if target_y <= 0.0:
+            return
+        self._cancel_scroll_restore()
+        attempts = [0]
+
+        def _try_restore():
+            attempts[0] += 1
+            vadj = self.preview_scroll.get_vadjustment()
+            if vadj is None:
+                self._scroll_restore_id = None
+                return False
+            max_scroll = max(0.0, vadj.get_upper() - vadj.get_page_size())
+            if max_scroll >= target_y - 2.0 or attempts[0] >= 16:
+                vadj.set_value(min(target_y, max_scroll))
+                self._scroll_restore_id = None
+                return False
+            return True
+
+        self._scroll_restore_id = GLib.timeout_add(25, _try_restore)
+
+    def focus_line_range(self, first_line: int, last_line: int | None = None) -> None:
+        """Scroll to and highlight the rendered Markdown block covering ``first_line``."""
+        lo = max(1, int(first_line))
+        hi = max(lo, int(last_line or first_line))
+        if not self.raw_content:
+            self._pending_line_range = (lo, hi)
+            return
+        if lo == 1 and hi >= max(1, self._line_count - 1):
+            return
+        target_idx = None
+        for idx, (_widget, start_0, end_0) in enumerate(self._md_blocks):
+            if start_0 + 1 <= hi and end_0 >= lo:
+                target_idx = idx
+                break
+        if target_idx is None:
+            return
+        self._md_selected_indices = {target_idx}
+        self._md_quote_first = target_idx
+        self._md_quote_last = target_idx
+        self._apply_md_quote()
+        target_widget = self._md_blocks[target_idx][0]
+        self._cancel_scroll_restore()
+        attempts = [0]
+
+        def _scroll_to_widget():
+            attempts[0] += 1
+            coords = target_widget.translate_coordinates(self.doc_box, 0, 0)
+            vadj = self.preview_scroll.get_vadjustment()
+            if coords is not None and vadj is not None and vadj.get_upper() > vadj.get_page_size():
+                y_pos = max(0.0, float(coords[1]) - 36.0)
+                max_scroll = max(0.0, vadj.get_upper() - vadj.get_page_size())
+                vadj.set_value(min(y_pos, max_scroll))
+                self._scroll_restore_id = None
+                return False
+            if attempts[0] >= 14:
+                self._scroll_restore_id = None
+                return False
+            return True
+
+        self._scroll_restore_id = GLib.timeout_add(25, _scroll_to_widget)
 
     def _notify_status_changed(self) -> None:
         callback = self._status_callback
@@ -2599,6 +2726,7 @@ class MarkdownViewer(Gtk.Box):
         """Cancel the initial load, mermaid renders and timers owned here."""
         self._load_generation += 1
         self._cancel_pending_load()
+        self._cancel_scroll_restore()
         self._load_thread = None
         self._status_callback = None
         if self._quote_bar is not None:

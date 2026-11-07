@@ -184,7 +184,7 @@ def ensure_code_viewer_css():
 
 
 def syntax_tag_colors(dark: bool) -> dict:
-    """Return a rich IDE syntax palette (One Dark / GitHub Dark & Light)."""
+    """Return a rich IDE syntax palette (Antigravity / One Dark & GitHub Light)."""
     palette = _code_palette(dark)
     text = palette["code_text"]
     muted = palette["muted"]
@@ -192,60 +192,217 @@ def syntax_tag_colors(dark: bool) -> dict:
     red = palette["red"]
 
     if dark:
-        keyword = "#C678DD"      # Purple (fn, let, if, return, pub, use)
-        func_col = "#61AFEF"     # Sky Blue (stage_controller_payload, join)
-        type_col = "#E5C07B"     # Warm Gold (Path, Result, String, Ok)
-        string_col = "#98C379"   # Sage Green ("scripts/...")
-        number_col = "#D19A66"   # Warm Orange (0o755, 0o644, true, false)
-        operator_col = "#56B6C2" # Cyan (->, &, ||, ?)
+        keyword = "#C678DD"      # Purple (from, import, def, class, fn, let, if, return)
+        decl_col = "#56B6C2"     # Cyan-Teal (const, async, function, local, export)
+        func_col = "#61AFEF"     # Sky Blue (function/method declarations & calls)
+        type_col = "#E5C07B"     # Warm Gold (PascalCase classes/types, Builtins)
+        string_col = "#98C379"   # Sage Green (strings & docstrings)
+        number_col = "#D19A66"   # Warm Orange (numbers, constants, booleans, flags)
+        operator_col = "#56B6C2" # Cyan (->, &, ||, ?, ===, ${})
         punct_col = "#ABB2BF"    # Crisp Light Slate (brackets, parens, commas)
-        attr_col = "#D19A66"     # Attributes / decorators
-        var_col = "#E06C75"      # Special variables / self
+        prop_col = "#E06C75"     # Coral Red (self, this, $VAR, .prop, object keys)
+        var_decl_col = "#79C0FF" # Bright Sky Blue (Bash/config LHS variable assignments)
+        magic_col = "#56B6C2"    # Cyan (__init__, __name__, builtin commands)
+        shebang_col = "#E06C75"  # Coral Red (#!/bin/bash)
+        banner_col = "#7FB89A"   # Olive-Sage (# ---- section comment headers)
     else:
         keyword = "#8250DF"      # GitHub Light Purple
+        decl_col = "#0550AE"     # GitHub Light Royal Blue
         func_col = "#0969DA"     # GitHub Light Blue
         type_col = "#953800"     # GitHub Light Amber/Brown
         string_col = "#0A3069"   # Deep Navy/Green-Tinted String
         number_col = "#0550AE"   # Royal Blue Numbers/Constants
         operator_col = "#0550AE" # Cyan/Blue Operators
         punct_col = "#24292F"    # Dark Slate Punctuation
-        attr_col = "#953800"
-        var_col = "#CF222E"
+        prop_col = "#CF222E"     # Crimson Red (self, this, $VAR, .prop, object keys)
+        var_decl_col = "#0969DA"
+        magic_col = "#0550AE"
+        shebang_col = "#CF222E"
+        banner_col = "#3F7A5A"
 
     return {
         Token.Keyword: (keyword, Pango.Weight.BOLD, Pango.Style.NORMAL),
         Token.Keyword.Constant: (number_col, Pango.Weight.BOLD, Pango.Style.NORMAL),
-        Token.Keyword.Declaration: (keyword, Pango.Weight.BOLD, Pango.Style.NORMAL),
+        Token.Keyword.Declaration: (decl_col, Pango.Weight.BOLD, Pango.Style.NORMAL),
         Token.Keyword.Namespace: (keyword, Pango.Weight.BOLD, Pango.Style.NORMAL),
+        Token.Keyword.Reserved: (keyword, Pango.Weight.BOLD, Pango.Style.NORMAL),
         Token.Keyword.Type: (type_col, Pango.Weight.BOLD, Pango.Style.NORMAL),
         Token.Name: (text, Pango.Weight.NORMAL, Pango.Style.NORMAL),
-        Token.Name.Builtin: (type_col, Pango.Weight.NORMAL, Pango.Style.NORMAL),
-        Token.Name.Builtin.Pseudo: (var_col, Pango.Weight.NORMAL, Pango.Style.ITALIC),
+        Token.Name.Namespace: (type_col, Pango.Weight.NORMAL, Pango.Style.NORMAL),
+        Token.Name.Builtin: (magic_col, Pango.Weight.NORMAL, Pango.Style.NORMAL),
+        Token.Name.Builtin.Pseudo: (prop_col, Pango.Weight.NORMAL, Pango.Style.ITALIC),
         Token.Name.Function: (func_col, Pango.Weight.BOLD, Pango.Style.NORMAL),
-        Token.Name.Function.Magic: (func_col, Pango.Weight.BOLD, Pango.Style.NORMAL),
+        Token.Name.Function.Magic: (magic_col, Pango.Weight.BOLD, Pango.Style.NORMAL),
         Token.Name.Class: (type_col, Pango.Weight.BOLD, Pango.Style.NORMAL),
-        Token.Name.Decorator: (attr_col, Pango.Weight.BOLD, Pango.Style.ITALIC),
-        Token.Name.Tag: (keyword, Pango.Weight.BOLD, Pango.Style.NORMAL),
-        Token.Name.Attribute: (attr_col, Pango.Weight.NORMAL, Pango.Style.ITALIC),
+        Token.Name.Decorator: (number_col, Pango.Weight.BOLD, Pango.Style.ITALIC),
+        Token.Name.Tag: (prop_col, Pango.Weight.BOLD, Pango.Style.NORMAL),
+        Token.Name.Attribute: (number_col, Pango.Weight.NORMAL, Pango.Style.NORMAL),
         Token.Name.Constant: (number_col, Pango.Weight.NORMAL, Pango.Style.NORMAL),
         Token.Name.Exception: (type_col, Pango.Weight.BOLD, Pango.Style.NORMAL),
-        Token.Name.Variable: (text, Pango.Weight.NORMAL, Pango.Style.NORMAL),
+        Token.Name.Variable: (prop_col, Pango.Weight.NORMAL, Pango.Style.NORMAL),
+        Token.Name.Variable.Magic: (magic_col, Pango.Weight.NORMAL, Pango.Style.NORMAL),
         Token.Literal.String: (string_col, Pango.Weight.NORMAL, Pango.Style.NORMAL),
-        Token.Literal.String.Doc: (muted, Pango.Weight.NORMAL, Pango.Style.ITALIC),
+        Token.Literal.String.Doc: (string_col, Pango.Weight.NORMAL, Pango.Style.ITALIC),
+        Token.Literal.String.Affix: (keyword, Pango.Weight.BOLD, Pango.Style.NORMAL),
         Token.Literal.String.Escape: (number_col, Pango.Weight.BOLD, Pango.Style.NORMAL),
-        Token.Literal.String.Interpol: (operator_col, Pango.Weight.NORMAL, Pango.Style.NORMAL),
+        Token.Literal.String.Interpol: (operator_col, Pango.Weight.BOLD, Pango.Style.NORMAL),
+        Token.Literal.String.Symbol: (number_col, Pango.Weight.NORMAL, Pango.Style.NORMAL),
         Token.Literal.Number: (number_col, Pango.Weight.NORMAL, Pango.Style.NORMAL),
         Token.Operator: (operator_col, Pango.Weight.NORMAL, Pango.Style.NORMAL),
         Token.Operator.Word: (keyword, Pango.Weight.BOLD, Pango.Style.NORMAL),
         Token.Punctuation: (punct_col, Pango.Weight.NORMAL, Pango.Style.NORMAL),
         Token.Comment: (muted, Pango.Weight.NORMAL, Pango.Style.ITALIC),
+        Token.Comment.Hashbang: (shebang_col, Pango.Weight.BOLD, Pango.Style.NORMAL),
+        Token.Comment.Preproc: (keyword, Pango.Weight.BOLD, Pango.Style.NORMAL),
         Token.Generic.Heading: (func_col, Pango.Weight.BOLD, Pango.Style.NORMAL),
         Token.Generic.Subheading: (func_col, Pango.Weight.BOLD, Pango.Style.NORMAL),
         Token.Generic.Inserted: (green, Pango.Weight.NORMAL, Pango.Style.NORMAL),
         Token.Generic.Deleted: (red, Pango.Weight.NORMAL, Pango.Style.NORMAL),
         Token.Generic.Emph: (text, Pango.Weight.NORMAL, Pango.Style.ITALIC),
         Token.Generic.Strong: (text, Pango.Weight.BOLD, Pango.Style.NORMAL),
+        # Semantic refinement tags (Tree-sitter / Antigravity style)
+        "sem_func": (func_col, Pango.Weight.NORMAL, Pango.Style.NORMAL),
+        "sem_type": (type_col, Pango.Weight.NORMAL, Pango.Style.NORMAL),
+        "sem_const": (number_col, Pango.Weight.NORMAL, Pango.Style.NORMAL),
+        "sem_prop": (prop_col, Pango.Weight.NORMAL, Pango.Style.NORMAL),
+        "sem_self": (prop_col, Pango.Weight.NORMAL, Pango.Style.ITALIC),
+        "sem_var_decl": (var_decl_col, Pango.Weight.NORMAL, Pango.Style.NORMAL),
+        "sem_flag": (number_col, Pango.Weight.NORMAL, Pango.Style.NORMAL),
+        "sem_magic": (magic_col, Pango.Weight.NORMAL, Pango.Style.NORMAL),
+        "sem_banner_comment": (banner_col, Pango.Weight.NORMAL, Pango.Style.ITALIC),
     }
+
+
+_IDENT_RE = re.compile(r"^[A-Za-z_][A-Za-z0-9_]*$")
+_UPPER_CONST_RE = re.compile(r"^[A-Z][A-Z0-9_]+$")
+_PASCAL_TYPE_RE = re.compile(r"^[A-Z][A-Za-z0-9_]*[a-z][A-Za-z0-9_]*$")
+_MAGIC_NAME_RE = re.compile(r"^__[A-Za-z0-9_]+__$")
+_SELF_NAMES = frozenset({"self", "cls", "super", "this"})
+_BOOL_NULL_NAMES = frozenset({"True", "False", "None", "null", "undefined", "NaN", "Infinity"})
+_JS_DECL_KEYWORDS = frozenset({"const", "let", "var", "async", "function", "local", "export"})
+_TEMPLATE_INTERP_RE = re.compile(r"(\$\{[^}]+\})")
+_BASH_TOKEN_SPLIT_RE = re.compile(
+    r"((?:(?<=\s)|^)-[A-Za-z0-9-]+|\b\d?>&?\d+\b|>/dev/null\b)"
+)
+
+
+def _next_non_ws(tokens_list: list, start_idx: int) -> tuple:
+    """Return ``(tok_type, stripped_val)`` for the next non-whitespace token."""
+    n = len(tokens_list)
+    for i in range(start_idx, min(n, start_idx + 6)):
+        ttype, val = tokens_list[i]
+        s = val.strip()
+        if s:
+            return ttype, s
+    return None, ""
+
+
+def _refine_token_stream(raw_tokens) -> list[tuple[object, str]]:
+    """Upgrade coarse Pygments ``Token.Name`` / ``Token.Text`` tokens using context."""
+    items = [(t, v) for t, v in raw_tokens if v]
+    refined: list[tuple[object, str]] = []
+    prev_sig_val = ""
+    n = len(items)
+
+    for idx, (tok_type, val) in enumerate(items):
+        stripped = val.strip()
+        if not stripped:
+            refined.append((tok_type, val))
+            continue
+
+        next_type, next_val = _next_non_ws(items, idx + 1)
+
+        # 1. Distinguish declaration keywords (const, let, async, function, local)
+        if tok_type in Token.Keyword and stripped in _JS_DECL_KEYWORDS:
+            refined.append((Token.Keyword.Declaration, val))
+            prev_sig_val = stripped
+            continue
+
+        # 2. Highlight section banner comments (# ----- or // =====) in olive-sage
+        if tok_type in Token.Comment and tok_type is not Token.Comment.Hashbang:
+            if "---" in stripped or "===" in stripped:
+                refined.append(("sem_banner_comment", val))
+                prev_sig_val = stripped
+                continue
+
+        # 3. Template string interpolation (`http://127.0.0.1:${PORT}`)
+        if tok_type in Token.Literal.String.Backtick and "${" in val:
+            parts = _TEMPLATE_INTERP_RE.split(val)
+            for part in parts:
+                if not part:
+                    continue
+                if part.startswith("${") and part.endswith("}") and len(part) > 3:
+                    inner = part[2:-1]
+                    refined.append((Token.Literal.String.Interpol, "${"))
+                    refined.append(("sem_prop", inner))
+                    refined.append((Token.Literal.String.Interpol, "}"))
+                else:
+                    refined.append((tok_type, part))
+            prev_sig_val = stripped
+            continue
+
+        # 4. Bash / Shell variables: LHS assignments vs $VAR expansions
+        if tok_type in Token.Name.Variable:
+            if stripped.startswith("$") or prev_sig_val in ("${", "$"):
+                refined.append(("sem_prop", val))
+            elif next_val.startswith("="):
+                refined.append(("sem_var_decl", val))
+            else:
+                refined.append(("sem_prop", val))
+            prev_sig_val = stripped
+            continue
+
+        # 5. Bash plain Token.Text containing CLI flags (-euo, -v) or redirects (2>&1)
+        if tok_type is Token.Text and ("-" in stripped or ">" in stripped):
+            subparts = _BASH_TOKEN_SPLIT_RE.split(val)
+            if len(subparts) > 1:
+                for sp in subparts:
+                    if not sp:
+                        continue
+                    sp_s = sp.strip()
+                    if sp_s.startswith("-"):
+                        refined.append(("sem_flag", sp))
+                    elif ">" in sp_s:
+                        refined.append((Token.Operator, sp))
+                    else:
+                        refined.append((tok_type, sp))
+                prev_sig_val = stripped
+                continue
+
+        # 6. Refine coarse Token.Name / Token.Name.Other identifiers
+        if tok_type in (Token.Name, Token.Name.Other, Token.Name.Attribute) and _IDENT_RE.match(stripped):
+            if stripped in _SELF_NAMES:
+                refined.append(("sem_self", val))
+            elif stripped in _BOOL_NULL_NAMES:
+                refined.append((Token.Keyword.Constant, val))
+            elif _MAGIC_NAME_RE.match(stripped):
+                refined.append(("sem_magic", val))
+            elif next_val.startswith("("):
+                refined.append(("sem_func", val))
+            elif _UPPER_CONST_RE.match(stripped):
+                refined.append(("sem_const", val))
+            elif _PASCAL_TYPE_RE.match(stripped) or stripped in ("Gtk", "Gdk", "Gio", "Adw", "GLib", "JSON", "Math", "Promise", "Object", "Array", "Number", "String", "Boolean", "Error", "Map", "Set"):
+                refined.append(("sem_type", val))
+            elif prev_sig_val.endswith("."):
+                refined.append(("sem_prop", val))
+            elif (
+                (next_val.startswith(":") and not next_val.startswith("::"))
+                or (
+                    next_val.startswith("=")
+                    and not next_val.startswith(("==", "=>"))
+                    and prev_sig_val in ("(", ",")
+                )
+            ):
+                refined.append(("sem_prop", val))
+            else:
+                refined.append((tok_type, val))
+            prev_sig_val = stripped
+            continue
+
+        refined.append((tok_type, val))
+        prev_sig_val = stripped
+
+    return refined
 
 
 def detect_lexer_and_label(file_path: str = None, content: str = "", lang_hint: str = None):
@@ -259,10 +416,16 @@ def detect_lexer_and_label(file_path: str = None, content: str = "", lang_hint: 
         alias = lang_hint.strip().lower()
         alias_map = {
             "ts": "typescript",
+            "mts": "typescript",
+            "cts": "typescript",
             "tsx": "tsx",
             "js": "javascript",
+            "mjs": "javascript",
+            "cjs": "javascript",
             "jsx": "jsx",
             "py": "python",
+            "pyi": "python",
+            "pyw": "python",
             "sh": "bash",
             "shell": "bash",
             "zsh": "bash",
@@ -270,6 +433,9 @@ def detect_lexer_and_label(file_path: str = None, content: str = "", lang_hint: 
             "md": "markdown",
             "mmd": "text",
             "mermaid": "text",
+            "rs": "rust",
+            "kt": "kotlin",
+            "kts": "kotlin",
         }
         alias = alias_map.get(alias, alias)
         try:
@@ -278,18 +444,70 @@ def detect_lexer_and_label(file_path: str = None, content: str = "", lang_hint: 
             lexer = None
 
     if lexer is None and file_path:
+        base_name = os.path.basename(file_path)
         ext = os.path.splitext(file_path)[1].lower()
-        ext_alias = {
+        name_alias = {
+            "PKGBUILD": "bash",
+            "Dockerfile": "docker",
+            "Containerfile": "docker",
+            "Makefile": "makefile",
+            "GNUmakefile": "makefile",
+            "CMakeLists.txt": "cmake",
+            "meson.build": "meson",
+            "meson_options.txt": "meson",
+            ".bashrc": "bash",
+            ".zshrc": "bash",
+            ".profile": "bash",
+            ".bash_profile": "bash",
+        }.get(base_name)
+        ext_alias = name_alias or {
             ".ts": "typescript",
+            ".mts": "typescript",
+            ".cts": "typescript",
             ".tsx": "tsx",
+            ".js": "javascript",
+            ".mjs": "javascript",
+            ".cjs": "javascript",
             ".jsx": "jsx",
+            ".py": "python",
+            ".pyi": "python",
+            ".pyw": "python",
+            ".rs": "rust",
+            ".go": "go",
+            ".kt": "kotlin",
+            ".kts": "kotlin",
+            ".swift": "swift",
+            ".c": "c",
+            ".h": "c",
+            ".cpp": "cpp",
+            ".cc": "cpp",
+            ".cxx": "cpp",
+            ".hpp": "cpp",
+            ".hxx": "cpp",
+            ".sh": "bash",
+            ".bash": "bash",
+            ".zsh": "bash",
+            ".fish": "fish",
             ".vue": "html",
             ".svelte": "html",
             ".mmd": "text",
             ".mermaid": "text",
+            ".json": "json",
             ".jsonc": "json",
+            ".toml": "toml",
+            ".yaml": "yaml",
+            ".yml": "yaml",
             ".env": "ini",
             ".conf": "ini",
+            ".cfg": "ini",
+            ".ini": "ini",
+            ".service": "ini",
+            ".socket": "ini",
+            ".timer": "ini",
+            ".mount": "ini",
+            ".target": "ini",
+            ".desktop": "ini",
+            ".nemo_action": "ini",
         }.get(ext)
         if ext_alias:
             try:
@@ -302,6 +520,29 @@ def detect_lexer_and_label(file_path: str = None, content: str = "", lang_hint: 
                 lexer = lexers.get_lexer_for_filename(file_path, content[:4096])
             except Exception:
                 lexer = None
+
+    if lexer is None and content.startswith("#!"):
+        first_line = content.splitlines()[0].lower()
+        for interpreter, lex_name in (
+            ("python", "python"),
+            ("node", "javascript"),
+            ("deno", "typescript"),
+            ("bun", "typescript"),
+            ("bash", "bash"),
+            ("zsh", "bash"),
+            ("/sh", "bash"),
+            (" execute ", "bash"),
+            ("ruby", "ruby"),
+            ("perl", "perl"),
+            ("lua", "lua"),
+            ("php", "php"),
+        ):
+            if interpreter in first_line:
+                try:
+                    lexer = lexers.get_lexer_by_name(lex_name)
+                    break
+                except Exception:
+                    pass
 
     if lexer is None:
         try:
@@ -349,19 +590,23 @@ def highlight_buffer_with_pygments(
         tag.set_property("style", style)
 
     buffer.set_text("")
-    tokens = pygments.lex(content, lexer)
+    refined_tokens = _refine_token_stream(pygments.lex(content, lexer))
 
-    for tok_type, val in tokens:
+    for tok_type, val in refined_tokens:
         if not val:
             continue
         iter_end = buffer.get_end_iter()
         matched_tag = None
-        cur_type = tok_type
-        while cur_type:
-            if cur_type in palette:
-                matched_tag = str(cur_type)
-                break
-            cur_type = cur_type.parent
+        if isinstance(tok_type, str):
+            if tok_type in palette:
+                matched_tag = tok_type
+        else:
+            cur_type = tok_type
+            while cur_type:
+                if cur_type in palette:
+                    matched_tag = str(cur_type)
+                    break
+                cur_type = cur_type.parent
 
         if matched_tag:
             buffer.insert_with_tags_by_name(iter_end, val, matched_tag)
@@ -442,6 +687,8 @@ class TextViewer(Gtk.Box):
         self._quote_cursor = None
         self._quote_drag_start_y = 0.0
         self._pending_line_range = None
+        self._pending_nav_state = None
+        self._scroll_source_id = None
 
         # Every load gets a generation; results from an older generation are
         # discarded. Reads above TEXT_ASYNC_READ_THRESHOLD run on a worker.
@@ -785,10 +1032,62 @@ class TextViewer(Gtk.Box):
             )
 
         self.gutter.queue_draw()
-        if self._pending_line_range is not None:
+        if self._pending_nav_state is not None:
+            state = self._pending_nav_state
+            self._pending_nav_state = None
+            self.restore_navigation_state(state)
+        elif self._pending_line_range is not None:
             first_line, last_line = self._pending_line_range
             self._pending_line_range = None
             self.focus_line_range(first_line, last_line)
+
+    def _cancel_scroll_source(self) -> None:
+        if self._scroll_source_id is not None:
+            GLib.source_remove(self._scroll_source_id)
+            self._scroll_source_id = None
+
+    def get_navigation_state(self) -> dict:
+        """Capture the current scroll position and line selection for Back history."""
+        vadj = self.scrolled.get_vadjustment()
+        scroll_y = float(vadj.get_value()) if vadj is not None else 0.0
+        return {
+            "scroll_y": scroll_y,
+            "quote_anchor": self._quote_anchor,
+            "quote_cursor": self._quote_cursor,
+        }
+
+    def restore_navigation_state(self, state: dict | None) -> None:
+        """Restore scroll position and line selection when returning via Back."""
+        if not state:
+            return
+        if not self.displayed_content:
+            self._pending_nav_state = dict(state)
+            return
+        anchor = state.get("quote_anchor")
+        cursor = state.get("quote_cursor")
+        if anchor is not None and cursor is not None:
+            self._set_quote_range(int(anchor), int(cursor))
+        target_y = float(state.get("scroll_y") or 0.0)
+        if target_y <= 0.0:
+            return
+        self._cancel_scroll_source()
+        attempts = [0]
+
+        def _try_restore():
+            attempts[0] += 1
+            vadj = self.scrolled.get_vadjustment()
+            if vadj is None:
+                self._scroll_source_id = None
+                return False
+            max_scroll = max(0.0, vadj.get_upper() - vadj.get_page_size())
+            if max_scroll >= target_y - 2.0 or attempts[0] >= 12:
+                vadj.set_value(min(target_y, max_scroll))
+                self.gutter.queue_draw()
+                self._scroll_source_id = None
+                return False
+            return True
+
+        self._scroll_source_id = GLib.timeout_add(25, _try_restore)
 
     def focus_line_range(self, first_line: int, last_line: int | None = None) -> None:
         """Highlight and scroll to a 1-based line range after opening from a link."""
@@ -797,13 +1096,22 @@ class TextViewer(Gtk.Box):
         if not self.displayed_content:
             self._pending_line_range = (lo, hi)
             return
-        self._set_quote_range(lo - 1, hi - 1)
+        # If the link covers the entire file (e.g. #L1-L1514), do not highlight
+        # every line in blue; only highlight specific sub-file ranges.
+        if not (lo == 1 and hi >= max(1, self.line_count - 1)):
+            self._set_quote_range(lo - 1, hi - 1)
+        if lo <= 1:
+            return
+        self._cancel_scroll_source()
+
         def _scroll_to_line():
+            self._scroll_source_id = None
             it = self._iter_at_line(lo - 1)
             self.text_view.scroll_to_iter(it, 0.15, True, 0.0, 0.2)
             self.gutter.queue_draw()
             return False
-        GLib.idle_add(_scroll_to_line)
+
+        self._scroll_source_id = GLib.idle_add(_scroll_to_line)
 
     def draw_line_numbers(self, area, cr, width, height):
         dark = is_dark_theme()
@@ -1321,6 +1629,7 @@ class TextViewer(Gtk.Box):
         """Cancel the timer and any in-flight background load."""
         self._load_generation += 1
         self._cancel_pending_load()
+        self._cancel_scroll_source()
         self._load_thread = None
         self._status_callback = None
         if self._copy_timeout_id is not None:

@@ -118,6 +118,10 @@ TYPE_BY_EXT = {
     ".xls": "XLS",
     ".pptx": "PPTX",
     ".ppt": "PPT",
+    ".mjs": "JS",
+    ".cjs": "JS",
+    ".mts": "TS",
+    ".cts": "TS",
 }
 
 
@@ -285,7 +289,12 @@ class PreviewWindow(Adw.ApplicationWindow):
             self.set_size_request(target_w, target_h)
             GLib.idle_add(lambda: self.set_size_request(-1, -1))
 
-    def load_file(self, file_path: str, line_range: tuple[int, int] | None = None):
+    def load_file(
+        self,
+        file_path: str,
+        line_range: tuple[int, int] | None = None,
+        restore_state: dict | None = None,
+    ):
         self.current_file_path = os.path.abspath(file_path)
         filename = os.path.basename(self.current_file_path)
         self.set_title(filename)
@@ -307,7 +316,12 @@ class PreviewWindow(Adw.ApplicationWindow):
         self.viewer_container.append(viewer)
         self._install_viewer_chrome(viewer)
 
-        if line_range is not None and hasattr(viewer, "focus_line_range"):
+        if restore_state is not None and hasattr(viewer, "restore_navigation_state"):
+            try:
+                viewer.restore_navigation_state(restore_state)
+            except Exception:
+                log.debug("Could not restore navigation state on viewer", exc_info=True)
+        elif line_range is not None and hasattr(viewer, "focus_line_range"):
             try:
                 viewer.focus_line_range(line_range[0], line_range[1])
             except Exception:
@@ -320,18 +334,30 @@ class PreviewWindow(Adw.ApplicationWindow):
         target = os.path.abspath(file_path)
         if not os.path.exists(target):
             return
-        if self.current_file_path and os.path.abspath(self.current_file_path) != target:
-            self._nav_history.append(self.current_file_path)
+        if self.current_file_path:
+            nav_state = None
+            if self.current_viewer is not None and hasattr(
+                self.current_viewer, "get_navigation_state"
+            ):
+                try:
+                    nav_state = self.current_viewer.get_navigation_state()
+                except Exception:
+                    log.debug("Could not capture navigation state", exc_info=True)
+            self._nav_history.append((self.current_file_path, nav_state))
             self.btn_back.set_visible(True)
         self.load_file(target, line_range=line_range)
 
     def navigate_back(self, *_args) -> bool:
-        """Return to the previous previewed file in navigation history."""
+        """Return to the previous previewed file and scroll position in navigation history."""
         while self._nav_history:
-            prev_path = self._nav_history.pop()
+            entry = self._nav_history.pop()
+            if isinstance(entry, tuple) and len(entry) == 2:
+                prev_path, prev_state = entry
+            else:
+                prev_path, prev_state = str(entry), None
             if os.path.exists(prev_path):
                 self.btn_back.set_visible(bool(self._nav_history))
-                self.load_file(prev_path)
+                self.load_file(prev_path, restore_state=prev_state)
                 return True
         self.btn_back.set_visible(False)
         return False
