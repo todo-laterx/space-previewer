@@ -4,7 +4,7 @@
 #
 msgid ""
 msgstr ""
-"Project-Id-Version: space-previewer 0.1.0\n"
+"Project-Id-Version: space-previewer 0.2.0\n"
 "Report-Msgid-Bugs-To: \n"
 "PO-Revision-Date: 2026-10-27 00:00+0000\n"
 "Last-Translator: todo-laterx\n"
@@ -71,6 +71,11 @@ msgstr "Tệp nén rỗng."
 #: src/utils/formatters.py:18
 msgid "B"
 msgstr "B"
+
+#: src/window.py:157
+#: src/window.py:159
+msgid "Back (Alt+Left)"
+msgstr "Quay lại (Alt+Trái)"
 
 #: src/viewers/html_viewer.py:144
 msgid "Blocked"

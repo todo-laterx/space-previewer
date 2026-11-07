@@ -5,10 +5,30 @@ All notable changes to this project are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [Unreleased]
+## [0.2.0] - 2026-11-07
 
 ### Added
 
+- Antigravity-style Markdown & Code preview experience:
+  - Dark inline code pills (`#1E222A`) with sky-blue text (`#79C0FF`), vector
+    Nerd Font / Devicon language and file-type icons (`assets/SymbolsNerdFont-Regular.ttf`),
+    and two-part `shields.io` badge rendering in `README.md`.
+  - Click-to-preview local file and `#L<start>-L<end>` links inside Markdown
+    with `Back (Alt+Left)` navigation history that restores the exact scroll
+    position and view mode of the previous file.
+  - Granular per-indent-level list item quote selection, `Ctrl+Click`
+    discontinuous block selection, click-outside deselection, and baseline-aligned
+    list numbers/bullets.
+  - Context-aware Semantic Token Refiner (`_refine_token_stream`) in
+    `src/viewers/text_viewer.py` with One Dark / GitHub IDE palette for function
+    calls, declaration keywords, PascalCase types, `UPPER_CASE` constants,
+    member properties, Bash variable assignments/flags, JS template string
+    interpolations, and extended lexer detection (`.mjs`, `.cjs`, `.mts`, `.cts`,
+    `.service`, `.desktop`, `PKGBUILD`, shebangs).
+- Backward-compatible GNOME 43-46 / Ubuntu 24.04 / Debian 12 Nautilus D-Bus
+  `ShowFile (ssb)` introspection alongside GNOME 47+ `(ssbs)` in
+  `src/integrations/nautilus.py`, and GTK-free core file parsers in
+  `src/utils/parsers.py` (`tests/test_parsers_security.py`).
 - KDE Dolphin and Cinnamon Nemo integration via a KIO context-menu service
   (`data/space-previewer.desktop` and `scripts/dolphin-service-menu.py`) and
   Nemo action (`data/space-previewer.nemo_action`) launching

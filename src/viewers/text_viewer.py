@@ -542,7 +542,7 @@ def detect_lexer_and_label(file_path: str = None, content: str = "", lang_hint: 
                     lexer = lexers.get_lexer_by_name(lex_name)
                     break
                 except Exception:
-                    pass
+                    logger.debug("Could not load lexer %s", lex_name, exc_info=True)
 
     if lexer is None:
         try:

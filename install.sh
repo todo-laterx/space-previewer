@@ -285,6 +285,9 @@ install_files() {
     mkdir -p "$APP_INSTALL_DIR/po"
     cp -R "$PROJECT_DIR/po/." "$APP_INSTALL_DIR/po/"
 
+    mkdir -p "$APP_INSTALL_DIR/assets"
+    cp -R "$PROJECT_DIR/assets/." "$APP_INSTALL_DIR/assets/"
+
     if [ -f "$PROJECT_DIR/assets/logo-512.png" ]; then
         mkdir -p "$HOME/.local/share/icons/hicolor/512x512/apps"
         cp -f "$PROJECT_DIR/assets/logo-512.png" \

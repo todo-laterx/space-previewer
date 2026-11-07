@@ -260,16 +260,16 @@ def _ensure_nerd_font_registered() -> None:
     try:
         import ctypes
 
-        font_path = os.path.abspath(
-            os.path.join(
-                os.path.dirname(__file__),
-                "..",
-                "..",
-                "assets",
-                "SymbolsNerdFont-Regular.ttf",
-            )
+        here = os.path.dirname(os.path.abspath(__file__))
+        candidates = (
+            os.path.join(here, "..", "assets", "SymbolsNerdFont-Regular.ttf"),
+            os.path.join(here, "..", "..", "assets", "SymbolsNerdFont-Regular.ttf"),
         )
-        if not os.path.isfile(font_path):
+        font_path = next(
+            (os.path.abspath(p) for p in candidates if os.path.isfile(p)),
+            None,
+        )
+        if not font_path:
             return
         fc = ctypes.CDLL("libfontconfig.so.1")
         fc.FcConfigGetCurrent.restype = ctypes.c_void_p
@@ -1614,7 +1614,7 @@ class MarkdownViewer(Gtk.Box):
             if pointer is not None:
                 widget.set_cursor(pointer)
         except Exception:
-            pass
+            logger.debug("Could not set pointer cursor on block", exc_info=True)
 
         gesture = Gtk.GestureClick.new()
         gesture.set_button(Gdk.BUTTON_PRIMARY)

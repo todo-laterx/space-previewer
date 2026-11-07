@@ -1,6 +1,6 @@
 # Maintainer: Space Previewer Contributors <https://github.com/todo-laterx/space-previewer>
 pkgname=space-previewer
-pkgver=0.1.0
+pkgver=0.2.0
 pkgrel=1
 pkgdesc="Quick Look file previewer for GNOME Nautilus, KDE Dolphin, Cinnamon Nemo, and CLI"
 arch=('any')
@@ -45,8 +45,9 @@ package() {
   local root_dir
   root_dir="$(cd "$startdir/.." && pwd)"
 
-  install -d "$pkgdir/usr/share/space-previewer"
+  install -d "$pkgdir/usr/share/space-previewer/assets"
   cp -a "$root_dir/src/." "$pkgdir/usr/share/space-previewer/"
+  cp -a "$root_dir/assets/." "$pkgdir/usr/share/space-previewer/assets/"
   cp -a "$srcdir/locale" "$pkgdir/usr/share/space-previewer/"
   find "$pkgdir/usr/share/space-previewer" -type d -name __pycache__ -prune -exec rm -rf {} +
   find "$pkgdir/usr/share/space-previewer" -type f -name '*.pyc' -delete

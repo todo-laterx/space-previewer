@@ -31,7 +31,7 @@ mkdir -p "$TOPDIR"/{BUILD,BUILDROOT,RPMS,SOURCES,SPECS,SRPMS,tmp} "$DIR/dist"
 tar --exclude=__pycache__ --exclude='*.pyc' \
     --transform="s,^,space-previewer-$VERSION/," \
     -czf "$TOPDIR/SOURCES/space-previewer-$VERSION.tar.gz" \
-    -C "$DIR" src po data assets/logo-512.png LICENSE TRADEMARK.md README.md docs/DOLPHIN.md docs/INTEGRATIONS.md
+    -C "$DIR" src po data assets LICENSE TRADEMARK.md README.md docs/DOLPHIN.md docs/INTEGRATIONS.md
 
 rpmbuild -bb "${OPTIONS[@]}" \
     --define "_topdir $TOPDIR" \

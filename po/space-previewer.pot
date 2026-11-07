@@ -5,7 +5,7 @@
 #, fuzzy
 msgid ""
 msgstr ""
-"Project-Id-Version: space-previewer 0.1.0\n"
+"Project-Id-Version: space-previewer 0.2.0\n"
 "Report-Msgid-Bugs-To: \n"
 "POT-Creation-Date: 2026-10-27 00:00+0000\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
@@ -73,6 +73,11 @@ msgstr ""
 
 #: src/utils/formatters.py:18
 msgid "B"
+msgstr ""
+
+#: src/window.py:157
+#: src/window.py:159
+msgid "Back (Alt+Left)"
 msgstr ""
 
 #: src/viewers/html_viewer.py:144

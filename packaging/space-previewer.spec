@@ -44,8 +44,9 @@ for po_file in po/*.po; do
 done
 
 %install
-mkdir -p %{buildroot}%{_datadir}/space-previewer
+mkdir -p %{buildroot}%{_datadir}/space-previewer/assets
 cp -a src/. %{buildroot}%{_datadir}/space-previewer/
+cp -a assets/. %{buildroot}%{_datadir}/space-previewer/assets/
 cp -a locale %{buildroot}%{_datadir}/space-previewer/
 install -Dm644 data/space-previewer.desktop \
     %{buildroot}%{_datadir}/kio/servicemenus/space-previewer.desktop

@@ -66,7 +66,7 @@ class PackageTests(unittest.TestCase):
         self.assertNotIn(str(self.checkout), desktop_text + launcher_text)
 
     def test_deb_payload_and_metadata(self):
-        self.require_tools('dpkg-deb', 'msgfmt')
+        self.require_tools('dpkg-deb')
         self.run_command('bash', 'scripts/build-deb.sh')
         self.run_command('sha256sum', '-c', 'SHA256SUMS', cwd=self.checkout / 'dist')
         package, = (self.checkout / 'dist').glob('*.deb')

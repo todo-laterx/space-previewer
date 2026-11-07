@@ -32,6 +32,8 @@ chmod 0755 "$APPDIR/usr/share/space-previewer/main.py"
 
 mkdir -p "$APPDIR/usr/share/space-previewer/po"
 cp -R "$DIR/po/." "$APPDIR/usr/share/space-previewer/po/"
+mkdir -p "$APPDIR/usr/share/space-previewer/assets"
+cp -R "$DIR/assets/." "$APPDIR/usr/share/space-previewer/assets/"
 
 # 2. Compile gettext catalogs (.po -> .mo)
 compile_po() {

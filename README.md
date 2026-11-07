@@ -9,7 +9,7 @@
 [![License: GPL-3.0](https://img.shields.io/badge/License-GPL--3.0-blue.svg)](LICENSE)
 [![Platform](https://img.shields.io/badge/Platform-GNOME%20%7C%20KDE%20%7C%20Wayland%20%26%20X11-lightgrey.svg)](#tested-environments)
 [![UI](https://img.shields.io/badge/UI-GTK4%20%2B%20Libadwaita-3867D6.svg)](#features)
-[![Version](https://img.shields.io/badge/Version-0.1.0-2ea44f.svg)](VERSION)
+[![Version](https://img.shields.io/badge/Version-0.2.0-2ea44f.svg)](VERSION)
 
 </div>
 
