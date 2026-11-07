@@ -60,6 +60,15 @@ remove_dolphin_menu() {
     rm -f "$data_dir/kio/servicemenus/space-previewer.desktop"
 }
 
+remove_nemo_action() {
+    echo "==> Removing Nemo action..."
+    local data_dir="${XDG_DATA_HOME:-$HOME/.local/share}"
+    if [[ "$data_dir" != /* ]]; then
+        data_dir="$HOME/.local/share"
+    fi
+    rm -f "$data_dir/nemo/actions/space-previewer.nemo_action"
+}
+
 main() {
     echo "==> Uninstalling Space Previewer..."
 
@@ -72,6 +81,7 @@ main() {
     rm -f "$BIN_DIR/space-previewer"
 
     remove_dolphin_menu
+    remove_nemo_action
 
     remove_legacy_unit
 

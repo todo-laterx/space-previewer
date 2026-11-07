@@ -9,16 +9,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
-- KDE Dolphin integration via a KIO context-menu service (`data/space-previewer.desktop`
-  and `scripts/dolphin-service-menu.py`) launching `space-previewer --standalone %f`
-  for local files and folders.
+- KDE Dolphin and Cinnamon Nemo integration via a KIO context-menu service
+  (`data/space-previewer.desktop` and `scripts/dolphin-service-menu.py`) and
+  Nemo action (`data/space-previewer.nemo_action`) launching
+  `space-previewer --standalone` for local files and folders.
 - Pluggable file-manager adapter architecture (`src/app.py`, `src/integrations/__init__.py`,
   `src/integrations/nautilus.py`) separating the GTK4/Libadwaita preview core from
   Nautilus D-Bus transport (`NautilusIntegration`) and independent invocations
   (`StandaloneIntegration`).
-- Fedora / RHEL `.noarch.rpm` packaging (`packaging/space-previewer.spec` and
-  `scripts/build-rpm.sh`) with both Nautilus D-Bus service and Dolphin service menu,
-  plus automated Fedora container verification in CI.
+- Multi-distro packaging & dependency checks: Fedora / RHEL `.noarch.rpm`
+  (`packaging/space-previewer.spec` and `scripts/build-rpm.sh`), Arch Linux
+  `packaging/PKGBUILD`, openSUSE `zypper` support in `./install.sh --check-deps`,
+  and Dolphin/Nemo menu registration in `./install.sh` and `AppImage --install`.
 - Unified package checksum generator (`scripts/write-checksums.sh`) across `.deb`,
   `.rpm`, and `AppImage` artifacts, and automated payload/metadata test suite
   (`tests/test_integrations.py`, `tests/test_dolphin.py`, `tests/test_packages.py`).

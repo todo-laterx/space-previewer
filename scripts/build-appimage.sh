@@ -16,13 +16,15 @@ echo "==> Building ${APPIMAGE_NAME}..."
 
 rm -rf "$APPDIR"
 mkdir -p "$APPDIR/usr/bin" \
-         "$APPDIR/usr/share/space-previewer" \
+         "$APPDIR/usr/share/space-previewer/data" \
          "$APPDIR/usr/share/icons/hicolor/512x512/apps" \
          "$CACHE" \
          "$DIST"
 
 # 1. Copy application sources (without bytecode caches)
 cp -R "$DIR/src/." "$APPDIR/usr/share/space-previewer/"
+cp "$DIR/data/space-previewer.desktop" "$APPDIR/usr/share/space-previewer/data/"
+cp "$DIR/data/space-previewer.nemo_action" "$APPDIR/usr/share/space-previewer/data/"
 find "$APPDIR/usr/share/space-previewer" -type d -name __pycache__ -prune \
     -exec rm -rf {} + 2>/dev/null || true
 find "$APPDIR/usr/share/space-previewer" -name '*.pyc' -delete 2>/dev/null || true
@@ -89,15 +91,30 @@ APP_PATH="${APPIMAGE:-$HERE/AppRun}"
 
 case "${1:-}" in
     --install)
-        DBUS_DIR="$HOME/.local/share/dbus-1/services"
+        DATA_DIR="${XDG_DATA_HOME:-$HOME/.local/share}"
+        case "$DATA_DIR" in
+            /*) ;;
+            *) DATA_DIR="$HOME/.local/share" ;;
+        esac
+        DBUS_DIR="$DATA_DIR/dbus-1/services"
+        DOLPHIN_DIR="$DATA_DIR/kio/servicemenus"
+        NEMO_DIR="$DATA_DIR/nemo/actions"
         BIN_DIR="$HOME/.local/bin"
-        ICON_DIR="$HOME/.local/share/icons/hicolor/512x512/apps"
-        mkdir -p "$DBUS_DIR" "$BIN_DIR" "$ICON_DIR"
+        ICON_DIR="$DATA_DIR/icons/hicolor/512x512/apps"
+        mkdir -p "$DBUS_DIR" "$DOLPHIN_DIR" "$NEMO_DIR" "$BIN_DIR" "$ICON_DIR"
         cat > "$DBUS_DIR/org.gnome.NautilusPreviewer.service" <<SVC
 [D-BUS Service]
 Name=org.gnome.NautilusPreviewer
 Exec=$APP_PATH
 SVC
+        sed "s|Exec=/usr/bin/space-previewer |Exec=\"$APP_PATH\" |" \
+            "$HERE/usr/share/space-previewer/data/space-previewer.desktop" \
+            > "$DOLPHIN_DIR/space-previewer.desktop"
+        chmod 0755 "$DOLPHIN_DIR/space-previewer.desktop"
+        sed "s|Exec=/usr/bin/space-previewer |Exec=\"$APP_PATH\" |" \
+            "$HERE/usr/share/space-previewer/data/space-previewer.nemo_action" \
+            > "$NEMO_DIR/space-previewer.nemo_action"
+        chmod 0644 "$NEMO_DIR/space-previewer.nemo_action"
         ln -sfn "$APP_PATH" "$BIN_DIR/space-previewer"
         cp -f "$HERE/space-previewer.png" "$ICON_DIR/space-previewer.png"
         if command -v pkill >/dev/null 2>&1; then
@@ -106,11 +123,18 @@ SVC
         if command -v nautilus >/dev/null 2>&1; then
             nautilus -q >/dev/null 2>&1 || true
         fi
-        echo "Space Previewer AppImage registered for Nautilus D-Bus activation."
+        echo "Space Previewer AppImage registered for Nautilus, Dolphin, and Nemo."
         exit 0
         ;;
     --uninstall)
-        rm -f "$HOME/.local/share/dbus-1/services/org.gnome.NautilusPreviewer.service"
+        DATA_DIR="${XDG_DATA_HOME:-$HOME/.local/share}"
+        case "$DATA_DIR" in
+            /*) ;;
+            *) DATA_DIR="$HOME/.local/share" ;;
+        esac
+        rm -f "$DATA_DIR/dbus-1/services/org.gnome.NautilusPreviewer.service"
+        rm -f "$DATA_DIR/kio/servicemenus/space-previewer.desktop"
+        rm -f "$DATA_DIR/nemo/actions/space-previewer.nemo_action"
         rm -f "$HOME/.local/bin/space-previewer"
         if command -v nautilus >/dev/null 2>&1; then
             nautilus -q >/dev/null 2>&1 || true

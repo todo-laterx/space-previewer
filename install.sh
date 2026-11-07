@@ -33,6 +33,8 @@ detect_pm() {
         PM="dnf"
     elif command -v pacman >/dev/null 2>&1; then
         PM="pacman"
+    elif command -v zypper >/dev/null 2>&1; then
+        PM="zypper"
     fi
 }
 
@@ -41,6 +43,7 @@ install_cmd() {
         apt) echo "sudo apt install" ;;
         dnf) echo "sudo dnf install" ;;
         pacman) echo "sudo pacman -S" ;;
+        zypper) echo "sudo zypper install" ;;
     esac
 }
 
@@ -48,37 +51,46 @@ install_cmd() {
 pkg_for() {
     local key="$1" pm="$2"
     case "$key:$pm" in
-        python3:apt) echo "python3" ;;
-        python3:dnf) echo "python3" ;;
+        python3:apt|python3:dnf|python3:zypper) echo "python3" ;;
         python3:pacman) echo "python" ;;
         gi:apt) echo "python3-gi" ;;
         gi:dnf) echo "python3-gobject" ;;
         gi:pacman) echo "python-gobject" ;;
+        gi:zypper) echo "python3-gobject python3-gobject-Gdk" ;;
         pygments:apt|pygments:dnf) echo "python3-pygments" ;;
         pygments:pacman) echo "python-pygments" ;;
+        pygments:zypper) echo "python3-Pygments" ;;
         markdown_it:apt|markdown_it:dnf) echo "python3-markdown-it" ;;
         markdown_it:pacman) echo "python-markdown-it" ;;
+        markdown_it:zypper) echo "python3-markdown-it-py" ;;
         cairo:apt) echo "python3-cairo python3-gi-cairo" ;;
         cairo:dnf) echo "python3-cairo" ;;
         cairo:pacman) echo "python-cairo" ;;
+        cairo:zypper) echo "python3-cairo python3-gobject-cairo" ;;
         gtk:apt) echo "gir1.2-gtk-4.0" ;;
         gtk:dnf) echo "gtk4" ;;
         gtk:pacman) echo "gtk4" ;;
+        gtk:zypper) echo "typelib-1_0-Gtk-4_0" ;;
         adw:apt) echo "gir1.2-adw-1" ;;
         adw:dnf) echo "libadwaita" ;;
         adw:pacman) echo "libadwaita" ;;
+        adw:zypper) echo "typelib-1_0-Adw-1" ;;
         gdkpixbuf:apt) echo "gir1.2-gdkpixbuf-2.0" ;;
         gdkpixbuf:dnf) echo "gdk-pixbuf2" ;;
         gdkpixbuf:pacman) echo "gdk-pixbuf2" ;;
+        gdkpixbuf:zypper) echo "typelib-1_0-GdkPixbuf-2_0" ;;
         pango:apt) echo "gir1.2-pango-1.0" ;;
         pango:dnf) echo "pango" ;;
         pango:pacman) echo "pango" ;;
+        pango:zypper) echo "typelib-1_0-Pango-1_0" ;;
         poppler:apt) echo "gir1.2-poppler-0.18" ;;
         poppler:dnf) echo "poppler-glib" ;;
         poppler:pacman) echo "poppler-glib" ;;
+        poppler:zypper) echo "typelib-1_0-Poppler-0_18" ;;
         webkit:apt) echo "gir1.2-webkit-6.0 libwebkitgtk-6.0-4" ;;
         webkit:dnf) echo "webkitgtk6.0" ;;
         webkit:pacman) echo "webkitgtk-6.0" ;;
+        webkit:zypper) echo "typelib-1_0-WebKit-6_0" ;;
         *) ;; # Unknown package manager: no package names to print.
     esac
 }
@@ -346,6 +358,24 @@ link_binary() {
     ln -sfn "$APP_INSTALL_DIR/main.py" "$BIN_DIR/space-previewer"
 }
 
+install_desktop_menus() {
+    local data_dir="${XDG_DATA_HOME:-$HOME/.local/share}"
+    if [[ "$data_dir" != /* ]]; then
+        data_dir="$HOME/.local/share"
+    fi
+
+    echo "==> Installing Dolphin service menu and Nemo action..."
+    python3 "$PROJECT_DIR/scripts/dolphin-service-menu.py" --main-path "$APP_INSTALL_DIR/main.py" >/dev/null
+
+    if [ -f "$PROJECT_DIR/data/space-previewer.nemo_action" ]; then
+        mkdir -p "$data_dir/nemo/actions"
+        sed "s|Exec=/usr/bin/space-previewer |Exec=/usr/bin/python3 $APP_INSTALL_DIR/main.py |" \
+            "$PROJECT_DIR/data/space-previewer.nemo_action" \
+            > "$data_dir/nemo/actions/space-previewer.nemo_action"
+        chmod 0644 "$data_dir/nemo/actions/space-previewer.nemo_action"
+    fi
+}
+
 restart_nautilus() {
     if command -v nautilus >/dev/null 2>&1; then
         nautilus -q >/dev/null 2>&1 || true
@@ -391,6 +421,7 @@ main() {
     build_locales
     write_dbus_service
     link_binary
+    install_desktop_menus
     restart_nautilus
 
     echo "==> Space Previewer installed."

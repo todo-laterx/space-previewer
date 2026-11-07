@@ -1,0 +1,11 @@
+[Nemo Action]
+Active=true
+Name=Preview with Space Previewer
+Name[vi]=Xem nhanh bằng Space Previewer
+Comment=Preview the selected file or folder with Space Previewer
+Comment[vi]=Xem nhanh tập tin hoặc thư mục đã chọn bằng Space Previewer
+Exec=/usr/bin/space-previewer --standalone %F
+Icon-Name=space-previewer
+Selection=s
+Extensions=any;
+Quote=double

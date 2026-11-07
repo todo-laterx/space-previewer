@@ -23,6 +23,7 @@ Requires:       poppler-glib
 Recommends:     webkitgtk6.0
 Recommends:     nautilus
 Recommends:     dolphin
+Recommends:     nemo
 # Both packages own org.gnome.NautilusPreviewer.service; RPM has no dpkg-divert.
 Conflicts:      sushi
 
@@ -48,6 +49,8 @@ cp -a src/. %{buildroot}%{_datadir}/space-previewer/
 cp -a locale %{buildroot}%{_datadir}/space-previewer/
 install -Dm644 data/space-previewer.desktop \
     %{buildroot}%{_datadir}/kio/servicemenus/space-previewer.desktop
+install -Dm644 data/space-previewer.nemo_action \
+    %{buildroot}%{_datadir}/nemo/actions/space-previewer.nemo_action
 install -Dm644 assets/logo-512.png \
     %{buildroot}%{_datadir}/icons/hicolor/512x512/apps/space-previewer.png
 mkdir -p %{buildroot}%{_bindir}
@@ -71,5 +74,6 @@ find "%{buildroot}%{_datadir}/space-previewer" -type f -name '*.pyc' -delete
 %{_bindir}/space-previewer
 %{_datadir}/space-previewer/
 %{_datadir}/kio/servicemenus/space-previewer.desktop
+%{_datadir}/nemo/actions/space-previewer.nemo_action
 %{_datadir}/dbus-1/services/org.gnome.NautilusPreviewer.service
 %{_datadir}/icons/hicolor/512x512/apps/space-previewer.png

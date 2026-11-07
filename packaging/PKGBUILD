@@ -1,0 +1,76 @@
+# Maintainer: Space Previewer Contributors <https://github.com/todo-laterx/space-previewer>
+pkgname=space-previewer
+pkgver=0.1.0
+pkgrel=1
+pkgdesc="Quick Look file previewer for GNOME Nautilus, KDE Dolphin, Cinnamon Nemo, and CLI"
+arch=('any')
+url="https://github.com/todo-laterx/space-previewer"
+license=('GPL-3.0-only')
+depends=(
+  'python'
+  'python-gobject'
+  'python-cairo'
+  'python-pygments'
+  'python-markdown-it'
+  'gtk4'
+  'libadwaita'
+  'gdk-pixbuf2'
+  'pango'
+  'poppler-glib'
+)
+optdepends=(
+  'webkitgtk-6.0: HTML preview rendering'
+  'nautilus: GNOME Files spacebar preview integration'
+  'dolphin: KDE Dolphin context-menu preview action'
+  'nemo: Cinnamon Nemo context-menu preview action'
+)
+makedepends=('gettext')
+conflicts=('sushi')
+source=()
+sha256sums=()
+
+build() {
+  local root_dir
+  root_dir="$(cd "$startdir/.." && pwd)"
+  rm -rf "$srcdir/locale"
+  for po_file in "$root_dir"/po/*.po; do
+    local lang
+    lang="$(basename "$po_file" .po)"
+    mkdir -p "$srcdir/locale/$lang/LC_MESSAGES"
+    msgfmt --check -o "$srcdir/locale/$lang/LC_MESSAGES/space-previewer.mo" "$po_file"
+  done
+}
+
+package() {
+  local root_dir
+  root_dir="$(cd "$startdir/.." && pwd)"
+
+  install -d "$pkgdir/usr/share/space-previewer"
+  cp -a "$root_dir/src/." "$pkgdir/usr/share/space-previewer/"
+  cp -a "$srcdir/locale" "$pkgdir/usr/share/space-previewer/"
+  find "$pkgdir/usr/share/space-previewer" -type d -name __pycache__ -prune -exec rm -rf {} +
+  find "$pkgdir/usr/share/space-previewer" -type f -name '*.pyc' -delete
+
+  install -Dm644 "$root_dir/data/space-previewer.desktop" \
+    "$pkgdir/usr/share/kio/servicemenus/space-previewer.desktop"
+  install -Dm644 "$root_dir/data/space-previewer.nemo_action" \
+    "$pkgdir/usr/share/nemo/actions/space-previewer.nemo_action"
+  install -Dm644 "$root_dir/assets/logo-512.png" \
+    "$pkgdir/usr/share/icons/hicolor/512x512/apps/space-previewer.png"
+  install -Dm644 "$root_dir/LICENSE" \
+    "$pkgdir/usr/share/licenses/$pkgname/LICENSE"
+
+  install -d "$pkgdir/usr/bin"
+  cat > "$pkgdir/usr/bin/space-previewer" <<'EOF'
+#!/bin/sh
+exec /usr/bin/python3 /usr/share/space-previewer/main.py "$@"
+EOF
+  chmod 0755 "$pkgdir/usr/bin/space-previewer"
+
+  install -d "$pkgdir/usr/share/dbus-1/services"
+  cat > "$pkgdir/usr/share/dbus-1/services/org.gnome.NautilusPreviewer.service" <<'EOF'
+[D-BUS Service]
+Name=org.gnome.NautilusPreviewer
+Exec=/usr/bin/python3 /usr/share/space-previewer/main.py
+EOF
+}

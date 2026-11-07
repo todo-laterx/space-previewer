@@ -57,11 +57,11 @@
 
 | Distribution | Session / File Manager | Packaging | Notes |
 |---|---|---|---|
-| **Ubuntu 22.04 / 24.04 / 26.04+** | GNOME (Nautilus) & KDE Plasma (Dolphin) | `.deb` / `AppImage` / `./install.sh` | Full Nautilus D-Bus contract (`NautilusPreviewer2`), `dpkg-divert` coexistence with `gnome-sushi`, and Dolphin service menu |
-| **Debian 12 / 13** | GNOME (Nautilus) & KDE Plasma (Dolphin) | `.deb` / `AppImage` / `./install.sh` | Clean `dpkg-divert` coexistence with `gnome-sushi` and Dolphin service menu |
-| **Fedora 40+** | GNOME (Nautilus) & KDE Spin (Dolphin) | `.rpm` / `AppImage` / `./install.sh` | Native `.noarch.rpm` with Nautilus D-Bus service and Dolphin service menu |
-| **Arch Linux / Manjaro** | GNOME (Nautilus) & KDE Plasma (Dolphin) | `AppImage` / `./install.sh` | Native GTK4 + Libadwaita runtime packages via `pacman` |
-| **openSUSE Tumbleweed / Leap** | GNOME (Nautilus) & KDE Plasma (Dolphin) | `AppImage` / `./install.sh` | Native GTK4 + Libadwaita runtime packages via `zypper` |
+| **Ubuntu 22.04 / 24.04 / 26.04+ / Linux Mint** | GNOME (Nautilus), KDE Plasma (Dolphin) & Cinnamon (Nemo) | `.deb` / `AppImage` / `./install.sh` | Full Nautilus D-Bus contract (`NautilusPreviewer2`), `dpkg-divert` coexistence with `gnome-sushi`, plus Dolphin & Nemo context menus |
+| **Debian 12 / 13** | GNOME (Nautilus), KDE Plasma (Dolphin) & Cinnamon (Nemo) | `.deb` / `AppImage` / `./install.sh` | Clean `dpkg-divert` coexistence with `gnome-sushi`, plus Dolphin & Nemo context menus |
+| **Fedora 40+** | GNOME (Nautilus), KDE Spin (Dolphin) & Cinnamon (Nemo) | `.rpm` / `AppImage` / `./install.sh` | Native `.noarch.rpm` with Nautilus D-Bus service, Dolphin service menu, and Nemo action |
+| **Arch Linux / Manjaro / EndeavourOS** | GNOME (Nautilus), KDE Plasma (Dolphin) & Cinnamon (Nemo) | `PKGBUILD` / `AppImage` / `./install.sh` | Native Arch package via `packaging/PKGBUILD` (`makepkg -si`) or user install |
+| **openSUSE Tumbleweed / Leap** | GNOME (Nautilus), KDE Plasma (Dolphin) & Cinnamon (Nemo) | `AppImage` / `./install.sh` | Native GTK4 + Libadwaita runtime packages via `zypper` (`./install.sh --check-deps`) |
 
 ---
 
@@ -129,20 +129,29 @@ The `.rpm` package installs both the Nautilus D-Bus preview service and the KDE 
 sudo dnf install --allowerasing ./dist/space-previewer-0.1.0-1.noarch.rpm
 ```
 
-### Option 3: Portable `AppImage` (`x86_64`)
+### Option 3: Arch Linux / Manjaro (`PKGBUILD`)
+
+```bash
+cd packaging
+makepkg -si
+```
+
+The `packaging/PKGBUILD` installs the Nautilus D-Bus service, KDE Dolphin service menu, Cinnamon Nemo action, gettext catalogs, and `/usr/bin/space-previewer`.
+
+### Option 4: Portable `AppImage` (`x86_64`)
 
 ```bash
 chmod +x ./dist/Space-Previewer-0.1.0-x86_64.AppImage
 ./dist/Space-Previewer-0.1.0-x86_64.AppImage --install
 ```
 
-To unregister the AppImage D-Bus service:
+`--install` registers the Nautilus D-Bus service, the KDE Dolphin service menu, the Cinnamon Nemo action, and the `~/.local/bin/space-previewer` symlink for the current user. To unregister:
 
 ```bash
 ./dist/Space-Previewer-0.1.0-x86_64.AppImage --uninstall
 ```
 
-### Option 4: User-level source install (no root required)
+### Option 5: User-level source install (no root required)
 
 Check dependencies first:
 

@@ -37,6 +37,7 @@ def menu_path():
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--uninstall", action="store_true", help="Remove only the Dolphin service menu")
+    parser.add_argument("--main-path", default=str(PROJECT_DIR / "src/main.py"), help="Target main.py path")
     args = parser.parse_args()
     target = menu_path()
     if args.uninstall:
@@ -44,7 +45,7 @@ def main():
         print(f"Removed {target}")
         return
     target.parent.mkdir(parents=True, exist_ok=True)
-    target.write_text(render_menu(PROJECT_DIR / "src/main.py"), encoding="utf-8")
+    target.write_text(render_menu(Path(args.main_path)), encoding="utf-8")
     # User service menus must be executable for Dolphin to trust them.
     target.chmod(0o755)
     print(f"Installed {target}")

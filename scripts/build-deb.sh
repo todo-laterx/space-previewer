@@ -68,9 +68,11 @@ exec /usr/bin/python3 /usr/share/space-previewer/main.py "$@"
 EOF
 chmod 0755 "$PKG_DIR/usr/bin/space-previewer"
 
-# Dolphin discovers system service menus directly; no per-user hooks are needed.
+# Dolphin and Nemo discover system actions directly; no per-user hooks are needed.
 install -Dm644 "$DIR/data/space-previewer.desktop" \
     "$PKG_DIR/usr/share/kio/servicemenus/space-previewer.desktop"
+install -Dm644 "$DIR/data/space-previewer.nemo_action" \
+    "$PKG_DIR/usr/share/nemo/actions/space-previewer.nemo_action"
 
 # 4. Install D-Bus activation service
 cat > "$PKG_DIR/usr/share/dbus-1/services/org.gnome.NautilusPreviewer.service" <<'EOF'

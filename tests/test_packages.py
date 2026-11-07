@@ -44,6 +44,9 @@ class PackageTests(unittest.TestCase):
         desktop_text = desktop.read_text(encoding='utf-8')
         self.assertIn('Exec=/usr/bin/space-previewer --standalone %f\n', desktop_text)
         self.assertIn('Icon=space-previewer\n', desktop_text)
+        nemo_action = extracted / 'usr/share/nemo/actions/space-previewer.nemo_action'
+        self.assertEqual(nemo_action.read_bytes(), (ROOT / 'data/space-previewer.nemo_action').read_bytes())
+        self.assertEqual(nemo_action.stat().st_mode & 0o777, 0o644)
         self.assertTrue((extracted / 'usr/share/icons/hicolor/512x512/apps/space-previewer.png').is_file())
         service = extracted / 'usr/share/dbus-1/services/org.gnome.NautilusPreviewer.service'
         service_text = service.read_text(encoding='utf-8')
