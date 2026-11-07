@@ -225,18 +225,61 @@ MARKDOWN_VIEWER_CSS = """
     margin-bottom: 8px;
 }
 .md-quote-hover {
-    background-color: alpha(@sp_accent, 0.04);
-    outline: 1px dashed alpha(@sp_accent, 0.36);
-    outline-offset: 2px;
+    background-color: alpha(@sp_accent, 0.06);
+    outline: 1px solid alpha(@sp_accent, 0.28);
+    outline-offset: 4px;
     border-radius: 6px;
 }
 .md-quote-active {
-    background-color: alpha(@sp_accent, 0.10);
-    outline: 2px solid alpha(@sp_accent, 0.55);
-    outline-offset: 2px;
+    background-color: alpha(@sp_accent, 0.14);
+    outline: 1.5px solid alpha(@sp_accent, 0.62);
+    outline-offset: 4px;
     border-radius: 6px;
 }
+.md-quote-plus-badge {
+    background-color: #2F81F7;
+    color: #FFFFFF;
+    border-radius: 5px;
+    font-size: 11px;
+    font-weight: 800;
+    min-width: 18px;
+    min-height: 18px;
+    padding: 0 4px;
+}
 """
+
+_NERD_FONT_REGISTERED = False
+
+
+def _ensure_nerd_font_registered() -> None:
+    """Register bundled SymbolsNerdFont-Regular.ttf with Fontconfig once."""
+    global _NERD_FONT_REGISTERED
+    if _NERD_FONT_REGISTERED:
+        return
+    _NERD_FONT_REGISTERED = True
+    try:
+        import ctypes
+
+        font_path = os.path.abspath(
+            os.path.join(
+                os.path.dirname(__file__),
+                "..",
+                "..",
+                "assets",
+                "SymbolsNerdFont-Regular.ttf",
+            )
+        )
+        if not os.path.isfile(font_path):
+            return
+        fc = ctypes.CDLL("libfontconfig.so.1")
+        fc.FcConfigGetCurrent.restype = ctypes.c_void_p
+        fc.FcConfigAppFontAddFile.argtypes = [ctypes.c_void_p, ctypes.c_char_p]
+        fc.FcConfigAppFontAddFile.restype = ctypes.c_int
+        cfg = fc.FcConfigGetCurrent()
+        if cfg:
+            fc.FcConfigAppFontAddFile(cfg, font_path.encode("utf-8"))
+    except Exception:
+        logger.debug("Could not register bundled Nerd Font symbols", exc_info=True)
 
 
 def _alert_palette(dark: bool) -> dict:
@@ -293,6 +336,7 @@ def _reload_markdown_css(*_args) -> None:
 
 def ensure_markdown_css():
     global _MD_CSS_INSTALLED, _MD_CSS_PROVIDER, _MD_DARK_HANDLER_CONNECTED
+    _ensure_nerd_font_registered()
     ensure_code_viewer_css()
     if _MD_CSS_INSTALLED:
         return
@@ -808,6 +852,94 @@ class MermaidDiagramCard(Gtk.Box):
 
 _FORBIDDEN_LINK_SCHEMES = re.compile(r"^(javascript|vbscript|data):", re.IGNORECASE)
 
+_ICON_FONT_FAMILY = "CaskaydiaCove Nerd Font Propo,CaskaydiaCove Nerd Font,Symbols Nerd Font,monospace"
+
+_EXT_NERD_ICONS: dict[str, tuple[str, str]] = {
+    ".rs": ("\ue7a8", "#E06C45"),
+    ".py": ("\ue606", "#3FB950"),
+    ".pyw": ("\ue606", "#3FB950"),
+    ".pyi": ("\ue606", "#3FB950"),
+    ".js": ("\ue74e", "#F1E05A"),
+    ".mjs": ("\ue74e", "#F1E05A"),
+    ".cjs": ("\ue74e", "#F1E05A"),
+    ".jsx": ("\ue7ba", "#61DAFB"),
+    ".ts": ("\ue628", "#3178C6"),
+    ".tsx": ("\ue7ba", "#3178C6"),
+    ".sh": ("\uf489", "#7EE787"),
+    ".bash": ("\uf489", "#7EE787"),
+    ".zsh": ("\uf489", "#7EE787"),
+    ".fish": ("\uf489", "#7EE787"),
+    ".c": ("\ue61e", "#58A6FF"),
+    ".h": ("\ue61e", "#58A6FF"),
+    ".cpp": ("\ue61d", "#F34B7D"),
+    ".cc": ("\ue61d", "#F34B7D"),
+    ".cxx": ("\ue61d", "#F34B7D"),
+    ".hpp": ("\ue61d", "#F34B7D"),
+    ".hxx": ("\ue61d", "#F34B7D"),
+    ".go": ("\ue627", "#00ADD8"),
+    ".java": ("\ue738", "#E06C45"),
+    ".jar": ("\ue738", "#E06C45"),
+    ".kt": ("\ue634", "#A97BFF"),
+    ".kts": ("\ue634", "#A97BFF"),
+    ".swift": ("\ue755", "#F05138"),
+    ".rb": ("\ue739", "#CC342D"),
+    ".php": ("\ue73d", "#777BB4"),
+    ".lua": ("\ue620", "#51A0CF"),
+    ".html": ("\ue736", "#E34C26"),
+    ".htm": ("\ue736", "#E34C26"),
+    ".css": ("\ue749", "#A371F7"),
+    ".scss": ("\ue749", "#A371F7"),
+    ".vue": ("\ue6a0", "#41B883"),
+    ".json": ("\ue60b", "#E3B341"),
+    ".toml": ("\ue60b", "#E3B341"),
+    ".yaml": ("\ue60b", "#E3B341"),
+    ".yml": ("\ue60b", "#E3B341"),
+    ".ini": ("\ue60b", "#E3B341"),
+    ".conf": ("\ue60b", "#E3B341"),
+    ".cfg": ("\ue60b", "#E3B341"),
+    ".xml": ("\ue619", "#E37933"),
+    ".svg": ("\ue619", "#E37933"),
+    ".md": ("\uf48a", "#79C0FF"),
+    ".mdx": ("\uf48a", "#79C0FF"),
+    ".markdown": ("\uf48a", "#79C0FF"),
+    ".sql": ("\ue706", "#58A6FF"),
+    ".db": ("\ue706", "#58A6FF"),
+    ".sqlite": ("\ue706", "#58A6FF"),
+    ".apk": ("\ue70e", "#3DDC84"),
+    ".service": ("\uf15b", "#8B949E"),
+    ".socket": ("\uf15b", "#8B944E"),
+    ".timer": ("\uf15b", "#8B949E"),
+    ".desktop": ("\uf15b", "#8B949E"),
+    ".rc": ("\uf15b", "#8B949E"),
+    ".lock": ("\uf15b", "#8B949E"),
+}
+
+_STANDALONE_ICON_EXTS = {
+    ".rs", ".py", ".pyw", ".pyi", ".js", ".mjs", ".cjs", ".jsx",
+    ".ts", ".tsx", ".sh", ".bash", ".zsh", ".c", ".h", ".cpp",
+    ".cc", ".hpp", ".go", ".java", ".kt", ".swift", ".rb", ".php",
+    ".lua", ".html", ".css", ".scss", ".vue", ".json", ".toml",
+    ".yaml", ".yml", ".md", ".mdx", ".sql", ".service",
+}
+
+_SHIELDS_COLOR_MAP = {
+    "blue": "#2F81F7",
+    "brightgreen": "#2EA44F",
+    "green": "#2EA44F",
+    "2ea44f": "#2EA44F",
+    "3867d6": "#3867D6",
+    "lightgrey": "#57606A",
+    "lightgray": "#57606A",
+    "grey": "#57606A",
+    "gray": "#57606A",
+    "orange": "#D19A66",
+    "yellow": "#D29922",
+    "red": "#CF222E",
+    "critical": "#CF222E",
+    "informational": "#2F81F7",
+    "success": "#2EA44F",
+}
+
 
 def _validate_markdown_link(url: str) -> bool:
     """Allow local file:// and relative links while blocking unsafe script URIs."""
@@ -815,32 +947,147 @@ def _validate_markdown_link(url: str) -> bool:
     return bool(stripped) and not _FORBIDDEN_LINK_SCHEMES.match(stripped)
 
 
+def _extract_file_ext(candidate: str) -> tuple[str, str]:
+    """Return ``(stem, lower_ext)`` for a path or URL, stripping fragments/queries."""
+    if not candidate:
+        return "", ""
+    parsed = urllib.parse.urlparse(candidate)
+    path = urllib.parse.unquote(parsed.path or candidate)
+    path = re.sub(r":\d+(?:-\d+)?$", "", path.strip())
+    base = os.path.basename(path.rstrip("/"))
+    if not base or base.startswith("."):
+        return "", ""
+    stem, ext = os.path.splitext(base)
+    return stem, ext.lower()
+
+
+def _detect_code_pill_icon(text: str, href: str = "") -> tuple[str, str] | None:
+    """Return ``(nerd_glyph, hex_color)`` when a code pill or link refers to a code file."""
+    cleaned = (text or "").strip()
+    if not cleaned:
+        return None
+    if href:
+        parsed = urllib.parse.urlparse(href)
+        scheme = (parsed.scheme or "").lower()
+        if scheme in ("", "file"):
+            stem, ext = _extract_file_ext(href)
+            if stem and ext in _EXT_NERD_ICONS:
+                return _EXT_NERD_ICONS[ext]
+            t_stem, t_ext = _extract_file_ext(cleaned)
+            if t_stem and t_ext in _EXT_NERD_ICONS:
+                return _EXT_NERD_ICONS[t_ext]
+            if scheme == "file" and (parsed.path or "").endswith("/"):
+                return ("\uf07b", "#79C0FF")
+            if scheme == "file" and stem:
+                return ("\uf15b", "#8B949E")
+        return None
+
+    # Standalone inline code: only attach an icon when it is a clean file path
+    # with a known source/config/doc extension (never for bare ".md" or flags).
+    if " " in cleaned or cleaned.startswith(("-", ".")):
+        return None
+    stem, ext = _extract_file_ext(cleaned)
+    if stem and ext in _STANDALONE_ICON_EXTS:
+        return _EXT_NERD_ICONS[ext]
+    return None
+
+
+def _decode_shields_part(part: str) -> str:
+    unquoted = urllib.parse.unquote(part)
+    unquoted = unquoted.replace("--", "\x00").replace("__", "\x01")
+    unquoted = unquoted.replace("_", " ").replace("\x00", "-").replace("\x01", "_")
+    return unquoted.strip()
+
+
+def _format_shields_badge(src: str, alt: str) -> str | None:
+    """Render ``https://img.shields.io/badge/<label>-<msg>-<color>`` as a 2-part pill."""
+    if not src or "shields.io/badge/" not in src:
+        return None
+    try:
+        tail = src.split("shields.io/badge/", 1)[1].split("?", 1)[0]
+        if tail.lower().endswith(".svg") or tail.lower().endswith(".png"):
+            tail = tail.rsplit(".", 1)[0]
+        # Protect escaped double hyphens '--' before splitting on '-'
+        protected = tail.replace("--", "\x00")
+        segments = protected.split("-")
+        if len(segments) >= 3:
+            raw_label = segments[0].replace("\x00", "--")
+            raw_color = segments[-1].replace("\x00", "").lower().lstrip("#")
+            raw_msg = "-".join(segments[1:-1]).replace("\x00", "--")
+            label = html.escape(_decode_shields_part(raw_label))
+            msg = html.escape(_decode_shields_part(raw_msg))
+            right_bg = _SHIELDS_COLOR_MAP.get(raw_color)
+            if right_bg is None:
+                if re.fullmatch(r"[0-9a-f]{6}", raw_color):
+                    right_bg = f"#{raw_color.upper()}"
+                else:
+                    right_bg = "#2F81F7"
+            return (
+                f'<span font_family="monospace" size="90%" weight="bold" '
+                f'background="#30363D" foreground="#F0F6FC">\u00a0{label}\u00a0</span>'
+                f'<span font_family="monospace" size="90%" weight="bold" '
+                f'background="{right_bg}" foreground="#FFFFFF">\u00a0{msg}\u00a0</span>'
+            )
+    except Exception:
+        logger.debug("Could not parse shields.io badge %s", src, exc_info=True)
+    if alt:
+        escaped_alt = html.escape(alt)
+        return (
+            f'<span font_family="monospace" size="90%" weight="bold" '
+            f'background="#30363D" foreground="#F0F6FC">\u00a0{escaped_alt}\u00a0</span>'
+        )
+    return None
+
+
+def _render_code_pill(text: str, pill_bg: str, pill_fg: str, icon: tuple[str, str] | None) -> str:
+    escaped = html.escape(text)
+    if icon is not None:
+        glyph, icon_color = icon
+        return (
+            f'<span font_family="{_ICON_FONT_FAMILY}" size="94%" '
+            f'background="{pill_bg}" foreground="{pill_fg}">'
+            f'\u00a0<span foreground="{icon_color}">{glyph}</span> {escaped}\u00a0</span>'
+        )
+    return (
+        f'<span font_family="monospace" size="94%" '
+        f'background="{pill_bg}" foreground="{pill_fg}">\u00a0{escaped}\u00a0</span>'
+    )
+
+
 def inline_tokens_to_pango_markup(children) -> str:
-    """Convert markdown-it inline tokens into safe Pango markup."""
+    """Convert markdown-it inline tokens into Antigravity-style Pango markup."""
     if not children:
         return ""
     dark = is_dark_theme()
-    code_surface = "#2C313C" if dark else "#EFF2F6"
-    code_text = "#E6EDF3" if dark else "#24292F"
-    link_code_surface = "#1D325A" if dark else "#E4EEFF"
-    link_code_text = "#9AC2FF" if dark else "#1F4EB5"
-    accent = ACCENT_DARK if dark else ACCENT_LIGHT
-    link_depth = 0
+    pill_bg = "#1E222A" if dark else "#EEF2F7"
+    pill_fg = "#79C0FF" if dark else "#1F57C3"
+    accent = "#79C0FF" if dark else "#1F57C3"
+    link_stack: list[str] = []
+    last_was_badge = False
     parts = []
-    for tok in children:
+    n = len(children)
+    for idx, tok in enumerate(children):
         ttype = tok.type
         if ttype == "text":
-            parts.append(html.escape(tok.content))
-        elif ttype == "code_inline":
-            escaped = html.escape(tok.content)
-            if link_depth > 0:
-                parts.append(
-                    f'<span font_family="monospace" weight="bold" background="{link_code_surface}" foreground="{link_code_text}">\u00a0{escaped}\u00a0</span>'
-                )
+            current_href = link_stack[-1] if link_stack else ""
+            # If a local file:// link was written as [label](file:///path.rs)
+            # without backticks, still render it as an Antigravity file pill.
+            if (
+                current_href
+                and tok.content.strip()
+                and urllib.parse.urlparse(current_href).scheme.lower() in ("", "file")
+                and _detect_code_pill_icon(tok.content, current_href) is not None
+            ):
+                icon = _detect_code_pill_icon(tok.content, current_href)
+                parts.append(_render_code_pill(tok.content.strip(), pill_bg, pill_fg, icon))
             else:
-                parts.append(
-                    f'<span font_family="monospace" background="{code_surface}" foreground="{code_text}">\u00a0{escaped}\u00a0</span>'
-                )
+                parts.append(html.escape(tok.content))
+            last_was_badge = False
+        elif ttype == "code_inline":
+            current_href = link_stack[-1] if link_stack else ""
+            icon = _detect_code_pill_icon(tok.content, current_href)
+            parts.append(_render_code_pill(tok.content, pill_bg, pill_fg, icon))
+            last_was_badge = False
         elif ttype == "strong_open":
             parts.append("<b>")
         elif ttype == "strong_close":
@@ -854,37 +1101,58 @@ def inline_tokens_to_pango_markup(children) -> str:
         elif ttype == "s_close":
             parts.append("</s>")
         elif ttype == "link_open":
-            href = ""
+            raw_href = ""
             if tok.attrs and "href" in tok.attrs:
-                href = html.escape(str(tok.attrs["href"]), quote=True)
-            link_depth += 1
-            parts.append(f'<a href="{href}"><span foreground="{accent}" weight="bold">')
+                raw_href = str(tok.attrs["href"])
+            escaped_href = html.escape(raw_href, quote=True)
+            link_stack.append(raw_href)
+            parts.append(f'<a href="{escaped_href}"><span underline="none" foreground="{accent}">')
         elif ttype == "link_close":
-            link_depth = max(0, link_depth - 1)
+            if link_stack:
+                link_stack.pop()
             parts.append("</span></a>")
         elif ttype == "softbreak":
-            parts.append("\n")
+            # Keep consecutive shields.io badges on the same horizontal row.
+            next_is_badge = False
+            for look_idx in range(idx + 1, min(n, idx + 3)):
+                ltok = children[look_idx]
+                if ltok.type == "image":
+                    lsrc = ltok.attrs.get("src", "") if ltok.attrs else ""
+                    if "shields.io/badge/" in lsrc:
+                        next_is_badge = True
+                    break
+            parts.append("  " if (last_was_badge and next_is_badge) else "\n")
         elif ttype == "hardbreak":
             parts.append("\n")
+            last_was_badge = False
         elif ttype == "image":
-            alt = html.escape(tok.content or _("image"))
-            parts.append(
-                f'<span foreground="{accent}">'
-                + _("[image] {alt}").format(alt=alt)
-                + "</span>"
-            )
+            src = tok.attrs.get("src", "") if tok.attrs else ""
+            alt = tok.content or ""
+            badge_markup = _format_shields_badge(src, alt)
+            if badge_markup is not None:
+                parts.append(badge_markup)
+                last_was_badge = True
+            elif src and not src.startswith(("http://", "https://", "data:")):
+                # Local images are already rendered as Gtk.Picture widgets above
+                # the paragraph; do not emit ugly "[image] ..." fallback text.
+                last_was_badge = False
+            else:
+                escaped_alt = html.escape(alt or _("image"))
+                parts.append(f'<span foreground="{accent}">[{escaped_alt}]</span>')
+                last_was_badge = False
         elif ttype == "html_inline":
             raw_tag = tok.content.strip().lower()
             if raw_tag in ("<br>", "<br/>", "<br />"):
                 parts.append("\n")
             elif raw_tag == "<kbd>":
                 parts.append(
-                    f'<span font_family="monospace" background="{code_surface}" foreground="{code_text}"> '
+                    f'<span font_family="monospace" size="94%" background="{pill_bg}" foreground="{pill_fg}">\u00a0'
                 )
             elif raw_tag == "</kbd>":
-                parts.append(" </span>")
+                parts.append("\u00a0</span>")
             else:
                 parts.append(html.escape(tok.content))
+            last_was_badge = False
     return "".join(parts)
 
 
@@ -1214,6 +1482,13 @@ class MarkdownViewer(Gtk.Box):
         if end_line <= start_line:
             return
         index = len(self._md_blocks)
+        try:
+            pointer = Gdk.Cursor.new_from_name("pointer")
+            if pointer is not None:
+                widget.set_cursor(pointer)
+        except Exception:
+            pass
+
         gesture = Gtk.GestureClick.new()
         gesture.set_button(Gdk.BUTTON_PRIMARY)
         gesture.connect("pressed", self._on_md_block_pressed, index)
@@ -1425,6 +1700,7 @@ class MarkdownViewer(Gtk.Box):
         mermaid_count = 0
         code_count = 0
         heading_count = 0
+        center_align = False
 
         i = 0
         n = len(tokens)
@@ -1432,6 +1708,31 @@ class MarkdownViewer(Gtk.Box):
         while i < n:
             tok = tokens[i]
             ttype = tok.type
+
+            # 0. HTML Blocks (<div align="center">, <img src="...">, </div>)
+            if ttype == "html_block":
+                raw_html = tok.content or ""
+                lower_html = raw_html.lower()
+                if "<div" in lower_html and (
+                    'align="center"' in lower_html or "align='center'" in lower_html
+                ):
+                    center_align = True
+                for img_match in re.finditer(r"<img\b([^>]*)/?>", raw_html, re.IGNORECASE):
+                    attrs_str = img_match.group(1)
+                    src_m = re.search(r'\bsrc=["\']([^"\']+)["\']', attrs_str, re.IGNORECASE)
+                    w_m = re.search(r'\bwidth=["\']?(\d+)["\']?', attrs_str, re.IGNORECASE)
+                    h_m = re.search(r'\bheight=["\']?(\d+)["\']?', attrs_str, re.IGNORECASE)
+                    if src_m:
+                        self._try_append_local_image(
+                            src_m.group(1),
+                            width=int(w_m.group(1)) if w_m else None,
+                            height=int(h_m.group(1)) if h_m else None,
+                            centered=center_align,
+                        )
+                if "</div>" in lower_html:
+                    center_align = False
+                i += 1
+                continue
 
             # 1. Headings
             if ttype == "heading_open":
@@ -1441,10 +1742,14 @@ class MarkdownViewer(Gtk.Box):
                 markup = inline_tokens_to_pango_markup(inline_tok.children if inline_tok else [])
                 lbl = self._create_markup_label(markup, css_class=f"md-{level}")
                 lbl.set_margin_top(10 if level in ("h1", "h2") else 6)
+                if center_align:
+                    lbl.set_halign(Gtk.Align.CENTER)
+                    lbl.set_xalign(0.5)
+                    lbl.set_justify(Gtk.Justification.CENTER)
 
                 block = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=0)
                 block.append(lbl)
-                if level in ("h1", "h2"):
+                if level in ("h1", "h2") and not center_align:
                     rule = Gtk.Box()
                     rule.add_css_class("md-heading-rule")
                     rule.set_margin_bottom(4)
@@ -1462,11 +1767,15 @@ class MarkdownViewer(Gtk.Box):
                     img_tokens = [c for c in (inline_tok.children or []) if c.type == "image"]
                     for img_t in img_tokens:
                         src = img_t.attrs.get("src", "") if img_t.attrs else ""
-                        self._try_append_local_image(src)
+                        self._try_append_local_image(src, centered=center_align)
 
                     markup = inline_tokens_to_pango_markup(inline_tok.children)
                     if markup.strip():
                         lbl = self._create_markup_label(markup, css_class="md-paragraph")
+                        if center_align:
+                            lbl.set_halign(Gtk.Align.CENTER)
+                            lbl.set_xalign(0.5)
+                            lbl.set_justify(Gtk.Justification.CENTER)
                         self._append_md_block(lbl, *self._token_line_map(tok))
                 i += 3
                 continue
@@ -1581,7 +1890,10 @@ class MarkdownViewer(Gtk.Box):
         lbl.set_xalign(0.0)
         lbl.set_wrap(wrap)
         lbl.set_wrap_mode(wrap_mode)
-        lbl.set_selectable(True)
+        # Keep selectable=False so clicking a block to quote/copy never places
+        # a blinking text I-beam caret inside the paragraph; <a href> links
+        # still fire activate-link normally.
+        lbl.set_selectable(False)
         lbl.connect("activate-link", self._on_activate_link)
         try:
             lbl.set_markup(markup)
@@ -1951,11 +2263,11 @@ class MarkdownViewer(Gtk.Box):
 
                 body_markup = "\n".join(direct_markups).strip()
 
-                bullet_char = "•" if depth == 0 else "◦"
+                bullet_fg = "#C9D1D9" if dark else "#374151"
                 bullet_markup = (
-                    f'<span foreground="{accent}" weight="bold">{item_idx}.</span>'
+                    f'<span foreground="{bullet_fg}" weight="bold">{item_idx}.</span>'
                     if is_ordered
-                    else f'<span foreground="{accent}" weight="bold">{bullet_char}</span>'
+                    else f'<span foreground="{bullet_fg}" weight="bold">•</span>'
                 )
                 if body_markup.startswith("[x] ") or body_markup.startswith("[X] "):
                     bullet_markup = f'<span foreground="{green}" weight="bold">[x]</span>'
@@ -1964,14 +2276,20 @@ class MarkdownViewer(Gtk.Box):
                     bullet_markup = f'<span foreground="{muted}" weight="bold">[ ]</span>'
                     body_markup = body_markup[4:]
 
-                lbl_bullet = self._create_markup_label(bullet_markup, wrap=False)
-                lbl_bullet.set_selectable(False)
-                lbl_bullet.set_valign(Gtk.Align.START)
+                baseline_align = getattr(Gtk.Align, "BASELINE_FILL", Gtk.Align.BASELINE)
+                row.set_baseline_position(Gtk.BaselinePosition.TOP)
+
+                lbl_bullet = self._create_markup_label(
+                    bullet_markup, css_class="md-paragraph", wrap=False
+                )
+                lbl_bullet.set_valign(baseline_align)
+                lbl_bullet.set_xalign(1.0)
                 row.append(lbl_bullet)
 
                 if body_markup:
                     lbl_body = self._create_markup_label(body_markup, css_class="md-paragraph")
                     lbl_body.set_hexpand(True)
+                    lbl_body.set_valign(baseline_align)
                     row.append(lbl_body)
 
                 row_start = min(direct_starts) if direct_starts else item_start
@@ -2113,17 +2431,30 @@ class MarkdownViewer(Gtk.Box):
 
         return grid
 
-    def _try_append_local_image(self, src: str):
+    def _try_append_local_image(
+        self,
+        src: str,
+        width: int | None = None,
+        height: int | None = None,
+        centered: bool = False,
+    ):
         if not src or src.startswith(("http://", "https://", "data:")):
             return
         candidate = src if os.path.isabs(src) else os.path.join(self.base_dir, src)
         if os.path.exists(candidate):
             try:
-                pb = GdkPixbuf.Pixbuf.new_from_file(candidate)
+                if width and height:
+                    pb = GdkPixbuf.Pixbuf.new_from_file_at_scale(
+                        candidate, width, height, True
+                    )
+                else:
+                    pb = GdkPixbuf.Pixbuf.new_from_file(candidate)
                 pic = Gtk.Picture.new_for_pixbuf(pb)
                 pic.set_can_shrink(True)
-                pic.set_halign(Gtk.Align.START)
-                pic.set_size_request(-1, min(pb.get_height(), 420))
+                pic.set_halign(Gtk.Align.CENTER if centered else Gtk.Align.START)
+                target_h = height if height else min(pb.get_height(), 420)
+                target_w = width if width else -1
+                pic.set_size_request(target_w, target_h)
                 self.doc_box.append(pic)
             except Exception:
                 logger.debug("Could not embed image %s", candidate, exc_info=True)

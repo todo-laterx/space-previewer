@@ -184,42 +184,63 @@ def ensure_code_viewer_css():
 
 
 def syntax_tag_colors(dark: bool) -> dict:
-    """Return a desaturated syntax palette: one blue, grey, diff-only colour."""
+    """Return a rich IDE syntax palette (One Dark / GitHub Dark & Light)."""
     palette = _code_palette(dark)
-    accent = palette["accent"]
     text = palette["code_text"]
     muted = palette["muted"]
     green = palette["green"]
     red = palette["red"]
+
+    if dark:
+        keyword = "#C678DD"      # Purple (fn, let, if, return, pub, use)
+        func_col = "#61AFEF"     # Sky Blue (stage_controller_payload, join)
+        type_col = "#E5C07B"     # Warm Gold (Path, Result, String, Ok)
+        string_col = "#98C379"   # Sage Green ("scripts/...")
+        number_col = "#D19A66"   # Warm Orange (0o755, 0o644, true, false)
+        operator_col = "#56B6C2" # Cyan (->, &, ||, ?)
+        punct_col = "#ABB2BF"    # Crisp Light Slate (brackets, parens, commas)
+        attr_col = "#D19A66"     # Attributes / decorators
+        var_col = "#E06C75"      # Special variables / self
+    else:
+        keyword = "#8250DF"      # GitHub Light Purple
+        func_col = "#0969DA"     # GitHub Light Blue
+        type_col = "#953800"     # GitHub Light Amber/Brown
+        string_col = "#0A3069"   # Deep Navy/Green-Tinted String
+        number_col = "#0550AE"   # Royal Blue Numbers/Constants
+        operator_col = "#0550AE" # Cyan/Blue Operators
+        punct_col = "#24292F"    # Dark Slate Punctuation
+        attr_col = "#953800"
+        var_col = "#CF222E"
+
     return {
-        Token.Keyword: (accent, Pango.Weight.BOLD, Pango.Style.NORMAL),
-        Token.Keyword.Constant: (accent, Pango.Weight.BOLD, Pango.Style.NORMAL),
-        Token.Keyword.Declaration: (accent, Pango.Weight.BOLD, Pango.Style.NORMAL),
-        Token.Keyword.Namespace: (accent, Pango.Weight.BOLD, Pango.Style.NORMAL),
-        Token.Keyword.Type: (accent, Pango.Weight.BOLD, Pango.Style.NORMAL),
+        Token.Keyword: (keyword, Pango.Weight.BOLD, Pango.Style.NORMAL),
+        Token.Keyword.Constant: (number_col, Pango.Weight.BOLD, Pango.Style.NORMAL),
+        Token.Keyword.Declaration: (keyword, Pango.Weight.BOLD, Pango.Style.NORMAL),
+        Token.Keyword.Namespace: (keyword, Pango.Weight.BOLD, Pango.Style.NORMAL),
+        Token.Keyword.Type: (type_col, Pango.Weight.BOLD, Pango.Style.NORMAL),
         Token.Name: (text, Pango.Weight.NORMAL, Pango.Style.NORMAL),
-        Token.Name.Builtin: (text, Pango.Weight.NORMAL, Pango.Style.NORMAL),
-        Token.Name.Builtin.Pseudo: (text, Pango.Weight.NORMAL, Pango.Style.ITALIC),
-        Token.Name.Function: (accent, Pango.Weight.BOLD, Pango.Style.NORMAL),
-        Token.Name.Function.Magic: (accent, Pango.Weight.BOLD, Pango.Style.NORMAL),
-        Token.Name.Class: (accent, Pango.Weight.BOLD, Pango.Style.NORMAL),
-        Token.Name.Decorator: (muted, Pango.Weight.BOLD, Pango.Style.ITALIC),
-        Token.Name.Tag: (accent, Pango.Weight.BOLD, Pango.Style.NORMAL),
-        Token.Name.Attribute: (text, Pango.Weight.NORMAL, Pango.Style.ITALIC),
-        Token.Name.Constant: (text, Pango.Weight.NORMAL, Pango.Style.NORMAL),
-        Token.Name.Exception: (text, Pango.Weight.BOLD, Pango.Style.NORMAL),
+        Token.Name.Builtin: (type_col, Pango.Weight.NORMAL, Pango.Style.NORMAL),
+        Token.Name.Builtin.Pseudo: (var_col, Pango.Weight.NORMAL, Pango.Style.ITALIC),
+        Token.Name.Function: (func_col, Pango.Weight.BOLD, Pango.Style.NORMAL),
+        Token.Name.Function.Magic: (func_col, Pango.Weight.BOLD, Pango.Style.NORMAL),
+        Token.Name.Class: (type_col, Pango.Weight.BOLD, Pango.Style.NORMAL),
+        Token.Name.Decorator: (attr_col, Pango.Weight.BOLD, Pango.Style.ITALIC),
+        Token.Name.Tag: (keyword, Pango.Weight.BOLD, Pango.Style.NORMAL),
+        Token.Name.Attribute: (attr_col, Pango.Weight.NORMAL, Pango.Style.ITALIC),
+        Token.Name.Constant: (number_col, Pango.Weight.NORMAL, Pango.Style.NORMAL),
+        Token.Name.Exception: (type_col, Pango.Weight.BOLD, Pango.Style.NORMAL),
         Token.Name.Variable: (text, Pango.Weight.NORMAL, Pango.Style.NORMAL),
-        Token.Literal.String: (text, Pango.Weight.NORMAL, Pango.Style.NORMAL),
+        Token.Literal.String: (string_col, Pango.Weight.NORMAL, Pango.Style.NORMAL),
         Token.Literal.String.Doc: (muted, Pango.Weight.NORMAL, Pango.Style.ITALIC),
-        Token.Literal.String.Escape: (muted, Pango.Weight.BOLD, Pango.Style.NORMAL),
-        Token.Literal.String.Interpol: (accent, Pango.Weight.NORMAL, Pango.Style.NORMAL),
-        Token.Literal.Number: (text, Pango.Weight.NORMAL, Pango.Style.NORMAL),
-        Token.Operator: (muted, Pango.Weight.NORMAL, Pango.Style.NORMAL),
-        Token.Operator.Word: (accent, Pango.Weight.BOLD, Pango.Style.NORMAL),
-        Token.Punctuation: (muted, Pango.Weight.NORMAL, Pango.Style.NORMAL),
+        Token.Literal.String.Escape: (number_col, Pango.Weight.BOLD, Pango.Style.NORMAL),
+        Token.Literal.String.Interpol: (operator_col, Pango.Weight.NORMAL, Pango.Style.NORMAL),
+        Token.Literal.Number: (number_col, Pango.Weight.NORMAL, Pango.Style.NORMAL),
+        Token.Operator: (operator_col, Pango.Weight.NORMAL, Pango.Style.NORMAL),
+        Token.Operator.Word: (keyword, Pango.Weight.BOLD, Pango.Style.NORMAL),
+        Token.Punctuation: (punct_col, Pango.Weight.NORMAL, Pango.Style.NORMAL),
         Token.Comment: (muted, Pango.Weight.NORMAL, Pango.Style.ITALIC),
-        Token.Generic.Heading: (accent, Pango.Weight.BOLD, Pango.Style.NORMAL),
-        Token.Generic.Subheading: (accent, Pango.Weight.BOLD, Pango.Style.NORMAL),
+        Token.Generic.Heading: (func_col, Pango.Weight.BOLD, Pango.Style.NORMAL),
+        Token.Generic.Subheading: (func_col, Pango.Weight.BOLD, Pango.Style.NORMAL),
         Token.Generic.Inserted: (green, Pango.Weight.NORMAL, Pango.Style.NORMAL),
         Token.Generic.Deleted: (red, Pango.Weight.NORMAL, Pango.Style.NORMAL),
         Token.Generic.Emph: (text, Pango.Weight.NORMAL, Pango.Style.ITALIC),
