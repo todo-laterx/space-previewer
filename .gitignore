@@ -6,11 +6,21 @@ __pycache__/
 # C extensions
 *.so
 
+# Packaging & release artifacts
+build/
+dist/
+*.deb
+*.rpm
+*.AppImage
+*.tar.*
+
+# Internal agent plans & rules
+.kilo/
+CLAUDE.md
+
 # Distribution / packaging
 .Python
-build/
 develop-eggs/
-dist/
 downloads/
 eggs/
 .eggs/

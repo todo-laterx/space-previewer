@@ -66,6 +66,7 @@ main() {
 
     echo "==> Removing installed application files..."
     rm -rf "$APP_INSTALL_DIR"
+    rm -f "$HOME/.local/share/icons/hicolor/512x512/apps/space-previewer.png"
 
     restart_nautilus
 

@@ -38,7 +38,7 @@ jobs:
         run: pytest -q
 
       - name: Check shell scripts
-        run: bash -n install.sh uninstall.sh
+        run: bash -n install.sh uninstall.sh scripts/build-deb.sh scripts/build-appimage.sh
 
       - name: Validate gettext catalogs
         run: |

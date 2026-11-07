@@ -271,6 +271,12 @@ install_files() {
 
     mkdir -p "$APP_INSTALL_DIR/po"
     cp -R "$PROJECT_DIR/po/." "$APP_INSTALL_DIR/po/"
+
+    if [ -f "$PROJECT_DIR/assets/logo-512.png" ]; then
+        mkdir -p "$HOME/.local/share/icons/hicolor/512x512/apps"
+        cp -f "$PROJECT_DIR/assets/logo-512.png" \
+            "$HOME/.local/share/icons/hicolor/512x512/apps/space-previewer.png"
+    fi
 }
 
 compile_po() {

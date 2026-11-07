@@ -126,6 +126,7 @@ class PreviewWindow(Adw.ApplicationWindow):
         super().__init__(application=app)
         self.app = app
         _install_accent_css()
+        self.set_icon_name("space-previewer")
         self.set_title(_("Quick Look"))
         self.set_default_size(1180, 780)
         self.set_resizable(True)

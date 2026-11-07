@@ -6,7 +6,7 @@ implements the Nautilus preview D-Bus contract, so correctness matters more than
 ## Before you start
 
 - Read `README.md` for supported types and install steps.
-- Read `CLAUDE.md` for the engineering rules. They apply to humans and agents equally.
+- Read `SECURITY.md` for the parser input limits and network policy.
 - For anything larger than a bug fix, open an issue first and describe the user journey.
 
 ## Development setup
@@ -56,8 +56,9 @@ keyboard path (`Space`, arrows, `Esc`, `Ctrl+F`, `F`/`F11`, `O`, `P`, `F2`, `Del
 - One topic per pull request. Refactors and behavior changes do not share a commit.
 - The D-Bus contract in `src/main.py` is changed only with a matching change in the
   `window.py` handlers and a note about the Nautilus version.
-- New viewers implement the contract in `CLAUDE.md` section 3, including `teardown()` and a
-  size hint, and declare their input limits.
+- New viewers implement `get_desired_size(screen_w, screen_h)` and `teardown()`, expose at
+  most 3 header controls via `get_header_controls()` and one-line metadata via
+  `get_status_items()`, and declare their input limits in code and in `SECURITY.md`.
 - Every async path takes a `Gio.Cancellable`. Switching files must cancel in-flight work.
 - UI strings go through `_()` / `ngettext()` in the same change as the `.pot` and `vi.po` update.
 - No new pip dependency without updating `README.md`, `requirements.txt` and the install check.
@@ -75,9 +76,9 @@ signal was dropped. Match the upstream signature and emit Gtk.DirectionType.
 
 ## Review
 
-Reviews follow the protocol in `CLAUDE.md` section 11: whole-function reading, state-lifecycle
-tracing, twin-path parity, and a coverage ledger. Expect findings in the form
-`file:line`, runtime trace, impact, fix.
+Reviews check the change as a whole rather than hunk by hunk: whole-function reading,
+state-lifecycle tracing, twin-path parity (Wayland/X11, light/dark, `en`/`vi`), and a
+coverage ledger. Expect findings in the form `file:line`, runtime trace, impact, fix.
 
 Reviewers should check correctness first: contract breaks, leaks, missing cancellation,
 unbounded parsing, stale state. Style comments come last.
