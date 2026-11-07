@@ -23,16 +23,16 @@ class DolphinMenuTests(unittest.TestCase):
             menu_dir = Path(directory) / 'kio/servicemenus'
             menu_dir.mkdir(parents=True)
             target = menu_dir / 'space-previewer.desktop'
-            target.write_text('preview')
+            target.write_text('preview', encoding='utf-8')
             other = menu_dir / 'other.desktop'
-            other.write_text('keep')
+            other.write_text('keep', encoding='utf-8')
             env = dict(os.environ, XDG_DATA_HOME=directory)
             for _ in range(2):
                 subprocess.run(['bash', '-c', 'source "$1"; remove_dolphin_menu',
                                 'test', str(ROOT / 'uninstall.sh')],
                                env=env, check=True, capture_output=True)
                 self.assertFalse(target.exists())
-                self.assertEqual(other.read_text(), 'keep')
+                self.assertEqual(other.read_text(encoding='utf-8'), 'keep')
 
     def test_application_modes_without_display(self):
         result = subprocess.run([sys.executable, '-c', '''
@@ -108,15 +108,15 @@ assert not normal.get_flags() & Gio.ApplicationFlags.NON_UNIQUE
             env = dict(os.environ, XDG_DATA_HOME=directory)
             target = Path(directory) / 'kio/servicemenus/space-previewer.desktop'
             unrelated = Path(directory) / 'keep.txt'
-            unrelated.write_text('keep')
+            unrelated.write_text('keep', encoding='utf-8')
             for _ in range(2):
                 subprocess.run([sys.executable, str(SCRIPT)], env=env, check=True, capture_output=True)
                 self.assertTrue(target.stat().st_mode & 0o100)
-                self.assertEqual(target.read_text(), menu.render_menu(ROOT / 'src/main.py'))
+                self.assertEqual(target.read_text(encoding='utf-8'), menu.render_menu(ROOT / 'src/main.py'))
             for _ in range(2):
                 subprocess.run([sys.executable, str(SCRIPT), '--uninstall'], env=env, check=True, capture_output=True)
                 self.assertFalse(target.exists())
-            self.assertEqual(unrelated.read_text(), 'keep')
+            self.assertEqual(unrelated.read_text(encoding='utf-8'), 'keep')
 
 
 if __name__ == '__main__':

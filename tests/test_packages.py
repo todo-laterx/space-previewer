@@ -41,15 +41,18 @@ class PackageTests(unittest.TestCase):
         desktop = extracted / MENU
         self.assertEqual(desktop.read_bytes(), (ROOT / 'data/space-previewer.desktop').read_bytes())
         self.assertEqual(desktop.stat().st_mode & 0o777, 0o644)
-        self.assertIn('Exec=/usr/bin/space-previewer --standalone %f\n', desktop.read_text())
-        self.assertIn('Icon=space-previewer\n', desktop.read_text())
+        desktop_text = desktop.read_text(encoding='utf-8')
+        self.assertIn('Exec=/usr/bin/space-previewer --standalone %f\n', desktop_text)
+        self.assertIn('Icon=space-previewer\n', desktop_text)
         self.assertTrue((extracted / 'usr/share/icons/hicolor/512x512/apps/space-previewer.png').is_file())
         service = extracted / 'usr/share/dbus-1/services/org.gnome.NautilusPreviewer.service'
-        self.assertIn('Name=org.gnome.NautilusPreviewer\n', service.read_text())
-        self.assertIn('Exec=/usr/bin/python3 /usr/share/space-previewer/main.py\n', service.read_text())
+        service_text = service.read_text(encoding='utf-8')
+        self.assertIn('Name=org.gnome.NautilusPreviewer\n', service_text)
+        self.assertIn('Exec=/usr/bin/python3 /usr/share/space-previewer/main.py\n', service_text)
         launcher = extracted / 'usr/bin/space-previewer'
+        launcher_text = launcher.read_text(encoding='utf-8')
         self.assertEqual(launcher.stat().st_mode & 0o777, 0o755)
-        self.assertIn('exec /usr/bin/python3 /usr/share/space-previewer/main.py "$@"', launcher.read_text())
+        self.assertIn('exec /usr/bin/python3 /usr/share/space-previewer/main.py "$@"', launcher_text)
         self.assertTrue((extracted / 'usr/share/space-previewer/main.py').is_file())
         for module in ('app.py', 'integrations/__init__.py', 'integrations/nautilus.py'):
             self.assertTrue((extracted / 'usr/share/space-previewer' / module).is_file(), module)
@@ -57,7 +60,7 @@ class PackageTests(unittest.TestCase):
         with catalog.open('rb') as handle:
             self.assertTrue(gettext.GNUTranslations(handle)._catalog)
         self.assertFalse(list(extracted.rglob('*.pyc')))
-        self.assertNotIn(str(self.checkout), desktop.read_text() + launcher.read_text())
+        self.assertNotIn(str(self.checkout), desktop_text + launcher_text)
 
     def test_deb_payload_and_metadata(self):
         self.require_tools('dpkg-deb', 'msgfmt')
@@ -75,7 +78,7 @@ class PackageTests(unittest.TestCase):
         self.run_command('dpkg-deb', '-e', str(package), str(control))
         for script in ('preinst', 'postinst', 'postrm'):
             self.run_command('sh', '-n', str(control / script))
-            self.assertNotIn('servicemenus', (control / script).read_text())
+            self.assertNotIn('servicemenus', (control / script).read_text(encoding='utf-8'))
 
     def test_rpm_payload_and_metadata(self):
         self.require_tools('rpmbuild', 'rpm', 'rpm2cpio', 'cpio', 'msgfmt')
@@ -85,7 +88,7 @@ class PackageTests(unittest.TestCase):
         self.run_command('sha256sum', '-c', 'SHA256SUMS', cwd=self.checkout / 'dist')
         # Simulate a host-provided bytecompile hook that would fail if invoked.
         # The spec must undefine it, independently of the host's RPM defaults.
-        version = (self.checkout / 'VERSION').read_text().strip()
+        version = (self.checkout / 'VERSION').read_text(encoding='utf-8').strip()
         topdir = self.checkout / 'build/rpm'
         self.run_command('rpmbuild', '-bb', '--nodeps',
                          '--define', f'_topdir {topdir}',
@@ -117,7 +120,7 @@ class PackageTests(unittest.TestCase):
         # Exercise ownership/removal in a private RPM database only. No files
         # or scripts are installed on the host and no system D-Bus plugin runs.
         database = self.root / 'rpmdb'
-        base = ('rpm', '--noplugins', '--dbpath', str(database))
+        base = ('rpm', '--noplugins', '--nosignature', '--nodigest', '--dbpath', str(database))
         self.run_command(*base, '--initdb')
         self.run_command(*base, '-i', '--justdb', '--ignoresize', '--nodeps',
                          '--noscripts', '--notriggers', str(package))
@@ -131,11 +134,11 @@ class PackageTests(unittest.TestCase):
         dist = self.root / 'dist'
         dist.mkdir()
         self.run_command('bash', 'scripts/write-checksums.sh', str(dist))
-        self.assertEqual((dist / 'SHA256SUMS').read_text(), '')
+        self.assertEqual((dist / 'SHA256SUMS').read_text(encoding='utf-8'), '')
         for filename in ('preview.deb', 'preview.rpm', 'Preview File.AppImage'):
             (dist / filename).write_bytes(filename.encode())
             self.run_command('bash', 'scripts/write-checksums.sh', str(dist))
-            lines = (dist / 'SHA256SUMS').read_text().splitlines()
+            lines = (dist / 'SHA256SUMS').read_text(encoding='utf-8').splitlines()
             for artifact in dist.iterdir():
                 if artifact.name == 'SHA256SUMS':
                     continue
