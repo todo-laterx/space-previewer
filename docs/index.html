@@ -1297,7 +1297,7 @@ sudo apt install ./space-previewer_0.2.0_amd64.deb</pre>
       },
       rpm: {
         label: 'Fedora 40+ / RHEL 9+ — Native .noarch.rpm',
-        code: 'git clone https://github.com/todo-laterx/space-previewer.git\ncd space-previewer && bash scripts/build-rpm.sh\nsudo dnf install --allowerasing ./dist/space-previewer-0.2.0-1.noarch.rpm',
+        code: 'curl -LO https://github.com/todo-laterx/space-previewer/releases/download/v0.2.0/space-previewer-0.2.0-1.noarch.rpm\nsudo dnf install --allowerasing ./space-previewer-0.2.0-1.noarch.rpm',
         note_en: 'Pass --allowerasing on Fedora Workstation so DNF replaces ownership of the shared org.gnome.NautilusPreviewer.service D-Bus activation file.',
         note_vi: 'Thêm cờ --allowerasing trên Fedora Workstation để DNF chuyển quyền sở hữu tệp dịch vụ D-Bus org.gnome.NautilusPreviewer.service.'
       },
